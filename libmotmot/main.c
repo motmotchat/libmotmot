@@ -9,6 +9,8 @@
 #include <unistd.h>
 
 #include <glib.h>
+#include <msgpack.h>
+#include <readline/readline.h>
 
 #define SOCKDIR   "conn/"
 #define MAXCONNS  100
@@ -20,10 +22,11 @@
   }
 
 GMainLoop *gmain;
+
 struct {
   int pid;
   GIOChannel *channel;
-} conns[MAXCONNS] = { 0 };
+} conns[MAXCONNS];
 
 /**
  * Create a local UNIX socket and wrap it in a GIOChannel.
@@ -40,6 +43,7 @@ create_socket_channel(int pid)
   char *filename;
   struct sockaddr_un *saddr;
   GIOChannel *channel;
+  GError *gerr;
 
   // 14 = sizeof(short) + "conn/000000".
   saddr = g_malloc0(14);
@@ -60,7 +64,13 @@ create_socket_channel(int pid)
     err(bind(s, (struct sockaddr *)saddr, 14) < 0, "bind");
     err(listen(s, 5) < 0, "listen");
   }
+
+  gerr = NULL;
   channel = g_io_channel_unix_new(s);
+  if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
+    // TODO: error handling
+    printf("create_socket_channel: Failed to set channel encoding.\n");
+  }
 
   g_free(saddr);
   return channel;
@@ -69,6 +79,27 @@ create_socket_channel(int pid)
 int
 socket_recv(GIOChannel *source, GIOCondition condition, void *data)
 {
+  char *buf;
+  unsigned long len;
+  msgpack_unpacked msg;
+  GError *gerr;
+
+  // Read a line from the socket.
+  gerr = NULL;
+  if (g_io_channel_read_line(source, &buf, &len, NULL, &gerr) ==
+      G_IO_STATUS_ERROR) {
+    // TODO: error handling
+    printf("socket_recv: Could not read line from socket.\n");
+  }
+
+  // Print message to stdout.
+  msgpack_unpacked_init(&msg);
+  if (!msgpack_unpack_next(&msg, buf, len, NULL)) {
+    // TODO: error handling
+    printf("socket_recv: Could not unpack message.\n");
+  }
+  msgpack_object_print(stdout, msg.data);
+
   return TRUE;
 }
 
@@ -78,15 +109,21 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   int fd, newfd, len;
   struct sockaddr_un *saddr;
   GIOChannel *channel;
+  GError *gerr;
 
   fd = g_io_channel_unix_get_fd(source);
-
   saddr = g_new0(struct sockaddr_un, 1);
 
+  // Spin off a new socket.
   newfd = accept(fd, (struct sockaddr *)saddr, &len);
   err(newfd < 0, "accept");
 
+  // Wrap it in a channel and watch it.
   channel = g_io_channel_unix_new(newfd);
+  if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
+    // TODO: error handling
+    printf("socket_accept: Failed to set channel encoding.\n");
+  }
 
   // TODO: pass in some data here
   g_io_add_watch(channel, G_IO_IN, socket_recv, NULL);
@@ -112,8 +149,8 @@ poll_conns(void *data)
   while (ep = readdir(dp)) {
     // Ignore . and .. and any files that shouldn't exist.
     pid = atoi(ep->d_name);
-    if (pid == 0) {
-      break;
+    if (pid == 0 || pid == getpid()) {
+      continue;
     }
 
     // Check whether we have already connected to the socket.
@@ -137,6 +174,49 @@ poll_conns(void *data)
 }
 
 int
+input_loop(void *data)
+{
+  int i, pid;
+  char *msg;
+  unsigned long len;
+  msgpack_sbuffer *buf;
+  msgpack_packer *pk;
+  GError *gerr;
+
+  // Read in a line and pack it.
+  msg = readline("> ");
+
+  buf = msgpack_sbuffer_new();
+  pk = msgpack_packer_new(buf, msgpack_sbuffer_write);
+
+  msgpack_pack_raw(pk, strlen(msg));
+  msgpack_pack_raw_body(pk, msg, strlen(msg));
+
+  // Broadcast message.
+  for (i = 0, pid = getpid(); conns[i].pid != 0; ++i) {
+    // Skip ourselves.
+    if (pid == conns[i].pid) {
+      continue;
+    }
+
+    // Send message over the wire.
+    gerr = NULL;
+    if (g_io_channel_write_chars(conns[i].channel, buf->data, buf->size,
+                                 &len, &gerr) == G_IO_STATUS_ERROR) {
+      // TODO: error handling
+      printf("input_loop: Could not write message to socket.\n");
+    }
+  }
+
+  // Free all the things.
+  msgpack_packer_free(pk);
+  msgpack_sbuffer_free(buf);
+  free(msg);
+
+  return TRUE;
+}
+
+int
 main(int argc, char *argv[])
 {
   GIOChannel *channel;
@@ -150,6 +230,9 @@ main(int argc, char *argv[])
 
   // Poll the directory for new sockets every second.
   g_timeout_add_seconds(1, poll_conns, NULL);
+
+  // Add the input loop as an idle source.
+  g_idle_add(input_loop, NULL);
 
   g_main_loop_run(gmain);
 }
