@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-ggdb3 `pkg-config --cflags glib-2.0`
-LDFLAGS=`pkg-config --libs glib-2.0` -lmsgpack -lreadline
+LDFLAGS=`pkg-config --libs glib-2.0` -lmsgpack
 
 all: main.o
 	$(CC) $(LDFLAGS) -o lol *.o

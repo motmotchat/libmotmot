@@ -10,7 +10,6 @@
 
 #include <glib.h>
 #include <msgpack.h>
-#include <readline/readline.h>
 
 #define SOCKDIR   "conn/"
 #define MAXCONNS  100
@@ -174,7 +173,7 @@ poll_conns(void *data)
 }
 
 int
-input_loop(void *data)
+input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 {
   int i, pid;
   char *msg;
@@ -182,9 +181,16 @@ input_loop(void *data)
   msgpack_sbuffer *buf;
   msgpack_packer *pk;
   GError *gerr;
+  GIOStatus status;
 
   // Read in a line and pack it.
-  msg = readline("> ");
+  status = g_io_channel_read_line(channel, &msg, NULL, NULL, &gerr);
+  if (status == G_IO_STATUS_EOF) {
+    return FALSE;
+  } else if (status != G_IO_STATUS_NORMAL) {
+    dprintf(2, "Error reading from stdin");
+    return FALSE;
+  }
 
   buf = msgpack_sbuffer_new();
   pk = msgpack_packer_new(buf, msgpack_sbuffer_write);
@@ -232,7 +238,7 @@ main(int argc, char *argv[])
   g_timeout_add_seconds(1, poll_conns, NULL);
 
   // Add the input loop as an idle source.
-  g_idle_add(input_loop, NULL);
+  g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   g_main_loop_run(gmain);
 }
