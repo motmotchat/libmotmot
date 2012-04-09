@@ -82,13 +82,16 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
   unsigned long len;
   msgpack_unpacked msg;
   GError *gerr;
+  GIOStatus status;
 
   // Read a line from the socket.
   gerr = NULL;
-  if (g_io_channel_read_line(source, &buf, &len, NULL, &gerr) ==
-      G_IO_STATUS_ERROR) {
+  status = g_io_channel_read_line(source, &buf, &len, NULL, &gerr);
+  if (status == G_IO_STATUS_ERROR) {
     // TODO: error handling
     dprintf(2, "socket_recv: Could not read line from socket.\n");
+  } else if (status == G_IO_STATUS_EOF) {
+    return FALSE;
   }
 
   // Print message to stdout.
