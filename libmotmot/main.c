@@ -217,7 +217,7 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
   // Free all the things.
   msgpack_packer_free(pk);
   msgpack_sbuffer_free(buf);
-  free(msg);
+  g_free(msg);
 
   return TRUE;
 }
