@@ -1,5 +1,7 @@
 #include <assert.h>
+#include <dirent.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -8,6 +10,9 @@
 
 #include <glib.h>
 
+#define SOCKDIR   "conn/"
+#define MAXCONNS  100
+
 #define err(cond, errstr)   \
   if (cond) {               \
     perror(errstr);         \
@@ -15,6 +20,10 @@
   }
 
 GMainLoop *gmain;
+struct {
+  int pid;
+  GIOChannel *channel;
+} conns[MAXCONNS] = { 0 };
 
 /**
  * Create a local UNIX socket and wrap it in a GIOChannel.
@@ -37,7 +46,7 @@ create_socket_channel(int pid)
   saddr->sun_family = AF_UNIX;
 
   // "Six digits should be enough for a pid."
-  sprintf(saddr->sun_path, "conn/%06d", (pid > 0) ? pid : getpid());
+  sprintf(saddr->sun_path, SOCKDIR "%06d", (pid > 0) ? pid : getpid());
 
   // Open a socket.
   s = socket(PF_LOCAL, SOCK_STREAM, 0);
@@ -87,15 +96,56 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
 }
 
 int
+poll_conns(void *data)
+{
+  int i, pid;
+  bool found;
+  DIR *dp;
+  struct dirent *ep;
+  GIOChannel *channel;
+
+  // Open up conn/.
+  dp = opendir(SOCKDIR);
+  err(dp == NULL, "opendir");
+
+  // Check all direntries.
+  while (ep = readdir(dp)) {
+    found = false;
+    pid = atoi(ep->d_name);
+
+    // Check whether we have already connected to the socket file.
+    for (i = 0; conns[i].pid != 0; ++i) {
+      if (pid == conns[i].pid) {
+        found = true;
+        break;
+      }
+    }
+
+    // Create a new socket channel for any new processes discovered.
+    if (!found) {
+      conns[i].pid = pid;
+      conns[i].channel = create_socket_channel(pid);
+    }
+  }
+
+  closedir(dp);
+  return TRUE;
+}
+
+int
 main(int argc, char *argv[])
 {
   GIOChannel *channel;
 
+  // Set up the main event loop.
   gmain = g_main_loop_new(g_main_context_default(), FALSE);
 
+  // Create our server / listening socket.
   channel = create_socket_channel(0);
-
   g_io_add_watch(channel, G_IO_IN, socket_accept, NULL);
+
+  // Poll the directory for new sockets every second.
+  g_timeout_add_seconds(1, poll_conns, NULL);
 
   g_main_loop_run(gmain);
 }
