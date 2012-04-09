@@ -85,12 +85,14 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
   GIOStatus status;
 
   // Read a line from the socket.
+  buf = g_malloc0(4096);
   gerr = NULL;
-  status = g_io_channel_read_line(source, &buf, &len, NULL, &gerr);
+  status = g_io_channel_read_chars(source, buf, 4096, &len, &gerr);
   if (status == G_IO_STATUS_ERROR) {
     // TODO: error handling
     dprintf(2, "socket_recv: Could not read line from socket.\n");
   } else if (status == G_IO_STATUS_EOF) {
+    dprintf(2, "socket_recv: Received disconnect\n");
     return FALSE;
   }
 
@@ -100,8 +102,13 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
     // TODO: error handling
     dprintf(2, "socket_recv: Could not unpack message.\n");
   }
+  printf("RECEIVED: ");
   msgpack_object_print(stdout, msg.data);
 
+  // This also flushes stdout
+  printf("\n");
+
+  g_free(buf);
   return TRUE;
 }
 
@@ -126,6 +133,8 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
     // TODO: error handling
     dprintf(2, "socket_accept: Failed to set channel encoding.\n");
   }
+  // TODO: check for errors here
+  g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, &gerr);
 
   // TODO: pass in some data here
   g_io_add_watch(channel, G_IO_IN, socket_recv, NULL);
@@ -180,20 +189,23 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 {
   int i, pid;
   char *msg;
-  unsigned long len;
+  unsigned long len, eol;
   msgpack_sbuffer *buf;
   msgpack_packer *pk;
   GError *gerr;
   GIOStatus status;
 
   // Read in a line and pack it.
-  status = g_io_channel_read_line(channel, &msg, NULL, NULL, &gerr);
+  status = g_io_channel_read_line(channel, &msg, NULL, &eol, &gerr);
   if (status == G_IO_STATUS_EOF) {
     return FALSE;
   } else if (status != G_IO_STATUS_NORMAL) {
     dprintf(2, "Error reading from stdin");
     return FALSE;
   }
+
+  // Kill the trailing newline
+  msg[eol] = '\0';
 
   buf = msgpack_sbuffer_new();
   pk = msgpack_packer_new(buf, msgpack_sbuffer_write);
@@ -210,10 +222,16 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 
     // Send message over the wire.
     gerr = NULL;
-    if (g_io_channel_write_chars(conns[i].channel, buf->data, buf->size,
-                                 &len, &gerr) == G_IO_STATUS_ERROR) {
+    status = g_io_channel_write_chars(conns[i].channel, buf->data, buf->size,
+        &len, &gerr);
+    if (status == G_IO_STATUS_ERROR) {
       // TODO: error handling
       dprintf(2, "input_loop: Could not write message to socket.\n");
+    }
+    g_io_channel_flush(conns[i].channel, &gerr);
+    if (status == G_IO_STATUS_ERROR) {
+      // TODO: error handling
+      dprintf(2, "input_loop: Could not flush message to socket\n");
     }
   }
 
