@@ -68,7 +68,7 @@ create_socket_channel(int pid)
   channel = g_io_channel_unix_new(s);
   if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    printf("create_socket_channel: Failed to set channel encoding.\n");
+    dprintf(2, "create_socket_channel: Failed to set channel encoding.\n");
   }
 
   g_free(saddr);
@@ -88,14 +88,14 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
   if (g_io_channel_read_line(source, &buf, &len, NULL, &gerr) ==
       G_IO_STATUS_ERROR) {
     // TODO: error handling
-    printf("socket_recv: Could not read line from socket.\n");
+    dprintf(2, "socket_recv: Could not read line from socket.\n");
   }
 
   // Print message to stdout.
   msgpack_unpacked_init(&msg);
   if (!msgpack_unpack_next(&msg, buf, len, NULL)) {
     // TODO: error handling
-    printf("socket_recv: Could not unpack message.\n");
+    dprintf(2, "socket_recv: Could not unpack message.\n");
   }
   msgpack_object_print(stdout, msg.data);
 
@@ -121,7 +121,7 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   channel = g_io_channel_unix_new(newfd);
   if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    printf("socket_accept: Failed to set channel encoding.\n");
+    dprintf(2, "socket_accept: Failed to set channel encoding.\n");
   }
 
   // TODO: pass in some data here
@@ -210,7 +210,7 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
     if (g_io_channel_write_chars(conns[i].channel, buf->data, buf->size,
                                  &len, &gerr) == G_IO_STATUS_ERROR) {
       // TODO: error handling
-      printf("input_loop: Could not write message to socket.\n");
+      dprintf(2, "input_loop: Could not write message to socket.\n");
     }
   }
 
