@@ -9,4 +9,4 @@ all: main.o
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	-rm -rf *.o lol
+	-rm -rf *.o conn/* lol
