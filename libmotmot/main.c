@@ -108,12 +108,16 @@ poll_conns(void *data)
   dp = opendir(SOCKDIR);
   err(dp == NULL, "opendir");
 
-  // Check all direntries.
+  // Search through all connections.
   while (ep = readdir(dp)) {
-    found = false;
+    // Ignore . and .. and any files that shouldn't exist.
     pid = atoi(ep->d_name);
+    if (pid == 0) {
+      break;
+    }
 
-    // Check whether we have already connected to the socket file.
+    // Check whether we have already connected to the socket.
+    found = false;
     for (i = 0; conns[i].pid != 0; ++i) {
       if (pid == conns[i].pid) {
         found = true;
@@ -121,7 +125,7 @@ poll_conns(void *data)
       }
     }
 
-    // Create a new socket channel for any new processes discovered.
+    // Create a new socket channel for any new connections discovered.
     if (!found) {
       conns[i].pid = pid;
       conns[i].channel = create_socket_channel(pid);
