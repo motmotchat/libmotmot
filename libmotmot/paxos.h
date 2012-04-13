@@ -15,7 +15,7 @@ typedef struct proposer_id {
 
 /* Paxos message types. */
 typedef enum paxos_opcode {
-  OP_PREPARE = 0,   // declare new proposership (NextBallot)
+  OP_PREPARE,       // declare new proposership (NextBallot)
   OP_PROMISE,       // promise to ignore earlier proposers (LastVote)
   OP_DECREE,        // propose a decree (BeginBallot)
   OP_ACCEPT,        // accept a decree (Voted)
@@ -31,8 +31,8 @@ typedef enum decree_kind {
 
 /* Decree value type. */
 typedef struct paxos_val {
-  dkind_t dkind;
-  char *data;
+  dkind_t dkind;    // decree kind
+  char *data;       // decree value
 } paxval_t;
 
 /* Paxos message header that is included with any message. */
