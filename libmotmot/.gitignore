@@ -1,4 +1,5 @@
-lol
 *.o
+src/motmot
+motmot
 conn/*
 tags
