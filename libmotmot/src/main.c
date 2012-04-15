@@ -57,7 +57,10 @@ create_socket_channel(int pid)
 
   if (pid > 0) {
     // Connect to conn/pid.
-    err(connect(s, (struct sockaddr *)saddr, 14) < 0, "connect");
+    if (connect(s, (struct sockaddr *)saddr, 14) < 0) {
+      // Connection refused. Probably a stale socket, so just ignore it
+      return NULL;
+    }
   } else {
     // Listen on conn/pid.
     err(bind(s, (struct sockaddr *)saddr, 14) < 0, "bind");
@@ -200,8 +203,10 @@ poll_conns(void *data)
 
     // Create a new socket channel for any new connections discovered.
     if (!found) {
-      conns[i].pid = pid;
       conns[i].channel = create_socket_channel(pid);
+      if (conns[i].channel != NULL) {
+        conns[i].pid = pid;
+      }
     }
   }
 
