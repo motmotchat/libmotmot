@@ -23,7 +23,7 @@ paxos_payload_new(struct paxos_yak *py, size_t n)
 }
 
 void
-paxos_payload_begin_record(struct paxos_yak *py, size_t n)
+paxos_payload_begin_array(struct paxos_yak *py, size_t n)
 {
   msgpack_pack_array(py->pk, n);
 }

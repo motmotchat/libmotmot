@@ -13,7 +13,7 @@ struct paxos_yak {
 };
 
 void paxos_payload_new(struct paxos_yak *, size_t);
-void paxos_payload_begin_record(struct paxos_yak *, size_t);
+void paxos_payload_begin_array(struct paxos_yak *, size_t);
 void paxos_payload_destroy(struct paxos_yak *);
 char *paxos_payload_data(struct paxos_yak *);
 size_t paxos_payload_size(struct paxos_yak *);
