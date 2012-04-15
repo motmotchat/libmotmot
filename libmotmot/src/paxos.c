@@ -252,25 +252,39 @@ proposer_prepare(GIOChannel *source)
   pax.ballot.id = pax.self_id;
   pax.ballot.gen++;
 
-  // Initialize a Paxos header.
-  hdr.ph_ballot = pax.ballot;
-  hdr.ph_opcode = OP_PREPARE;
-  hdr.ph_seqn = next_instance();
+  // Default to the next instance.
+  pax.prep->pp_nacks = 1;
+  pax.prep->pp_seqn = next_instance();
+  pax.prep->pp_first = NULL;
 
+  // We let seqn lag one list entry behind the iterator in our loop to
+  // detect holes.
   seqn = LIST_FIRST(&pax.ilist)->pi_hdr.ph_seqn - 1;
 
   // Identify our first uncommitted or unrecorded instance (defaulting to
   // next_instance()).
   LIST_FOREACH(it, &pax.ilist, pi_le) {
     if (it->pi_hdr.ph_seqn != seqn + 1) {
-      hdr.ph_seqn = seqn + 1;
+      pax.prep->pp_seqn = seqn + 1;
+      pax.prep->pp_first = LIST_PREV(it, pi_le);
+      break;
     }
     if (it->pi_votes != 0) {
-      hdr.ph_seqn = it->pi_hdr.ph_seqn;
+      pax.prep->pp_seqn = it->pi_hdr.ph_seqn;
+      pax.prep->pp_first = it;
       break;
     }
     seqn = it->pi_hdr.ph_seqn;
   }
+
+  if (pax.prep->pp_first == NULL) {
+    pax.prep->pp_first = LIST_LAST(&pax.ilist);
+  }
+
+  // Initialize a Paxos header.
+  hdr.ph_ballot = pax.ballot;
+  hdr.ph_opcode = OP_PREPARE;
+  hdr.ph_seqn = pax.prep->pp_seqn;
 
   // Pack and broadcast the prepare.
   paxos_payload_new(&py, 1);
@@ -298,7 +312,10 @@ proposer_decree(struct paxos_instance *inst)
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_seqn = next_instance();
 
-  // Append to the dlist.
+  // Mark one vote.
+  inst->pi_votes = 1;
+
+  // Append to the ilist.
   LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
 
   // Pack and broadcast the decree.
@@ -337,6 +354,23 @@ proposer_commit(struct paxos_instance *inst)
   return 0;
 }
 
+/*
+ * Helper routine to obtain the instance on ilist with the closest instance
+ * number >= seqn.  We are passed in an iterator to simulate a continuation.
+ */
+static struct paxos_instance *
+get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
+    paxid_t seqn)
+{
+  for (; it != (void *)ilist; it = LIST_NEXT(it, pi_le)) {
+    if (seqn <= it->pi_hdr.ph_seqn) {
+      break;
+    }
+  }
+
+  return it;
+}
+
 /**
  * proposer_ack_promise - Acknowledge an acceptor's promise.
  *
@@ -353,55 +387,58 @@ int
 proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 {
   msgpack_object *p, *pend, *r;
-  struct paxos_instance *it, *inst;
-  struct instance_list *prep_ilist;
+  struct paxos_instance *inst, *it;
+  paxid_t seqn;
+  struct paxos_yak py;
 
   // Initialize loop variables.
   p = o->via.array.ptr;
   pend = o->via.array.ptr + o->via.array.size;
 
-  prep_ilist = &(pax.prep->pp_ilist);
-  it = LIST_FIRST(prep_ilist);
+  it = pax.prep->pp_first;
 
   // Allocate a scratch instance.
+  // XXX: We're leaking the data pointer, which we should stop passing anyway.
   inst = g_malloc(sizeof(struct paxos_instance));
   if (inst == NULL) {
     // TODO: cry
   }
 
-  // Loop through all the vote information.
+  // Loop through all the vote information.  Note that we assume the votes
+  // are sorted by instance number.
   for (; p != pend; ++p) {
     r = p->via.array.ptr;
 
     // Unpack a instance.
     paxos_hdr_unpack(&inst->pi_hdr, r);
     paxos_val_unpack(&inst->pi_val, r + 1);
+    inst->pi_votes = 1;
 
-    // Find a decree for the same Paxos instance if one exists in the prep
-    // list; otherwise, get the next highest instance.
-    for (; it != (void *)prep_ilist; it = LIST_NEXT(it, pi_le)) {
-      if (inst->pi_hdr.ph_seqn <= it->pi_hdr.ph_seqn) {
-        break;
-      }
-    }
+    // Get the closest instance with instance number >= the instance number
+    // of inst.
+    it = get_instance_lub(it, &pax.ilist, inst->pi_hdr.ph_seqn);
 
-    // If the instance was not found, insert it at the tail or before the
-    // iterator as necessary.  If it was found, compare the two, keeping or
-    // inserting the larger-balloted decree, swapping pointers as necessary.
-    if (it == (void *)prep_ilist) {
-      LIST_INSERT_TAIL(prep_ilist, inst, pi_le);
-    } else if (inst->pi_hdr.ph_seqn < it->pi_hdr.ph_seqn) {
-      LIST_INSERT_BEFORE(prep_ilist, it, inst, pi_le);
-    } else /* inst->pi_hdr.ph_seqn == it->pi_hdr.ph_seqn */ {
-      if (ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 1) {
-        LIST_INSERT_BEFORE(prep_ilist, it, inst, pi_le);
-        LIST_REMOVE(prep_ilist, it, pi_le);
+    if (it == (void *)&pax.ilist) {
+      // We didn't find an instance, so insert at the tail.
+      LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
+    } else if (it->pi_hdr.ph_seqn > inst->pi_hdr.ph_seqn) {
+      // We found an instance with a higher number, so insert before it.
+      LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
+    } else {
+      // We found an instance of the same number.  If the existing instance
+      // is NOT a commit, and if the new instance has a higher ballot number,
+      // switch the new one in.
+      if (it->pi_votes != 0 &&
+          ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 1) {
+        LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
+        LIST_REMOVE(&pax.ilist, it, pi_le);
         swap((void **)&inst, (void **)&it);
       }
     }
   }
 
   // Free the scratch instance.
+  // XXX: Data pointer leakage!
   g_free(inst);
 
   // Acknowledge the prep.
@@ -412,7 +449,54 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
     return 0;
   }
 
-  // TODO: Process the list.
+  it = LIST_FIRST(&pax.ilist);
+
+  // For each Paxos instance for which we don't have a commit, send a decree.
+  for (seqn = pax.prep->pp_nacks; ; ++seqn) {
+    // Get the closest instance with number >= seqn.
+    it = get_instance_lub(it, &pax.ilist, seqn);
+
+    // If we're at the end of the list, break.
+    if (it == (void *)&pax.ilist) {
+      break;
+    }
+
+    if (it->pi_hdr.ph_seqn > seqn) {
+      // Nobody in the quorum (including ourselves) has heard of this instance,
+      // so make a null decree.
+      inst = g_malloc(sizeof(struct paxos_instance));
+      if (inst == NULL) {
+        // TODO: cry
+      }
+
+      inst->pi_hdr.ph_ballot = pax.ballot;
+      inst->pi_hdr.ph_opcode = OP_DECREE;
+      inst->pi_hdr.ph_seqn = seqn;
+
+      inst->pi_votes = 1;
+
+      inst->pi_val.pv_dkind = DEC_NULL;
+      inst->pi_val.pv_paxid = pax.self_id;
+      inst->pi_val.pv_size = 0;
+      inst->pi_val.pv_data = NULL;
+
+      LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
+    } else if (it->pi_votes != 0) {
+      // The quorum has seen this instance before, but it has not been
+      // committed.  By the first part of ack_promise, the vote we have
+      // here is the highest-ballot vote, so decree it again.
+      inst = it;
+      inst->pi_hdr.ph_ballot = pax.ballot;
+      inst->pi_hdr.ph_opcode = OP_DECREE;
+      inst->pi_votes = 1;
+    }
+
+    // Pack and broadcast the decree.
+    paxos_payload_new(&py, 2);
+    paxos_hdr_pack(&py, &(inst->pi_hdr));
+    paxos_val_pack(&py, &(inst->pi_val));
+    paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  }
 
   // Free the prepare and return.
   g_free(pax.prep);

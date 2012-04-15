@@ -47,6 +47,7 @@ struct paxos_hdr {
    *   the prepare message).
    * - OP_DECREE, OP_ACCEPT, OP_COMMIT: The instance number of the decree.
    * - OP_REQUEST, OP_REDIRECT: Not used.
+   * We start counting instances at 1 and use 0 as a sentinel value.
    */
 };
 
@@ -112,8 +113,10 @@ struct paxos_acceptor {
 
 /* Preparation state for new proposers. */
 struct paxos_prep {
-  unsigned pp_nacks;
-  struct instance_list pp_ilist;
+  unsigned pp_nacks;    // number of prepare acks
+  paxid_t pp_seqn;      // instance number of the first hole
+  struct paxos_instance *pp_first;  // closest instance to the first hole
+                                    // with instance number <= pp_seqn
 };
 
 /* Local state. */
