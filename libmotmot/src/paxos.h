@@ -65,10 +65,10 @@ struct paxos_hdr {
  *     } votes[];
  *   };
  *
- * - OP_DECREE: Decrees are just headers plus values.
+ * - OP_DECREE: Decrees are headers plus values.
  * - OP_ACCEPT: Acceptances are headers.
  * - OP_COMMIT: Commits are just headers.
- * - OP_REQUEST: Requests are just headers plus values.
+ * - OP_REQUEST: Requests are headers plus values.
  * - OP_REDIRECT: Redirects are just headers.
  */
 
@@ -130,7 +130,8 @@ struct paxos_state {
 };
 
 extern struct paxos_state pax;
-int is_proposer();
+inline int is_proposer();
+inline paxid_t next_instance();
 
 /* Paxos protocol. */
 int paxos_dispatch(GIOChannel *, GIOCondition, void *);

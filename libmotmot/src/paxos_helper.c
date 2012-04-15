@@ -22,6 +22,15 @@ is_proposer()
 }
 
 /*
+ * Gets the next free instance number.
+ */
+paxid_t
+next_instance()
+{
+  return LIST_LAST(&pax.ilist)->pi_hdr.ph_seqn + 1;
+}
+
+/*
  * Compare two ballot IDs.
  */
 int

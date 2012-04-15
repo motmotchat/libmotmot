@@ -20,7 +20,7 @@ void paxos_drop_connection(GIOChannel *);
 
 // Proposer operations
 int proposer_prepare(GIOChannel *);
-int proposer_decree(struct paxos_val *);
+int proposer_decree(struct paxos_instance *);
 int proposer_commit(struct paxos_instance *);
 int proposer_ack_promise(struct paxos_hdr *, msgpack_object *);
 int proposer_ack_accept(struct paxos_hdr *);
@@ -210,6 +210,23 @@ paxos_drop_connection(GIOChannel *source)
   close(g_io_channel_unix_get_fd(source));
 }
 
+static int
+pack_and_broadcast_header(struct paxos_instance *inst, paxop_t opcode)
+{
+  struct paxos_hdr hdr;
+  struct paxos_yak py;
+
+  hdr.ph_ballot = pax.ballot;
+  hdr.ph_opcode = opcode;
+  hdr.ph_seqn = inst ? inst->pi_hdr.ph_seqn : next_instance();
+
+  paxos_payload_new(&py, 1);
+  paxos_hdr_pack(&py, &hdr);
+  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+
+  return 0;
+}
+
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
  *
@@ -223,9 +240,7 @@ paxos_drop_connection(GIOChannel *source)
 int
 proposer_prepare(GIOChannel *source)
 {
-  struct paxos_hdr hdr;
-  struct paxos_instance *inst;
-  struct paxos_yak py;
+  struct paxos_instance *it;
 
   // If we were already preparing, get rid of that prepare.
   // XXX: I don't think this is possible.
@@ -242,25 +257,24 @@ proposer_prepare(GIOChannel *source)
   pax.ballot.id = pax.self_id;
   pax.ballot.gen++;
 
-  // Initialize a Paxos header.
-  hdr.ph_ballot = pax.ballot;
-  hdr.ph_opcode = OP_PREPARE;
-  LIST_FOREACH(inst, &pax.ilist, pi_le) {
-    if (inst->pi_votes != 0) {
-      hdr.ph_seqn = inst->pi_hdr.ph_seqn;
+  // Identify our first uncommitted instance.
+  LIST_FOREACH(it, &pax.ilist, pi_le) {
+    if (it->pi_votes != 0) {
+      break;
     }
   }
+  if (it == (void *)(&pax.ilist)) {
+    it = NULL;
+  }
 
-  // Pack a prepare and broadcast it.
-  paxos_payload_new(&py, 1);
-  paxos_hdr_pack(&py, &hdr);
-  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  // Broadcast the prepare.
+  pack_and_broadcast_header(it, OP_PREPARE);
 
   return 0;
 }
 
 int
-proposer_decree(struct paxos_val *val)
+proposer_decree(struct paxos_instance *inst)
 {
   return 0;
 }
@@ -274,18 +288,8 @@ proposer_decree(struct paxos_val *val)
 int
 proposer_commit(struct paxos_instance *inst)
 {
-  struct paxos_hdr hdr;
-  struct paxos_yak py;
-
-  // Initialize a Paxos header.
-  hdr.ph_ballot = pax.ballot;
-  hdr.ph_opcode = OP_COMMIT;
-  hdr.ph_seqn = inst->pi_hdr.ph_seqn;
-
-  // Pack a prepare and broadcast it.
-  paxos_payload_new(&py, 1);
-  paxos_hdr_pack(&py, &hdr);
-  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  // Broadcast the commit.
+  pack_and_broadcast_header(inst, OP_COMMIT);
 
   // Mark the instance committed.
   inst->pi_votes = 0;
