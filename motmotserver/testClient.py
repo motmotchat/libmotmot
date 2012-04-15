@@ -1,33 +1,36 @@
 #!/usr/bin/env python
-# coding: utf-8
 
-
-import msgpackrpc
+from gevent import socket
+import msgpack
 
 if __name__ == '__main__':
-    client = msgpackrpc.Client(msgpackrpc.Address("localhost", 8888))
-    """
-    method = raw_input("Enter Method Name: ")
+    address = ('localhost', 8888)
 
-    args = []
+    sock = socket.socket()
+    sock.connect(address)
 
-    arg = raw_input("Enter Arguement(to finish, submit blank line):")
-    while(arg != ""):
-        args.append(arg)
-        arg = raw_input("Enter Arguement(to finish, submit blank line):")
+    test = [1,1,"ebensing","12345"]
 
-    print args
+    sVal = msgpack.packb(test)
 
-    def makeCall(cl, methodName, *args):
-        r1 = cl.call(methodName, *args)
-        return r1
-
-    res = makeCall(client, method, args)
     
-    print res
 
-    """
+    sock.sendall(sVal)
 
-    res = client.call("authenticate", "UN", "PW")
+    rVal = sock.recv(4096)
+    print msgpack.unpackb(rVal)
 
-    print res
+    test = [1,2,"julie@bensing.com"]
+
+    sock.sendall(msgpack.packb(test))
+
+    rVal = sock.recv(4096)
+    print msgpack.unpackb(rVal)
+    
+
+    test = [1,3,"julie@bensing.com"]
+
+    sock.sendall(msgpack.packb(test))
+
+    rVal = sock.recv(4096)
+    print rVal
