@@ -210,6 +210,13 @@ paxos_drop_connection(GIOChannel *source)
   close(g_io_channel_unix_get_fd(source));
 }
 
+/**
+ * Helper function for packing and broadcasting a paxos_hdr.
+ *
+ * This is used by all the proposer's send routines.  Passing a NULL instance
+ * results in a call to next_instance(), which gives us the first free
+ * instance number.
+ */
 static int
 pack_and_broadcast_header(struct paxos_instance *inst, paxop_t opcode)
 {
