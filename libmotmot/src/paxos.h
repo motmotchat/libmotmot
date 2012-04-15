@@ -101,7 +101,7 @@ LIST_HEAD(decree_list, paxos_decree);
 
 void decree_free(struct paxos_decree *);
 struct paxos_decree *decree_find(struct decree_list *, paxid_t);
-int decree_add(struct decree_list *, struct paxos_hdr *, struct paxos_val *);
+struct paxos_decree *decree_add(struct decree_list *, struct paxos_decree *);
 
 /* Representation of a Paxos protocol participant. */
 struct paxos_acceptor {

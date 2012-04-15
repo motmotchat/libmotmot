@@ -83,32 +83,15 @@ decree_find(struct decree_list *dlist, paxid_t inst)
 /*
  * Add a decree.
  */
-int
-decree_add(struct decree_list *dlist, struct paxos_hdr *hdr,
-    struct paxos_val *val)
+struct paxos_decree *
+decree_add(struct decree_list *dlist, struct paxos_decree *dec)
 {
-  struct paxos_decree *dec, *it;
-
-  // Allocate and initialize a new decree.
-  dec = g_malloc0(sizeof(struct paxos_decree));
-  if (dec == NULL) {
-    return -1;
-  }
-
-  dec->pd_hdr = *hdr;
-  dec->pd_votes = 1;  // All decrees start out with 1 vote -OR- uncommited.
-  dec->pd_val.pv_dkind = val->pv_dkind;
-  dec->pd_val.pv_paxid = val->pv_paxid;
-
-  dec->pd_val.pv_data = g_malloc(val->pv_size);
-  memcpy(dec->pd_val.pv_data, val->pv_data, val->pv_size);
+  struct paxos_decree *it;
 
   // We're probably ~appending.
   LIST_FOREACH_REV(it, dlist, pd_le) {
     if (dec->pd_hdr.ph_inst == it->pd_hdr.ph_inst) {
-      g_free(dec->pd_val.pv_data);
-      g_free(dec);
-      return -1;
+      return it;
     } else if (dec->pd_hdr.ph_inst > it->pd_hdr.ph_inst) {
       break;
     }
@@ -116,7 +99,7 @@ decree_add(struct decree_list *dlist, struct paxos_hdr *hdr,
 
   // Insert into the list, sorted.
   LIST_INSERT_AFTER(dlist, it, dec, pd_le);
-  return 0;
+  return dec;
 }
 
 
