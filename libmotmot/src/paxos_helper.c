@@ -27,7 +27,7 @@ is_proposer()
 paxid_t
 next_instance()
 {
-  return LIST_LAST(&pax.ilist)->pi_hdr.ph_seqn + 1;
+  return LIST_EMPTY(&pax.ilist) ? 1 : LIST_LAST(&pax.ilist)->pi_hdr.ph_seqn + 1;
 }
 
 /*

@@ -235,6 +235,7 @@ proposer_prepare(GIOChannel *source)
   struct paxos_instance *it;
   struct paxos_hdr hdr;
   struct paxos_yak py;
+  paxid_t seqn;
 
   // If we were already preparing, get rid of that prepare.
   // XXX: I don't think this is possible.
@@ -256,12 +257,19 @@ proposer_prepare(GIOChannel *source)
   hdr.ph_opcode = OP_PREPARE;
   hdr.ph_seqn = next_instance();
 
-  // Identify our first uncommitted instance (defaulting to next_instance()).
+  seqn = LIST_FIRST(&pax.ilist)->pi_hdr.ph_seqn - 1;
+
+  // Identify our first uncommitted or unrecorded instance (defaulting to
+  // next_instance()).
   LIST_FOREACH(it, &pax.ilist, pi_le) {
+    if (it->pi_hdr.ph_seqn != seqn + 1) {
+      hdr.ph_seqn = seqn + 1;
+    }
     if (it->pi_votes != 0) {
       hdr.ph_seqn = it->pi_hdr.ph_seqn;
       break;
     }
+    seqn = it->pi_hdr.ph_seqn;
   }
 
   // Pack and broadcast the prepare.
@@ -371,7 +379,7 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 
     // Find a decree for the same Paxos instance if one exists in the prep
     // list; otherwise, get the next highest instance.
-    for (; it != (void *)prep_ilist; it = it->pi_le.le_next) {
+    for (; it != (void *)prep_ilist; it = LIST_NEXT(it, pi_le)) {
       if (inst->pi_hdr.ph_seqn <= it->pi_hdr.ph_seqn) {
         break;
       }
@@ -392,6 +400,9 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
       }
     }
   }
+
+  // Free the scratch instance.
+  g_free(inst);
 
   // Acknowledge the prep.
   pax.prep->pp_nacks++;
