@@ -277,6 +277,8 @@ proposer_prepare(GIOChannel *source)
  *
  * This function should be called with a paxos_instance struct that has a
  * well-defined value; however, the remaining fields will be rewritten.
+ * If the instance was on a prepare list, it should be removed before
+ * getting passed here.
  */
 int
 proposer_decree(struct paxos_instance *inst)
@@ -321,6 +323,8 @@ proposer_commit(struct paxos_instance *inst)
 
   // Mark the instance committed.
   inst->pi_votes = 0;
+
+  // XXX: Act on the decree (e.g., display chat, record configs).
 
   return 0;
 }
@@ -431,8 +435,23 @@ proposer_ack_accept(struct paxos_hdr *hdr)
   return 0;
 }
 
+/**
+ * proposer_ack_request - Dispatch a request as a decree.
+ */
 int
 proposer_ack_request(struct paxos_hdr *hdr, msgpack_object *o)
 {
+  struct paxos_instance *inst;
+
+  // Allocate an instance and unpack a value into it.
+  inst = g_malloc(sizeof(struct paxos_instance));
+  if (inst == NULL) {
+    // TODO: cry
+  }
+  paxos_val_unpack(&inst->pi_val, o);
+
+  // Send a decree.
+  proposer_decree(inst);
+
   return 0;
 }
