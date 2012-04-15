@@ -21,6 +21,7 @@ void paxos_drop_connection(GIOChannel *);
 // Proposer operations
 int proposer_prepare(GIOChannel *);
 int proposer_ack_promise(struct paxos_hdr *, msgpack_object *);
+int proposer_ack_accept(struct paxos_hdr *);
 
 // Acceptor operations
 
@@ -28,6 +29,12 @@ int
 proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
     struct msgpack_object *o)
 {
+  // If the message is for some other ballot, send a redirect.
+  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+    // TODO: paxos_redirect();
+    return TRUE;
+  }
+
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
       // TODO: paxos_redirect();
@@ -41,17 +48,21 @@ proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
       break;
 
     case OP_ACCEPT:
+      proposer_ack_accept(hdr);
       break;
 
     case OP_COMMIT:
-      // TODO: decide what to do
+      // TODO: Commit and relinquish presidency if the ballot is higher,
+      // otherwise check if we have a decree of the given instance.  If
+      // we do, redirect; otherwise commit it.
       break;
 
     case OP_REQUEST:
+      // TODO: Make a decree.
       break;
 
     case OP_REDIRECT:
-      // TODO: decide what to do
+      // TODO: Decide what to do.
       break;
   }
 
@@ -169,7 +180,7 @@ paxos_drop_connection(GIOChannel *source)
   struct paxos_acceptor *it;
 
   // Connection dropped; mark the acceptor as dead.
-  LIST_FOREACH(it, &(pax.alist), pa_le) {
+  LIST_FOREACH(it, &pax.alist, pa_le) {
     if (it->pa_chan == source) {
       it->pa_chan = NULL;
       break;
@@ -179,7 +190,7 @@ paxos_drop_connection(GIOChannel *source)
   // Oh noes!  Did we lose the proposer?
   if (it->pa_paxid == pax.proposer->pa_paxid) {
     // Let's mark the new one.
-    LIST_FOREACH(it, &(pax.alist), pa_le) {
+    LIST_FOREACH(it, &pax.alist, pa_le) {
       if (it->pa_chan != NULL) {
         pax.proposer = it;
         break;
@@ -231,7 +242,7 @@ proposer_prepare(GIOChannel *source)
   // Initialize a Paxos header.
   hdr.ph_ballot = pax.ballot;
   hdr.ph_opcode = OP_PREPARE;
-  LIST_FOREACH(dec, &(pax.dlist), pd_le) {
+  LIST_FOREACH(dec, &pax.dlist, pd_le) {
     if (dec->pd_votes != 0) {
       hdr.ph_inst = dec->pd_hdr.ph_inst;
     }
@@ -264,11 +275,6 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
   msgpack_object *p, *pend, *r;
   struct paxos_decree *it, *dec;
   struct decree_list *prep_dlist;
-
-  // If the prepare is for some other ballot, ignore it.
-  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    return 0;
-  }
 
   // Grab the acceptor's ID.
   p = o->via.array.ptr;
@@ -330,5 +336,28 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 
   // Free the prepare and return.
   g_free(pax.prep);
+  return 0;
+}
+
+/*
+ * proposer_ack_accept - Acknowedge an acceptor's accept.
+ *
+ * Just increment the vote count of the correct Paxos instance and commit
+ * if we have a majority.
+ */
+int
+proposer_ack_accept(struct paxos_hdr *hdr)
+{
+  struct paxos_decree *dec;
+
+  // Find the decree of the correct instance and increment the vote count.
+  dec = decree_find(&pax.dlist, hdr->ph_inst);
+  dec->pd_votes++;
+
+  // If we have a majority, send a commit message.
+  if (dec->pd_votes >= MAJORITY) {
+    // TODO: call for commit
+  }
+
   return 0;
 }
