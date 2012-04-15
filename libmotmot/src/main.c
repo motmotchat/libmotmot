@@ -235,6 +235,7 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
       // TODO: error handling
       dprintf(2, "input_loop: Could not write message to socket.\n");
     }
+    gerr = NULL;
     g_io_channel_flush(conns[i].channel, &gerr);
     if (status == G_IO_STATUS_ERROR) {
       // TODO: error handling

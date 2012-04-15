@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-ggdb3 `pkg-config --cflags glib-2.0`
 LDFLAGS=`pkg-config --libs glib-2.0` -lmsgpack
 
-all: lol paxos.o paxos_helper.o
+all: lol paxos.o paxos_helper.o paxos_msgpack.o
 
 lol: main.o
 	$(CC) $(LDFLAGS) -o motmot *.o

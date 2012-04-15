@@ -5,24 +5,21 @@
 #define __PAXOS_H__
 
 #include "list.h"
+
 #include <stdint.h>
 #include <string.h>
-
 #include <glib.h>
-#include <msgpack.h>
-
 
 /* Paxos ID type. */
 typedef uint32_t  paxid_t;
 
-/* Totally ordered ID of a proposer / ballot. */
-typedef struct proposer_id {
-  paxid_t id;       // individual ID of the proposer
-  paxid_t gen;      // generation number of the proposer
-} proposer_t;
+/* Totally ordered ID of a ballot. */
+typedef struct ballot {
+  paxid_t id;       // ID of the proposer
+  paxid_t gen;      // generation number of the ballot
+} ballot_t;
 
-inline int is_proposer();
-int proposer_compare(proposer_t, proposer_t);
+int ballot_compare(ballot_t, ballot_t);
 
 /* Paxos message types. */
 typedef enum paxos_opcode {
@@ -35,25 +32,9 @@ typedef enum paxos_opcode {
   OP_REDIRECT,      // suggests the true identity of the proposer
 } paxop_t;
 
-/* Kinds of decrees. */
-typedef enum decree_kind {
-  DEC_CHAT = 0,     // chat message
-  DEC_RENEW,        // proposer lease renewal
-  DEC_JOIN,         // add an acceptor
-  DEC_LEAVE,        // remove an acceptor
-} dkind_t;
-
-/* Decree value type. */
-struct paxos_val {
-  dkind_t pv_dkind;    // decree kind
-  paxid_t pv_paxid;    // from ID
-  size_t pv_size;      // size of value
-  char *pv_data;       // decree value
-};
-
 /* Paxos message header that is included with any message. */
 struct paxos_hdr {
-  proposer_t ph_prop;  // full ID of the proposer (e.g, ballot)
+  ballot_t ph_ballot;  // ballot ID
   paxop_t ph_opcode;   // protocol opcode
   paxid_t ph_inst;     // Multi-Paxos instance number
   /**
@@ -72,12 +53,13 @@ struct paxos_hdr {
  * We describe the particular message formats for each Paxos message type:
  *
  * - OP_PREPARE: Nothing needed but the header.
- * - OP_PROMISE: We use the following datatype directly from the msgpack buffer:
+ * - OP_PROMISE: We use the following datatype directly from the msgpack
+ *   buffer:
  *
  *   struct paxos_promise {
  *     paxid_t acceptor_id;
  *     struct {
- *       proposer_t proposer;
+ *       ballot_t ballot;
  *       struct paxos_val value;
  *     } votes[];
  *   };
@@ -89,18 +71,27 @@ struct paxos_hdr {
  * - OP_REDIRECT: Redirects are just headers.
  */
 
-/* Msgpack helpers. */
-void msgpack_pack_paxid(msgpack_packer *, paxid_t);
-void paxos_hdr_pack(msgpack_packer *, struct paxos_hdr *);
-struct paxos_hdr *paxos_hdr_unpack(msgpack_object *);
-void paxos_val_pack(msgpack_packer *, struct paxos_val *);
-struct paxos_val *paxos_val_unpack(msgpack_object *);
+/* Kinds of decrees. */
+typedef enum decree_kind {
+  DEC_CHAT = 0,     // chat message
+  DEC_RENEW,        // proposer lease renewal
+  DEC_JOIN,         // add an acceptor
+  DEC_LEAVE,        // remove an acceptor
+} dkind_t;
+
+/* Decree value type. */
+struct paxos_val {
+  dkind_t pv_dkind;    // decree kind
+  paxid_t pv_paxid;    // from ID
+  size_t pv_size;      // size of value
+  char *pv_data;       // decree value
+};
 
 /* Internal representation of a decree. */
 struct paxos_decree {
   struct paxos_hdr pd_hdr;  // Paxos header identifying the decree
-  unsigned pd_votes;        // number of accepts (proposer use only)
-  LIST_ENTRY(paxos_decree) pd_list;   // sorted linked list of decrees
+  unsigned pd_votes;        // number of accepts -OR- 0 if committed
+  LIST_ENTRY(paxos_decree) pd_le;   // sorted linked list of decrees
   struct paxos_val pd_val;  // value of the decree
 };
 
@@ -109,14 +100,15 @@ LIST_HEAD(decree_list, paxos_decree);
 struct paxos_decree *decree_find(struct decree_list *, paxid_t);
 int decree_add(struct decree_list *, struct paxos_hdr *, struct paxos_val *);
 
-/* Paxos participant list element. */
-struct paxipant {
-  paxid_t px_paxid;
-  LIST_ENTRY(paxipant) px_le;
+/* Representation of a Paxos protocol participant. */
+struct paxos_acceptor {
+  paxid_t pa_paxid;         // agent's ID
+  GIOChannel *pa_chan;      // agent's channel; NULL if we think it's dead
+  LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
 };
 
-/* List of acceptors' promises for a single Paxos instance / decree. */
-struct prepinst {
+/* List of acceptors' promises for a single Paxos instance. */
+struct prep_inst {
   paxid_t inst;
   LIST_HEAD(, decree_list) dlist;
   LIST_ENTRY(prepinst) le;
@@ -125,16 +117,17 @@ struct prepinst {
 /* Preparation state for new proposers. */
 struct paxos_prep {
   unsigned pp_npreps;
-  LIST_HEAD(, prepinst) pp_pinsts;
+  LIST_HEAD(, prep_inst) pp_pinsts;
 };
 
 /* Local state. */
 struct paxos_state {
-  paxid_t self_id;              // our own acceptor ID
-  proposer_t proposer;          // identity of the proposer we recognize
-  struct paxos_prep *prep;      // preparation state; NULL if not preparing
-  struct decree_list dlist;     // list of pending decrees
-  LIST_HEAD(, paxipant) plist;  // list of other Paxos participants
+  paxid_t self_id;                    // our own acceptor ID
+  struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
+  ballot_t ballot;                    // identity of the current ballot
+  struct paxos_prep *prep;            // prepare state; NULL if not preparing
+  struct decree_list dlist;           // list of all decrees
+  LIST_HEAD(, paxos_acceptor) alist;  // list of all Paxos participants
 };
 
 extern struct paxos_state pax;
