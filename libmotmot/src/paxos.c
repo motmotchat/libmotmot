@@ -211,30 +211,6 @@ paxos_drop_connection(GIOChannel *source)
 }
 
 /**
- * Helper function for packing and broadcasting a paxos_hdr.
- *
- * This is used by all the proposer's send routines.  Passing a NULL instance
- * results in a call to next_instance(), which gives us the first free
- * instance number.
- */
-static int
-pack_and_broadcast_header(struct paxos_instance *inst, paxop_t opcode)
-{
-  struct paxos_hdr hdr;
-  struct paxos_yak py;
-
-  hdr.ph_ballot = pax.ballot;
-  hdr.ph_opcode = opcode;
-  hdr.ph_seqn = inst ? inst->pi_hdr.ph_seqn : next_instance();
-
-  paxos_payload_new(&py, 1);
-  paxos_hdr_pack(&py, &hdr);
-  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
-
-  return 0;
-}
-
-/**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
  *
  * The initiation of a prepare sequence is only allowed if we believe
@@ -248,6 +224,8 @@ int
 proposer_prepare(GIOChannel *source)
 {
   struct paxos_instance *it;
+  struct paxos_hdr hdr;
+  struct paxos_yak py;
 
   // If we were already preparing, get rid of that prepare.
   // XXX: I don't think this is possible.
@@ -264,18 +242,23 @@ proposer_prepare(GIOChannel *source)
   pax.ballot.id = pax.self_id;
   pax.ballot.gen++;
 
-  // Identify our first uncommitted instance.
+  // Initialize a Paxos header.
+  hdr.ph_ballot = pax.ballot;
+  hdr.ph_opcode = OP_PREPARE;
+  hdr.ph_seqn = next_instance();
+
+  // Identify our first uncommitted instance (defaulting to next_instance()).
   LIST_FOREACH(it, &pax.ilist, pi_le) {
     if (it->pi_votes != 0) {
+      hdr.ph_seqn = it->pi_hdr.ph_seqn;
       break;
     }
   }
-  if (it == (void *)(&pax.ilist)) {
-    it = NULL;
-  }
 
-  // Broadcast the prepare.
-  pack_and_broadcast_header(it, OP_PREPARE);
+  // Pack and broadcast the prepare.
+  paxos_payload_new(&py, 1);
+  paxos_hdr_pack(&py, &hdr);
+  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
 
   return 0;
 }
@@ -295,8 +278,15 @@ proposer_decree(struct paxos_instance *inst)
 int
 proposer_commit(struct paxos_instance *inst)
 {
-  // Broadcast the commit.
-  pack_and_broadcast_header(inst, OP_COMMIT);
+  struct paxos_yak py;
+
+  // Fix up the instance header.
+  inst->pi_hdr.ph_opcode = OP_COMMIT;
+
+  // Pack and broadcast the commit.
+  paxos_payload_new(&py, 1);
+  paxos_hdr_pack(&py, &(inst->pi_hdr));
+  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
 
   // Mark the instance committed.
   inst->pi_votes = 0;
