@@ -12,6 +12,14 @@
 
 #define MPBUFSIZE 4096
 
+static inline void
+swap(void **p1, void **p2)
+{
+  void *tmp = *p1;
+  *p1 = *p2;
+  *p2 = tmp;
+}
+
 // Local protocol state
 struct paxos_state pax;
 
@@ -33,6 +41,7 @@ proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
     struct msgpack_object *o)
 {
   // If the message is for some other ballot, send a redirect.
+  // XXX: Not sure if we want to do this, say, for an OP_REQUEST.
   if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
     // TODO: paxos_redirect();
     return TRUE;
@@ -263,9 +272,31 @@ proposer_prepare(GIOChannel *source)
   return 0;
 }
 
+/**
+ * proposer_decree - Broadcast a decree.
+ *
+ * This function should be called with a paxos_instance struct that has a
+ * well-defined value; however, the remaining fields will be rewritten.
+ */
 int
 proposer_decree(struct paxos_instance *inst)
 {
+  struct paxos_yak py;
+
+  // Update the header.
+  inst->pi_hdr.ph_ballot = pax.ballot;
+  inst->pi_hdr.ph_opcode = OP_DECREE;
+  inst->pi_hdr.ph_seqn = next_instance();
+
+  // Append to the dlist.
+  LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
+
+  // Pack and broadcast the decree.
+  paxos_payload_new(&py, 2);
+  paxos_hdr_pack(&py, &(inst->pi_hdr));
+  paxos_val_pack(&py, &(inst->pi_val));
+  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+
   return 0;
 }
 
@@ -324,15 +355,17 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
   prep_ilist = &(pax.prep->pp_ilist);
   it = LIST_FIRST(prep_ilist);
 
+  // Allocate a scratch instance.
+  inst = g_malloc(sizeof(struct paxos_instance));
+  if (inst == NULL) {
+    // TODO: cry
+  }
+
   // Loop through all the past vote information.
   for (; p != pend; ++p) {
     r = p->via.array.ptr;
 
-    // Extract a instance.
-    inst = g_malloc(sizeof(struct paxos_instance));
-    if (inst == NULL) {
-      // TODO: cry
-    }
+    // Unpack a instance.
     paxos_hdr_unpack(&inst->pi_hdr, r);
     paxos_val_unpack(&inst->pi_val, r + 1);
 
@@ -346,7 +379,7 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 
     // If the instance was not found, insert it at the tail or before the
     // iterator as necessary.  If it was found, compare the two, keeping or
-    // inserting the larger-balloted decree in the list and freeing the other.
+    // inserting the larger-balloted decree, swapping pointers as necessary.
     if (it == (void *)prep_ilist) {
       LIST_INSERT_TAIL(prep_ilist, inst, pi_le);
     } else if (inst->pi_hdr.ph_seqn < it->pi_hdr.ph_seqn) {
@@ -355,9 +388,7 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
       if (ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 1) {
         LIST_INSERT_BEFORE(prep_ilist, it, inst, pi_le);
         LIST_REMOVE(prep_ilist, it, pi_le);
-        instance_free(it);
-      } else {
-        instance_free(inst);
+        swap((void **)&inst, (void **)&it);
       }
     }
   }
