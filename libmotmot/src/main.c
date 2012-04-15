@@ -39,7 +39,6 @@ GIOChannel *
 create_socket_channel(int pid)
 {
   int s;
-  char *filename;
   struct sockaddr_un *saddr;
   GIOChannel *channel;
   GError *gerr;
@@ -115,7 +114,8 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
 int
 socket_accept(GIOChannel *source, GIOCondition condition, void *data)
 {
-  int fd, newfd, len;
+  int fd, newfd;
+  socklen_t len;
   struct sockaddr_un *saddr;
 
   msgpack_unpacker *pac;
@@ -157,14 +157,13 @@ poll_conns(void *data)
   bool found;
   DIR *dp;
   struct dirent *ep;
-  GIOChannel *channel;
 
   // Open up conn/.
   dp = opendir(SOCKDIR);
   err(dp == NULL, "opendir");
 
   // Search through all connections.
-  while (ep = readdir(dp)) {
+  while ((ep = readdir(dp))) {
     // Ignore . and .. and any files that shouldn't exist.
     pid = atoi(ep->d_name);
     if (pid == 0 || pid == getpid()) {
@@ -270,4 +269,6 @@ main(int argc, char *argv[])
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   g_main_loop_run(gmain);
+
+  return 0;
 }

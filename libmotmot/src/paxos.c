@@ -6,6 +6,7 @@
 #include "list.h"
 
 #include <assert.h>
+#include <unistd.h>
 #include <glib.h>
 
 #define MPBUFSIZE 4096
@@ -22,6 +23,7 @@ proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
 {
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
+      // TODO: paxos_redirect();
       break;
 
     case OP_PROMISE:
@@ -90,7 +92,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
   msgpack_unpacker *pac;
   unsigned long len;
   msgpack_unpacked res;
-  msgpack_object o, *p, *pend;
+  msgpack_object o, *p;
 
   GIOStatus status;
   GError *gerr = NULL;
@@ -134,7 +136,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
     }
 
     // Close the channel socket.
-    close(gio_channel_unix_get_fd(source));
+    close(g_io_channel_unix_get_fd(source));
 
     return FALSE;
   }
@@ -247,4 +249,6 @@ paxos_prepare(GIOChannel *source)
       dprintf(2, "paxos_prepare: Could not flush prepare on socket.\n");
     }
   }
+
+  return TRUE;
 }

@@ -131,6 +131,7 @@ struct paxos_state {
 };
 
 extern struct paxos_state pax;
+int is_proposer();
 
 /* Paxos protocol. */
 int paxos_dispatch(GIOChannel *, GIOCondition, void *);
