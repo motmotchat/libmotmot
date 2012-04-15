@@ -74,7 +74,7 @@ struct paxos_hdr {
 
 /* Kinds of decrees. */
 typedef enum decree_kind {
-  DEC_CHAT = 0,     // chat message
+  DEC_CHAT,         // chat message
   DEC_RENEW,        // proposer lease renewal
   DEC_JOIN,         // add an acceptor
   DEC_LEAVE,        // remove an acceptor
