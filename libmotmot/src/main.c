@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <glib.h>
+#include <glib-unix.h>
 #include <msgpack.h>
 
 #define SOCKDIR   "conn/"
@@ -72,6 +73,24 @@ create_socket_channel(int pid)
 
   g_free(saddr);
   return channel;
+}
+
+/**
+ * Clean up the mess we have made. Currently, this just involves removing our
+ * listening socket in SOCKDIR
+ */
+int
+cleanup(void *data)
+{
+  // Something something avoid mallocing near signal handlers something
+  static char sockname[12];
+
+  sprintf(sockname, SOCKDIR "%06d", getpid());
+  unlink(sockname);
+
+  // Let's get out of here
+  g_main_loop_quit(gmain);
+  return FALSE;
 }
 
 int
@@ -261,6 +280,10 @@ main(int argc, char *argv[])
   // Create our server / listening socket.
   channel = create_socket_channel(0);
   g_io_add_watch(channel, G_IO_IN, socket_accept, NULL);
+
+  // Let's try to clean up ourselves in the case someone kills us
+  g_unix_signal_add(SIGINT, cleanup, NULL);
+  g_unix_signal_add(SIGTERM, cleanup, NULL);
 
   // Poll the directory for new sockets every second.
   g_timeout_add_seconds(1, poll_conns, NULL);
