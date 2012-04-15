@@ -54,7 +54,7 @@ paxos_hdr_pack(struct paxos_yak *py, struct paxos_hdr *hdr)
   msgpack_pack_paxid(py->pk, hdr->ph_ballot.id);
   msgpack_pack_paxid(py->pk, hdr->ph_ballot.gen);
   msgpack_pack_int(py->pk, hdr->ph_opcode);
-  msgpack_pack_paxid(py->pk, hdr->ph_inst);
+  msgpack_pack_paxid(py->pk, hdr->ph_seqn);
 }
 
 void
@@ -66,7 +66,7 @@ paxos_hdr_unpack(struct paxos_hdr *hdr, msgpack_object *o)
   hdr->ph_ballot.id = p->via.u64;
   hdr->ph_ballot.gen = (++p)->via.u64;
   hdr->ph_opcode = (++p)->via.u64;
-  hdr->ph_inst = (++p)->via.u64;
+  hdr->ph_seqn = (++p)->via.u64;
 }
 
 void

@@ -47,32 +47,32 @@ ballot_compare(ballot_t x, ballot_t y)
 
 ///////////////////////////////////////////////////////////////////////////
 //
-//  Decree and decree list operations
+//  Instance and instance list operations
 //
 
 /*
- * Free a decree fully.
+ * Free a instance fully.
  */
 void
-decree_free(struct paxos_decree *dec)
+instance_free(struct paxos_instance *inst)
 {
-  g_free(dec->pd_val.pv_data);
-  g_free(dec);
+  g_free(inst->pi_val.pv_data);
+  g_free(inst);
 }
 
 /*
- * Find a decree by its instance number.
+ * Find an instance by its instance number.
  */
-struct paxos_decree *
-decree_find(struct decree_list *dlist, paxid_t inst)
+struct paxos_instance *
+instance_find(struct instance_list *ilist, paxid_t inum)
 {
-  struct paxos_decree *it;
+  struct paxos_instance *it;
 
-  // We assume we're looking for more recent decrees, so we search in reverse.
-  LIST_FOREACH_REV(it, dlist, pd_le) {
-    if (inst == it->pd_hdr.ph_inst) {
+  // We assume we want a more recent instance, so we search in reverse.
+  LIST_FOREACH_REV(it, ilist, pi_le) {
+    if (inum == it->pi_hdr.ph_seqn) {
       return it;
-    } else if (inst > it->pd_hdr.ph_inst) {
+    } else if (inum > it->pi_hdr.ph_seqn) {
       break;
     }
   }
@@ -83,23 +83,23 @@ decree_find(struct decree_list *dlist, paxid_t inst)
 /*
  * Add a decree.
  */
-struct paxos_decree *
-decree_add(struct decree_list *dlist, struct paxos_decree *dec)
+struct paxos_instance *
+instance_add(struct instance_list *ilist, struct paxos_instance *inst)
 {
-  struct paxos_decree *it;
+  struct paxos_instance *it;
 
   // We're probably ~appending.
-  LIST_FOREACH_REV(it, dlist, pd_le) {
-    if (dec->pd_hdr.ph_inst == it->pd_hdr.ph_inst) {
+  LIST_FOREACH_REV(it, ilist, pi_le) {
+    if (inst->pi_hdr.ph_seqn == it->pi_hdr.ph_seqn) {
       return it;
-    } else if (dec->pd_hdr.ph_inst > it->pd_hdr.ph_inst) {
+    } else if (inst->pi_hdr.ph_seqn > it->pi_hdr.ph_seqn) {
       break;
     }
   }
 
   // Insert into the list, sorted.
-  LIST_INSERT_AFTER(dlist, it, dec, pd_le);
-  return dec;
+  LIST_INSERT_AFTER(ilist, it, inst, pi_le);
+  return inst;
 }
 
 

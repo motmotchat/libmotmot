@@ -36,15 +36,15 @@ typedef enum paxos_opcode {
 struct paxos_hdr {
   ballot_t ph_ballot;  // ballot ID
   paxop_t ph_opcode;   // protocol opcode
-  paxid_t ph_inst;     // Multi-Paxos instance number
+  paxid_t ph_seqn;     // Multi-Paxos instance number
   /**
-   * The pax_inst field means different things for the different ops:
+   * The ph_seqn field means different things for the different ops:
    * - OP_PREPARE: The lowest instance for which the preparer has not committed
    *   a value.  Any acceptor who accepts the prepare will return to us the
-   *   most recent value they accepted for each decree starting with pax_inst.
+   *   most recent value they accepted for each Paxos instance they participated
+   *   in, starting with ph_seqn.
    * - OP_PROMISE: The index of the first vote returned (as specified in
-   *   the prepare message).  In the prepare struct, this values is overwritten
-   *   as the acceptor ID of each vote.
+   *   the prepare message).
    * - OP_DECREE, OP_ACCEPT, OP_COMMIT: The instance number of the decree.
    * - OP_REQUEST, OP_REDIRECT: Not used.
    */
@@ -89,21 +89,22 @@ struct paxos_val {
   char *pv_data;       // decree value
 };
 
-/* Internal representation of a decree. */
-struct paxos_decree {
-  struct paxos_hdr pd_hdr;  // Paxos header identifying the decree
-  unsigned pd_votes;        // number of accepts -OR- 0 if committed
-  LIST_ENTRY(paxos_decree) pd_le;   // sorted linked list of decrees
-  struct paxos_val pd_val;  // value of the decree
+/* Representation of a Paxos instance. */
+struct paxos_instance {
+  struct paxos_hdr pi_hdr;  // Paxos header identifying the instance
+  unsigned pi_votes;        // number of accepts -OR- 0 if committed
+  LIST_ENTRY(paxos_instance) pi_le;   // sorted linked list of instances
+  struct paxos_val pi_val;  // value of the decree
 };
 
-LIST_HEAD(decree_list, paxos_decree);
+LIST_HEAD(instance_list, paxos_instance);
 
-void decree_free(struct paxos_decree *);
-struct paxos_decree *decree_find(struct decree_list *, paxid_t);
-struct paxos_decree *decree_add(struct decree_list *, struct paxos_decree *);
+void instance_free(struct paxos_instance *);
+struct paxos_instance *instance_find(struct instance_list *, paxid_t);
+struct paxos_instance *instance_add(struct instance_list *,
+    struct paxos_instance *);
 
-/* Representation of a Paxos protocol participant. */
+/* A Paxos protocol participant. */
 struct paxos_acceptor {
   paxid_t pa_paxid;         // agent's ID
   GIOChannel *pa_chan;      // agent's channel; NULL if we think it's dead
@@ -115,7 +116,7 @@ struct paxos_acceptor {
 /* Preparation state for new proposers. */
 struct paxos_prep {
   unsigned pp_nacks;
-  struct decree_list pp_dlist;
+  struct instance_list pp_ilist;
 };
 
 /* Local state. */
@@ -124,7 +125,7 @@ struct paxos_state {
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
   ballot_t ballot;                    // identity of the current ballot
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
-  struct decree_list dlist;           // list of all decrees
+  struct instance_list ilist;         // list of all instances
   LIST_HEAD(, paxos_acceptor) alist;  // list of all Paxos participants
 };
 

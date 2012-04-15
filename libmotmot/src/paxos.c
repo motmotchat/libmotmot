@@ -221,7 +221,7 @@ int
 proposer_prepare(GIOChannel *source)
 {
   struct paxos_hdr hdr;
-  struct paxos_decree *dec;
+  struct paxos_instance *inst;
   struct paxos_yak py;
 
   // If we were already preparing, get rid of that prepare.
@@ -242,9 +242,9 @@ proposer_prepare(GIOChannel *source)
   // Initialize a Paxos header.
   hdr.ph_ballot = pax.ballot;
   hdr.ph_opcode = OP_PREPARE;
-  LIST_FOREACH(dec, &pax.dlist, pd_le) {
-    if (dec->pd_votes != 0) {
-      hdr.ph_inst = dec->pd_hdr.ph_inst;
+  LIST_FOREACH(inst, &pax.ilist, pi_le) {
+    if (inst->pi_votes != 0) {
+      hdr.ph_seqn = inst->pi_hdr.ph_seqn;
     }
   }
 
@@ -273,8 +273,8 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 {
   paxid_t acc_id;
   msgpack_object *p, *pend, *r;
-  struct paxos_decree *it, *dec;
-  struct decree_list *prep_dlist;
+  struct paxos_instance *it, *inst;
+  struct instance_list *prep_ilist;
 
   // Grab the acceptor's ID.
   p = o->via.array.ptr;
@@ -283,25 +283,25 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
   // Initialize loop variables.
   pend = p[1].via.array.ptr + p[1].via.array.size;
   p = p[1].via.array.ptr;
-  prep_dlist = &(pax.prep->pp_dlist);
-  it = LIST_FIRST(prep_dlist);
+  prep_ilist = &(pax.prep->pp_ilist);
+  it = LIST_FIRST(prep_ilist);
 
   // Loop through all the past vote information.
   for (; p != pend; ++p) {
     r = p->via.array.ptr;
 
-    // Extract a decree.
-    dec = g_malloc(sizeof(struct paxos_decree));
-    if (dec == NULL) {
+    // Extract a instance.
+    inst = g_malloc(sizeof(struct paxos_instance));
+    if (inst == NULL) {
       // TODO: cry
     }
-    paxos_hdr_unpack(&dec->pd_hdr, r);
-    paxos_val_unpack(&dec->pd_val, r + 1);
+    paxos_hdr_unpack(&inst->pi_hdr, r);
+    paxos_val_unpack(&inst->pi_val, r + 1);
 
     // Find a decree for the same Paxos instance if one exists in the prep
     // list; otherwise, get the next highest instance.
-    for (; it != (void *)prep_dlist; it = it->pd_le.le_next) {
-      if (dec->pd_hdr.ph_inst <= it->pd_hdr.ph_inst) {
+    for (; it != (void *)prep_ilist; it = it->pi_le.le_next) {
+      if (inst->pi_hdr.ph_seqn <= it->pi_hdr.ph_seqn) {
         break;
       }
     }
@@ -309,17 +309,17 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
     // If the instance was not found, insert it at the tail or before the
     // iterator as necessary.  If it was found, compare the two, keeping or
     // inserting the larger-balloted decree in the list and freeing the other.
-    if (it == (void *)prep_dlist) {
-      LIST_INSERT_TAIL(prep_dlist, dec, pd_le);
-    } else if (dec->pd_hdr.ph_inst < it->pd_hdr.ph_inst) {
-      LIST_INSERT_BEFORE(prep_dlist, it, dec, pd_le);
-    } else /* dec->pd_hdr.ph_inst == it->pd_hdr.ph_inst */ {
-      if (ballot_compare(dec->pd_hdr.ph_ballot, it->pd_hdr.ph_ballot) > 1) {
-        LIST_INSERT_BEFORE(prep_dlist, it, dec, pd_le);
-        LIST_REMOVE(prep_dlist, it, pd_le);
-        decree_free(it);
+    if (it == (void *)prep_ilist) {
+      LIST_INSERT_TAIL(prep_ilist, inst, pi_le);
+    } else if (inst->pi_hdr.ph_seqn < it->pi_hdr.ph_seqn) {
+      LIST_INSERT_BEFORE(prep_ilist, it, inst, pi_le);
+    } else /* inst->pi_hdr.ph_seqn == it->pi_hdr.ph_seqn */ {
+      if (ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 1) {
+        LIST_INSERT_BEFORE(prep_ilist, it, inst, pi_le);
+        LIST_REMOVE(prep_ilist, it, pi_le);
+        instance_free(it);
       } else {
-        decree_free(dec);
+        instance_free(inst);
       }
     }
   }
@@ -348,14 +348,14 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 int
 proposer_ack_accept(struct paxos_hdr *hdr)
 {
-  struct paxos_decree *dec;
+  struct paxos_instance *inst;
 
   // Find the decree of the correct instance and increment the vote count.
-  dec = decree_find(&pax.dlist, hdr->ph_inst);
-  dec->pd_votes++;
+  inst = instance_find(&pax.ilist, hdr->ph_seqn);
+  inst->pi_votes++;
 
   // If we have a majority, send a commit message.
-  if (dec->pd_votes >= MAJORITY) {
+  if (inst->pi_votes >= MAJORITY) {
     // TODO: call for commit
   }
 
