@@ -54,16 +54,13 @@ struct paxos_hdr {
  * We describe the particular message formats for each Paxos message type:
  *
  * - OP_PREPARE: Nothing needed but the header.
- * - OP_PROMISE: We use the following datatype directly from the msgpack
+ * - OP_PROMISE: We use the following array directly from the msgpack
  *   buffer:
  *
  *   struct paxos_promise {
- *     paxid_t acceptor_id;
- *     struct {
- *       ballot_t ballot;
- *       struct paxos_val value;
- *     } votes[];
- *   };
+ *     struct paoxs_hdr hdr   // We use only the ballot.
+ *     struct paxos_val val;
+ *   } votes[];
  *
  * - OP_DECREE: Decrees are headers plus values.
  * - OP_ACCEPT: Acceptances are headers.

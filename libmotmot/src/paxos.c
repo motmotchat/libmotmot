@@ -344,18 +344,14 @@ proposer_commit(struct paxos_instance *inst)
 int
 proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 {
-  paxid_t acc_id;
   msgpack_object *p, *pend, *r;
   struct paxos_instance *it, *inst;
   struct instance_list *prep_ilist;
 
-  // Grab the acceptor's ID.
-  p = o->via.array.ptr;
-  acc_id = p[0].via.u64;
-
   // Initialize loop variables.
-  pend = p[1].via.array.ptr + p[1].via.array.size;
-  p = p[1].via.array.ptr;
+  p = o->via.array.ptr;
+  pend = o->via.array.ptr + o->via.array.size;
+
   prep_ilist = &(pax.prep->pp_ilist);
   it = LIST_FIRST(prep_ilist);
 
@@ -365,7 +361,7 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
     // TODO: cry
   }
 
-  // Loop through all the past vote information.
+  // Loop through all the vote information.
   for (; p != pend; ++p) {
     r = p->via.array.ptr;
 
