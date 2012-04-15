@@ -88,12 +88,15 @@ paxos_val_unpack(struct paxos_val *val, msgpack_object *o)
   val->pv_dkind = p->via.u64;
   val->pv_paxid = (++p)->via.u64;
   val->pv_size = (++p)->via.raw.size;
+  val->pv_data = NULL;
 
-  val->pv_data = g_malloc(p->via.raw.size);
-  if (val->pv_data == NULL) {
-    return; // XXX: User needs to check for NULL?!
+  if (p->via.raw.size > 0) {
+    val->pv_data = g_malloc(p->via.raw.size);
+    if (val->pv_data == NULL) {
+      return; // XXX: User needs to check for NULL?!
+    }
+    memcpy(val->pv_data, p->via.raw.ptr, p->via.raw.size);
   }
-  memcpy(val->pv_data, p->via.raw.ptr, p->via.raw.size);
 
   return;
 }
