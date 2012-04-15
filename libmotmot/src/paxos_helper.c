@@ -27,7 +27,7 @@ is_proposer()
 paxid_t
 next_instance()
 {
-  return LIST_EMPTY(&pax.ilist) ? 1 : LIST_LAST(&pax.ilist)->pi_hdr.ph_seqn + 1;
+  return LIST_EMPTY(&pax.ilist) ? 1 : LIST_LAST(&pax.ilist)->pi_hdr.ph_inum + 1;
 }
 
 /*
@@ -79,9 +79,9 @@ instance_find(struct instance_list *ilist, paxid_t inum)
 
   // We assume we want a more recent instance, so we search in reverse.
   LIST_FOREACH_REV(it, ilist, pi_le) {
-    if (inum == it->pi_hdr.ph_seqn) {
+    if (inum == it->pi_hdr.ph_inum) {
       return it;
-    } else if (inum > it->pi_hdr.ph_seqn) {
+    } else if (inum > it->pi_hdr.ph_inum) {
       break;
     }
   }
@@ -99,9 +99,9 @@ instance_add(struct instance_list *ilist, struct paxos_instance *inst)
 
   // We're probably ~appending.
   LIST_FOREACH_REV(it, ilist, pi_le) {
-    if (inst->pi_hdr.ph_seqn == it->pi_hdr.ph_seqn) {
+    if (inst->pi_hdr.ph_inum == it->pi_hdr.ph_inum) {
       return it;
-    } else if (inst->pi_hdr.ph_seqn > it->pi_hdr.ph_seqn) {
+    } else if (inst->pi_hdr.ph_inum > it->pi_hdr.ph_inum) {
       break;
     }
   }

@@ -36,13 +36,13 @@ typedef enum paxos_opcode {
 struct paxos_hdr {
   ballot_t ph_ballot;  // ballot ID
   paxop_t ph_opcode;   // protocol opcode
-  paxid_t ph_seqn;     // Multi-Paxos instance number
+  paxid_t ph_inum;     // Multi-Paxos instance number
   /**
-   * The ph_seqn field means different things for the different ops:
+   * The ph_inum field means different things for the different ops:
    * - OP_PREPARE: The lowest instance for which the preparer has not committed
    *   a value.  Any acceptor who accepts the prepare will return to us the
    *   most recent value they accepted for each Paxos instance they participated
-   *   in, starting with ph_seqn.
+   *   in, starting with ph_inum.
    * - OP_PROMISE: The index of the first vote returned (as specified in
    *   the prepare message).
    * - OP_DECREE, OP_ACCEPT, OP_COMMIT: The instance number of the decree.
@@ -114,9 +114,9 @@ struct paxos_acceptor {
 /* Preparation state for new proposers. */
 struct paxos_prep {
   unsigned pp_nacks;    // number of prepare acks
-  paxid_t pp_seqn;      // instance number of the first hole
+  paxid_t pp_inum;      // instance number of the first hole
   struct paxos_instance *pp_first;  // closest instance to the first hole
-                                    // with instance number <= pp_seqn
+                                    // with instance number <= pp_inum
 };
 
 /* Local state. */
