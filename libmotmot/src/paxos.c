@@ -20,8 +20,11 @@ void paxos_drop_connection(GIOChannel *);
 
 // Proposer operations
 int proposer_prepare(GIOChannel *);
+int proposer_decree(struct paxos_val *);
+int proposer_commit(struct paxos_instance *);
 int proposer_ack_promise(struct paxos_hdr *, msgpack_object *);
 int proposer_ack_accept(struct paxos_hdr *);
+int proposer_ack_request(struct paxos_hdr *, msgpack_object *);
 
 // Acceptor operations
 
@@ -256,6 +259,40 @@ proposer_prepare(GIOChannel *source)
   return 0;
 }
 
+int
+proposer_decree(struct paxos_val *val)
+{
+  return 0;
+}
+
+/**
+ * proposer_commit - Broadcast a commit message for a given Paxos instance.
+ *
+ * This should only be called when we receive a majority vote for a decree.
+ * We broadcast a commit message and mark the instance committed.
+ */
+int
+proposer_commit(struct paxos_instance *inst)
+{
+  struct paxos_hdr hdr;
+  struct paxos_yak py;
+
+  // Initialize a Paxos header.
+  hdr.ph_ballot = pax.ballot;
+  hdr.ph_opcode = OP_COMMIT;
+  hdr.ph_seqn = inst->pi_hdr.ph_seqn;
+
+  // Pack a prepare and broadcast it.
+  paxos_payload_new(&py, 1);
+  paxos_hdr_pack(&py, &hdr);
+  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+
+  // Mark the instance committed.
+  inst->pi_votes = 0;
+
+  return 0;
+}
+
 /**
  * proposer_ack_promise - Acknowledge an acceptor's promise.
  *
@@ -339,7 +376,7 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
   return 0;
 }
 
-/*
+/**
  * proposer_ack_accept - Acknowedge an acceptor's accept.
  *
  * Just increment the vote count of the correct Paxos instance and commit
@@ -356,8 +393,14 @@ proposer_ack_accept(struct paxos_hdr *hdr)
 
   // If we have a majority, send a commit message.
   if (inst->pi_votes >= MAJORITY) {
-    // TODO: call for commit
+    proposer_commit(inst);
   }
 
+  return 0;
+}
+
+int
+proposer_ack_request(struct paxos_hdr *hdr, msgpack_object *o)
+{
   return 0;
 }

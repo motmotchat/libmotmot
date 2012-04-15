@@ -67,7 +67,7 @@ struct paxos_hdr {
  *
  * - OP_DECREE: Decrees are just headers plus values.
  * - OP_ACCEPT: Acceptances are headers.
- * - OP_COMMIT: Commits are just headers plus values.
+ * - OP_COMMIT: Commits are just headers.
  * - OP_REQUEST: Requests are just headers plus values.
  * - OP_REDIRECT: Redirects are just headers.
  */
