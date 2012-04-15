@@ -66,7 +66,8 @@ proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
     case OP_COMMIT:
       // TODO: Commit and relinquish presidency if the ballot is higher,
       // otherwise check if we have a decree of the given instance.  If
-      // we do, redirect; otherwise commit it.
+      // we do and /are not preparing/, redirect; otherwise (if we don't
+      // or we do but we are preparing), commit it.
       break;
 
     case OP_REQUEST:
