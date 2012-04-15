@@ -27,10 +27,17 @@ if __name__ == '__main__':
     rVal = sock.recv(4096)
     print msgpack.unpackb(rVal)
     
-
+    """
     test = [1,3,"julie@bensing.com"]
 
     sock.sendall(msgpack.packb(test))
 
     rVal = sock.recv(4096)
+    print msgpack.unpackb(rVal)
+    """
+    test = [1,5,2]
+
+    sock.sendall(msgpack.packb(test))
+
+    rVal = msgpack.unpackb(sock.recv(4096))
     print rVal
