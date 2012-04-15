@@ -4,6 +4,7 @@
 #include "paxos.h"
 #include "list.h"
 
+#include <stdio.h>
 #include <glib.h>
 
 ///////////////////////////////////////////////////////////////////////////
@@ -46,8 +47,18 @@ ballot_compare(ballot_t x, ballot_t y)
 
 ///////////////////////////////////////////////////////////////////////////
 //
-//  Decree list operations
+//  Decree and decree list operations
 //
+
+/*
+ * Free a decree fully.
+ */
+void
+decree_free(struct paxos_decree *dec)
+{
+  g_free(dec->pd_val.pv_data);
+  g_free(dec);
+}
 
 /*
  * Find a decree by its instance number.
@@ -85,7 +96,7 @@ decree_add(struct decree_list *dlist, struct paxos_hdr *hdr,
   }
 
   dec->pd_hdr = *hdr;
-  dec->pd_votes = 1;
+  dec->pd_votes = 1;  // All decrees start out with 1 vote -OR- uncommited.
   dec->pd_val.pv_dkind = val->pv_dkind;
   dec->pd_val.pv_paxid = val->pv_paxid;
 
@@ -105,5 +116,45 @@ decree_add(struct decree_list *dlist, struct paxos_hdr *hdr,
 
   // Insert into the list, sorted.
   LIST_INSERT_AFTER(dlist, it, dec, pd_le);
+  return 0;
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Acceptor list operations
+//
+
+/*
+ * Broadcast a message to all acceptors.
+ */
+int
+paxos_broadcast(char *buf, size_t size)
+{
+  struct paxos_acceptor *acc;
+  GError *gerr;
+  GIOStatus status;
+  unsigned long len;
+
+  LIST_FOREACH(acc, &(pax.alist), pa_le) {
+    if (acc->pa_chan == NULL) {
+      continue;
+    }
+
+    gerr = NULL;
+    status = g_io_channel_write_chars(acc->pa_chan, buf, size, &len, &gerr);
+    if (status == G_IO_STATUS_ERROR) {
+      // TODO: error handling
+      dprintf(2, "proposer_prepare: Could not write prepare to socket.\n");
+    }
+
+    gerr = NULL;
+    status = g_io_channel_flush(acc->pa_chan, &gerr);
+    if (status == G_IO_STATUS_ERROR) {
+      // TODO: error handling
+      dprintf(2, "proposer_prepare: Could not flush prepare on socket.\n");
+    }
+  }
+
   return 0;
 }

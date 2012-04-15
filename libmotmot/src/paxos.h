@@ -74,10 +74,11 @@ struct paxos_hdr {
 
 /* Kinds of decrees. */
 typedef enum decree_kind {
-  DEC_CHAT = 0,     // chat message
-  DEC_RENEW,        // proposer lease renewal
-  DEC_JOIN,         // add an acceptor
-  DEC_LEAVE,        // remove an acceptor
+  DEC_NULL = 0,   // null value
+  DEC_CHAT,       // chat message
+  DEC_RENEW,      // proposer lease renewal
+  DEC_JOIN,       // add an acceptor
+  DEC_LEAVE,      // remove an acceptor
 } dkind_t;
 
 /* Decree value type. */
@@ -98,6 +99,7 @@ struct paxos_decree {
 
 LIST_HEAD(decree_list, paxos_decree);
 
+void decree_free(struct paxos_decree *);
 struct paxos_decree *decree_find(struct decree_list *, paxid_t);
 int decree_add(struct decree_list *, struct paxos_hdr *, struct paxos_val *);
 
@@ -131,5 +133,6 @@ int is_proposer();
 
 /* Paxos protocol. */
 int paxos_dispatch(GIOChannel *, GIOCondition, void *);
+int paxos_broadcast(char *, size_t);
 
 #endif /* __PAXOS_H__ */
