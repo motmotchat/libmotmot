@@ -105,8 +105,8 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
   printf("RECEIVED: ");
   msgpack_object_print(stdout, msg.data);
 
-  // This also flushes stdout
   printf("\n");
+  fflush(stdout);
 
   g_free(buf);
   return TRUE;
