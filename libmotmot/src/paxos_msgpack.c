@@ -23,6 +23,12 @@ paxos_payload_new(struct paxos_yak *py, size_t n)
 }
 
 void
+paxos_payload_begin_record(struct paxos_yak *py, size_t n)
+{
+  msgpack_pack_array(py->pk, n);
+}
+
+void
 paxos_payload_destroy(struct paxos_yak *py)
 {
   msgpack_packer_free(py->pk);
@@ -51,24 +57,16 @@ paxos_hdr_pack(struct paxos_yak *py, struct paxos_hdr *hdr)
   msgpack_pack_paxid(py->pk, hdr->ph_inst);
 }
 
-struct paxos_hdr *
-paxos_hdr_unpack(msgpack_object *o)
+void
+paxos_hdr_unpack(struct paxos_hdr *hdr, msgpack_object *o)
 {
-  struct paxos_hdr *hdr;
   struct msgpack_object *p;
-
-  hdr = g_malloc(sizeof(struct paxos_hdr));
-  if (hdr == NULL) {
-    return NULL;
-  }
 
   p = o->via.array.ptr;
   hdr->ph_ballot.id = p->via.u64;
   hdr->ph_ballot.gen = (++p)->via.u64;
   hdr->ph_opcode = (++p)->via.u64;
   hdr->ph_inst = (++p)->via.u64;
-
-  return hdr;
 }
 
 void
@@ -81,16 +79,10 @@ paxos_val_pack(struct paxos_yak *py, struct paxos_val *val)
   msgpack_pack_raw_body(py->pk, val->pv_data, val->pv_size);
 }
 
-struct paxos_val *
-paxos_val_unpack(msgpack_object *o)
+void
+paxos_val_unpack(struct paxos_val *val, msgpack_object *o)
 {
-  struct paxos_val *val;
   struct msgpack_object *p;
-
-  val = g_malloc(sizeof(struct paxos_val));
-  if (val == NULL) {
-    return NULL;
-  }
 
   p = o->via.array.ptr;
   val->pv_dkind = p->via.u64;
@@ -99,10 +91,9 @@ paxos_val_unpack(msgpack_object *o)
 
   val->pv_data = g_malloc(p->via.raw.size);
   if (val->pv_data == NULL) {
-    g_free(val);
-    return NULL;
+    return; // XXX: User needs to check for NULL?!
   }
   memcpy(val->pv_data, p->via.raw.ptr, p->via.raw.size);
 
-  return val;
+  return;
 }

@@ -155,7 +155,12 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
   p = o.via.array.ptr;
 
   // Unpack the Paxos header.
-  hdr = paxos_hdr_unpack(p);
+  hdr = g_malloc(sizeof(struct paxos_hdr));
+  if (hdr == NULL) {
+    // TODO: cry
+  }
+
+  paxos_hdr_unpack(hdr, p);
   if (hdr == NULL) {
     // TODO: error handling
     dprintf(2, "paxos_dispatch: Could not unpack header.\n");

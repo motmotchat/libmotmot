@@ -13,13 +13,14 @@ struct paxos_yak {
 };
 
 void paxos_payload_new(struct paxos_yak *, size_t);
+void paxos_payload_begin_record(struct paxos_yak *, size_t);
 void paxos_payload_destroy(struct paxos_yak *);
 char *paxos_payload_data(struct paxos_yak *);
 size_t paxos_payload_size(struct paxos_yak *);
 
 void paxos_hdr_pack(struct paxos_yak *, struct paxos_hdr *);
-struct paxos_hdr *paxos_hdr_unpack(msgpack_object *);
+void paxos_hdr_unpack(struct paxos_hdr *, msgpack_object *);
 void paxos_val_pack(struct paxos_yak *, struct paxos_val *);
-struct paxos_val *paxos_val_unpack(msgpack_object *);
+void paxos_val_unpack(struct paxos_val *, msgpack_object *);
 
 #endif /* __PAXOS_MSGPACK_H__ */
