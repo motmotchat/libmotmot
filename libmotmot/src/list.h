@@ -28,6 +28,8 @@
 
 #define LIST_LAST(head)   ((head)->lh_last)
 
+#define LIST_COUNT(head)  ((head)->lh_count)
+
 #define LIST_NEXT(elm, field)  ((elm)->field.le_next)
 
 #define LIST_PREV(elm, field)  ((elm)->field.le_prev)
