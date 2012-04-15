@@ -14,8 +14,11 @@
 // Local protocol state
 struct paxos_state pax;
 
-// Prototypes
-int paxos_prepare(GIOChannel *);
+// Proposer operations
+int proposer_prepare(GIOChannel *);
+void proposer_ack_promise(struct paxos_hdr *, msgpack_object *);
+
+// Acceptor operations
 
 int
 proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
@@ -25,23 +28,26 @@ proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
     case OP_PREPARE:
       // TODO: paxos_redirect();
       break;
-
     case OP_PROMISE:
+      proposer_ack_promise(hdr, o);
       break;
 
     case OP_DECREE:
+      // TODO: paxos_redirect();
       break;
 
     case OP_ACCEPT:
       break;
 
     case OP_COMMIT:
+      // TODO: decide what to do
       break;
 
     case OP_REQUEST:
       break;
 
     case OP_REDIRECT:
+      // TODO: decide what to do
       break;
   }
 
@@ -131,7 +137,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
 
       // If we're the new proposer, send a prepare.
       if (is_proposer()) {
-        paxos_prepare(source);
+        proposer_prepare(source);
       }
     }
 
@@ -148,7 +154,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
   msgpack_unpacker_next(pac, &res);
   o = res.data;
 
-  // TODO: better error handling
+  // TODO: error handling?
   assert(o.type == MSGPACK_OBJECT_ARRAY && o.via.array.size > 0
       && o.via.array.size <= 2);
 
@@ -165,13 +171,12 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
     // TODO: error handling
     dprintf(2, "paxos_dispatch: Could not unpack header.\n");
   }
-  ++p;
 
   // Switch on the type of message received.
   if (is_proposer()) {
-    retval = proposer_dispatch(source, hdr, p);
+    retval = proposer_dispatch(source, hdr, p + 1);
   } else {
-    retval = acceptor_dispatch(source, hdr, p);
+    retval = acceptor_dispatch(source, hdr, p + 1);
   }
 
   // TODO: freeing the msgpack_object
@@ -181,16 +186,17 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
 }
 
 /*
- * paxos_prepare - Broadcast a prepare message to all acceptors.
+ * proposer_prepare - Broadcast a prepare message to all acceptors.
  *
  * The initiation of a prepare sequence is only allowed if we believe
  * ourselves to be the proposer.  Moreover, each proposer needs to make it
- * exactly one time.  Therefore, we call paxos_prepare() when and only when:
- *  - We just dropped the connection to the previous proposer.
+ * exactly one time.  Therefore, we call proposer_prepare() when and only
+ * when:
+ *  - We just lost the connection to the previous proposer.
  *  - We were the next proposer in line.
  */
 int
-paxos_prepare(GIOChannel *source)
+proposer_prepare(GIOChannel *source)
 {
   struct paxos_hdr hdr;
   struct paxos_decree *dec;
@@ -244,16 +250,64 @@ paxos_prepare(GIOChannel *source)
     );
     if (status == G_IO_STATUS_ERROR) {
       // TODO: error handling
-      dprintf(2, "paxos_prepare: Could not write prepare to socket.\n");
+      dprintf(2, "proposer_prepare: Could not write prepare to socket.\n");
     }
 
     gerr = NULL;
     status = g_io_channel_flush(acc->pa_chan, &gerr);
     if (status == G_IO_STATUS_ERROR) {
       // TODO: error handling
-      dprintf(2, "paxos_prepare: Could not flush prepare on socket.\n");
+      dprintf(2, "proposer_prepare: Could not flush prepare on socket.\n");
     }
   }
 
   return TRUE;
+}
+
+void
+proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
+{
+  paxid_t acc_id;
+  msgpack_object *p, *pend, *r;
+  struct paxos_decree *dec;
+
+  // If the prepare is for some other ballot, ignore it.
+  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+    return;
+  }
+
+  // Grab the acceptor's ID.
+  p = o->via.array.ptr;
+  acc_id = p[0].via.u64;
+
+  pend = p[1].via.array.ptr + p[1].via.array.size;
+
+  // Extract all the past vote information.
+  for (p = p[1].via.array.ptr; p != pend; ++p) {
+    r = p->via.array.ptr;
+
+    dec = g_malloc(sizeof(struct paxos_decree));
+    if (dec == NULL) {
+      // TODO: cry
+    }
+
+    paxos_hdr_unpack(&dec->pd_hdr, r);
+    paxos_val_unpack(&dec->pd_val, r + 1);
+
+    struct paxos_decree *dec0 = decree_find(&pax.prep->pp_dlist, hdr->ph_inst);
+    (void)dec0;
+    if (ballot_compare(dec->pd_hdr.ph_ballot, dec0->pd_hdr.ph_ballot) > 1) {
+      // XXX: Replace the decree.
+    }
+  }
+
+  // Acknowledge the prep.
+  pax.prep->pp_nacks++;
+
+  // Return if we don't have a majority of acks; otherwise, end the prepare.
+  if (pax.prep->pp_nacks < MAJORITY) {
+    return;
+  }
+
+  // XXX: Do things.
 }

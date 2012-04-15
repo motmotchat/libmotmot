@@ -43,7 +43,8 @@ struct paxos_hdr {
    *   a value.  Any acceptor who accepts the prepare will return to us the
    *   most recent value they accepted for each decree starting with pax_inst.
    * - OP_PROMISE: The index of the first vote returned (as specified in
-   *   the prepare message).
+   *   the prepare message).  In the prepare struct, this values is overwritten
+   *   as the acceptor ID of each vote.
    * - OP_DECREE, OP_ACCEPT, OP_COMMIT: The instance number of the decree.
    * - OP_REQUEST, OP_REDIRECT: Not used.
    */
@@ -107,17 +108,12 @@ struct paxos_acceptor {
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
 };
 
-/* List of acceptors' promises for a single Paxos instance. */
-struct prep_inst {
-  paxid_t inst;
-  LIST_HEAD(, decree_list) dlist;
-  LIST_ENTRY(prepinst) le;
-};
+#define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
 
 /* Preparation state for new proposers. */
 struct paxos_prep {
-  unsigned pp_npreps;
-  LIST_HEAD(, prep_inst) pp_pinsts;
+  unsigned pp_nacks;
+  struct decree_list pp_dlist;
 };
 
 /* Local state. */
