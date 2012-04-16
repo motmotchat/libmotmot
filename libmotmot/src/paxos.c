@@ -35,6 +35,12 @@ int proposer_ack_accept(struct paxos_header *);
 int proposer_ack_request(struct paxos_header *, msgpack_object *);
 
 // Acceptor operations
+int acceptor_ack_prepare(GIOChannel *, struct paxos_hdr *);
+int acceptor_promise();
+int acceptor_ack_decree(struct paxos_hdr *, msgpack_object *);
+int acceptor_accept(struct paxos_hdr *);
+int acceptor_ack_commit(struct paxos_hdr *);
+int acceptor_request(size_t, const char *);
 
 int
 proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
@@ -88,24 +94,31 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
 {
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
+      acceptor_ack_prepare(source, hdr);
       break;
 
     case OP_PROMISE:
+      // TODO: paxos_redirect();
       break;
 
     case OP_DECREE:
+      acceptor_ack_decree(hdr, o);
       break;
 
     case OP_ACCEPT:
+      // TODO: paxos_redirect();
       break;
 
     case OP_COMMIT:
+      acceptor_ack_commit(hdr);
       break;
 
     case OP_REQUEST:
+      // TODO: paxos_redirect();
       break;
 
     case OP_REDIRECT:
+      // TODO: Think Real Hard (tm)
       break;
   }
 
@@ -551,5 +564,82 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
   // XXX: We should decide how to pack the raw data into a request (perhaps
   // as a third array?) and then unpack it and add it to our request queue.
 
+  return 0;
+}
+
+/**
+ * acceptor_ack_prepare - Prepare for a new president
+ *
+ * First, we check to see if we think that there's someone else who's more
+ * eligible to be president. If there exists such a person, redirect this
+ * candidate to that person.
+ *
+ * If we think that this person would be a good president, prepare for their
+ * presidency by sending them a list of our pending promises for all future
+ * rounds.
+ */
+int
+acceptor_ack_prepare(GIOChannel *source, struct paxos_hdr *hdr)
+{
+  return 0;
+}
+
+/**
+ * acceptor_promise - Promise fealty to our new overlord
+ *
+ * Send the president a promise to accept their decrees in perpituity. We also
+ * send them a list of all of our pending promises we've made
+ */
+int
+acceptor_promise()
+{
+  return 0;
+}
+
+/**
+ * acceptor_ack_decree - Accept a value for a synod round
+ *
+ * Move to commit the given value for the current synod round. After this step,
+ * we consider the decree accepted and will only accept this decree going
+ * forward. We do not consider the decree "learned," however, so we don't
+ * release it to the outside world just yet.
+ */
+int
+acceptor_ack_decree(struct paxos_hdr *hdr, msgpack_object *o)
+{
+  return 0;
+}
+
+/**
+ * acceptor_accept - Notify the proposer we accept their decree
+ *
+ * Respond to the proposer with an acknowledgement that we have committed their
+ * decree.
+ */
+int
+acceptor_accept(struct paxos_hdr *hdr)
+{
+  return 0;
+}
+
+
+/**
+ * acceptor_ack_commit - Commit ("learn") a value
+ *
+ * Commit this value as a permanent learned value, and notify listeners of the
+ * value payload.
+ */
+int
+acceptor_ack_commit(struct paxos_hdr *hdr)
+{
+  return 0;
+}
+
+/**
+ * acceptor_request - Request the president to propose the given value
+ */
+int
+acceptor_request(size_t len, const char *message)
+{
   return 0;
 }
