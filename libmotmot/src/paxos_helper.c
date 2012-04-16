@@ -56,7 +56,7 @@ ballot_compare(ballot_t x, ballot_t y)
 
 ///////////////////////////////////////////////////////////////////////////
 //
-//  Instance and instance list operations
+//  Instance and request list operations
 //
 
 /*
@@ -80,10 +80,11 @@ instance_find(struct instance_list *ilist, paxid_t inum)
 }
 
 /*
- * Add a decree.
+ * Add an instance.  If an instance with the same instance number already
+ * exists, the list is not modified and the existing instance is returned.
  */
 struct paxos_instance *
-instance_add(struct instance_list *ilist, struct paxos_instance *inst)
+instance_insert(struct instance_list *ilist, struct paxos_instance *inst)
 {
   struct paxos_instance *it;
 
@@ -99,6 +100,51 @@ instance_add(struct instance_list *ilist, struct paxos_instance *inst)
   // Insert into the list, sorted.
   LIST_INSERT_AFTER(ilist, it, inst, pi_le);
   return inst;
+}
+
+/*
+ * Find a request by its full request ID.
+ */
+struct paxos_request *
+request_find(struct request_list *rlist, paxid_t srcid, paxid_t reqid)
+{
+  struct paxos_request *it;
+
+  // We assume we want an earlier request, so we search forward.
+  LIST_FOREACH(it, rlist, pr_le) {
+    if (srcid == it->pr_val.pv_srcid && reqid == it->pr_val.pv_reqid) {
+      return it;
+    } else if (srcid <= it->pr_val.pv_srcid && reqid < it->pr_val.pv_reqid) {
+      break;
+    }
+  }
+
+  return NULL;
+}
+
+/*
+ * Add a request.  If a request with the same request ID already exists, the
+ * list is not modified and the existing request is returned.
+ */
+struct paxos_request *
+request_add(struct request_list *rlist, struct paxos_request *req)
+{
+  struct paxos_request *it;
+
+  // We're probably ~appending.
+  LIST_FOREACH_REV(it, rlist, pr_le) {
+    if (req->pr_val.pv_srcid == it->pr_val.pv_srcid &&
+        req->pr_val.pv_reqid == it->pr_val.pv_reqid) {
+      return it;
+    } else if (req->pr_val.pv_srcid >= it->pr_val.pv_srcid &&
+               req->pr_val.pv_reqid > it->pr_val.pv_reqid) {
+      break;
+    }
+  }
+
+  // Insert into the list, sorted.
+  LIST_INSERT_AFTER(rlist, it, req, pr_le);
+  return req;
 }
 
 

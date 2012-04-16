@@ -94,6 +94,19 @@ struct paxos_value {
    */
 };
 
+/* Request containing (usually chat) data, pending proposer commit. */
+struct paxos_request {
+  struct paxos_value pr_val;  // request ID and kind
+  void *pr_data;              // data pointer dependent on kind
+  LIST_ENTRY(paxos_request) pr_le;  // sorted linked list of requests
+};
+
+LIST_HEAD(request_list, paxos_request);
+
+struct paxos_request *request_find(struct request_list *, paxid_t, paxid_t);
+struct paxos_request *request_insert(struct request_list *,
+    struct paxos_request *);
+
 /* Representation of a Paxos instance. */
 struct paxos_instance {
   struct paxos_header pi_hdr;  // Paxos header identifying the instance
@@ -105,7 +118,7 @@ struct paxos_instance {
 LIST_HEAD(instance_list, paxos_instance);
 
 struct paxos_instance *instance_find(struct instance_list *, paxid_t);
-struct paxos_instance *instance_add(struct instance_list *,
+struct paxos_instance *instance_insert(struct instance_list *,
     struct paxos_instance *);
 
 /* A Paxos protocol participant. */
@@ -128,8 +141,12 @@ struct paxos_state {
   paxid_t self_id;                    // our own acceptor ID
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
   ballot_t ballot;                    // identity of the current ballot
-  paxid_t req_id;                     // local incrementing request ID
+
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
+
+  paxid_t req_id;                     // local incrementing request ID
+  struct request_list rlist;          // queued up requests waiting for commit
+
   struct instance_list ilist;         // list of all instances
   LIST_HEAD(, paxos_acceptor) alist;  // list of all Paxos participants
 };
