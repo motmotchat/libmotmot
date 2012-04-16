@@ -109,8 +109,6 @@ struct paxos_acceptor {
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
 };
 
-#define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
-
 /* Preparation state for new proposers. */
 struct paxos_prep {
   unsigned pp_nacks;    // number of prepare acks
@@ -132,6 +130,8 @@ struct paxos_state {
 extern struct paxos_state pax;
 inline int is_proposer();
 inline paxid_t next_instance();
+
+#define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
 
 /* Paxos protocol. */
 int paxos_dispatch(GIOChannel *, GIOCondition, void *);
