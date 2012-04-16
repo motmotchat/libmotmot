@@ -2,6 +2,7 @@
 
 from gevent.server import *
 from gevent import Greenlet
+from gevent import socket
 import msgpack
 import sqlite3 as lite
 import sys
@@ -13,11 +14,13 @@ class RemoteMethods:
     UNREGISTER_FRIEND=3
     GET_FRIEND_IP=4
     REGISTER_STATUS=5
+    AUTHENTICATE_SERVER=30
     SERVER_SEND_FRIEND=31
     SERVER_SEND_UNFRIEND=32
     ACCEPT_FRIEND=6
     SERVER_SEND_ACCEPT=34
     SERVER_SEND_STATUS_CHANGED=33
+    
 
 class status:
     ONLINE=1
@@ -54,7 +57,15 @@ def doAuth(userName, password, ipAddr, port):
 
     return auth
 
-    
+def doAuthServer(hostName, ipAddr, port):
+    auth = False
+
+    hostIp = socket.gethostbyname(hostName)
+    if hostIp == ipAddr:
+        authList[(ipAddr, port)] = [hostName, status.ONLINE]
+        auth = True
+
+    return auth
 
 def execute_query(q, params):
     con = None
@@ -83,9 +94,15 @@ def registerFriend(userName, friend, allowRemoteSend):
     splt = friend.split("@")
     if splt[1] != DOMAIN_NAME:
         if allowRemoteSend:
-            address = (splt[1], 38009)
+            address = (splt[1], 8888)
             sock = socket.socket()
             sock.connect(address)
+            
+            sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
+            rVal = sock.recv(4096)
+            rVal = msgpack.unpackb(rVal)
+            if rVal[2] != 61:
+                raise RPCError
 
             sock.sendall(msgpack.packb([1,31,friend,userName]))
             rVal = sock.recv(4096)
@@ -108,9 +125,16 @@ def unregisterFriend(userName, friend, allowRemoteSend):
     splt = friend.split("@")
     if splt[1] != DOMAIN_NAME:
         if allowRemoteSend:
-            address = (splt[1], 38009)
+            address = (splt[1], 8888)
             sock = socket.socket()
             sock.connect(address)
+            
+
+            sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
+            rVal = sock.recv(4096)
+            rVal = msgpack.unpackb(rVal)
+            if rVal[2] != 61:
+                raise RPCError
 
             sock.sendall(msgpack.packb([1,32,friend,userName]))
             rVal = sock.recv(4096)
@@ -138,10 +162,16 @@ def statusChanged(userName, status):
                     qList[friend[0]].put((userName, status))
 
             else:
-                address = (splt[1], 38009)
+                address = (splt[1], 8888)
                 sock = socket.socket()
                 sock.connect(address)
 
+                sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
+                rVal = sock.recv(4096)
+                rVal = msgpack.unpackb(rVal)
+                if rVal[2] != 61:
+                    raise RPCError
+                
                 sock.sendall(msgpack.packb([1, 33, friend[0], userName, status]))
                 rVal = sock.recv(4096)
                 rVal = msgpack.unpackb(rVal)
@@ -164,9 +194,15 @@ def acceptFriend(acceptor, friend):
         if friend in qList:
             qList[friend].put(acceptor)
     else:
-        address = (splt[1], 38009)
+        address = (splt[1], 8888)
         sock = socket.socket()
         sock.connect(address)
+
+        sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
+        rVal = sock.recv(4096)
+        rVal = msgpack.unpackb(rVal)
+        if rVal[2] != 61:
+            raise RPCError
 
         sock.sendall(msgpack.packb([1, 34, friend, acceptor[0], acceptor[1]]))
         rVal = sock.recv(4096)
@@ -200,6 +236,12 @@ class ReaderGreenlet(Greenlet):
             else:
                 if val[1] == RemoteMethods.AUTHENTICATE_USER:
                     success = doAuth(val[2], val[3], self.ipAddr, self.port)
+                    if success:
+                        self.socket.sendall(msgpack.packb([1,61,"Authentication Succeeded"]))
+                    else:
+                        self.socket.sendall(msgpack.packb([1,92,"Permission Denied"]))
+                elif val[1] == RemoteMethods.AUTHENTICATE_SERVER:
+                    success = doAuthServer(val[2], self.ipAddr, self.port)
                     if success:
                         self.socket.sendall(msgpack.packb([1,61,"Authentication Succeeded"]))
                     else:
@@ -269,5 +311,6 @@ def handleConnection(socket, address):
 
 
 if __name__ == '__main__':
-   server = StreamServer(('localhost',8888), handleConnection)
-   server.serve_forever()
+    DOMAIN_NAME = sys.argv[1]
+    server = StreamServer(('localhost',8888), handleConnection)
+    server.serve_forever()
