@@ -479,9 +479,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_votes = 1;
 
       inst->pi_val.pv_dkind = DEC_NULL;
-      inst->pi_val.pv_paxid = pax.self_id;
-      inst->pi_val.pv_size = 0;
-      inst->pi_val.pv_data = NULL;
+      inst->pi_val.pv_srcid = pax.self_id;
+      inst->pi_val.pv_reqid = (++pax.req_id);
 
       LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
     } else if (it->pi_votes != 0) {

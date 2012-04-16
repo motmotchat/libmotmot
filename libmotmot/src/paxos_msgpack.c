@@ -83,9 +83,8 @@ paxos_value_pack(struct paxos_yak *py, struct paxos_value *val)
 {
   msgpack_pack_array(py->pk, 4);
   msgpack_pack_int(py->pk, val->pv_dkind);
-  msgpack_pack_paxid(py->pk, val->pv_paxid);
-  msgpack_pack_raw(py->pk, val->pv_size);
-  msgpack_pack_raw_body(py->pk, val->pv_data, val->pv_size);
+  msgpack_pack_paxid(py->pk, val->pv_srcid);
+  msgpack_pack_paxid(py->pk, val->pv_reqid);
 }
 
 void
@@ -100,17 +99,8 @@ paxos_value_unpack(struct paxos_value *val, msgpack_object *o)
   p = o->via.array.ptr;
   // TODO: check types of these
   val->pv_dkind = p->via.u64;
-  val->pv_paxid = (++p)->via.u64;
-  val->pv_size = (++p)->via.raw.size;
-  val->pv_data = NULL;
-
-  if (p->via.raw.size > 0) {
-    val->pv_data = g_malloc(p->via.raw.size);
-    if (val->pv_data == NULL) {
-      return; // XXX: User needs to check for NULL?!
-    }
-    memcpy(val->pv_data, p->via.raw.ptr, p->via.raw.size);
-  }
+  val->pv_srcid = (++p)->via.u64;
+  val->pv_reqid = (++p)->via.u64;
 
   return;
 }

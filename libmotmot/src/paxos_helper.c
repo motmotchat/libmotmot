@@ -60,16 +60,6 @@ ballot_compare(ballot_t x, ballot_t y)
 //
 
 /*
- * Free a instance fully.
- */
-void
-instance_free(struct paxos_instance *inst)
-{
-  g_free(inst->pi_val.pv_data);
-  g_free(inst);
-}
-
-/*
  * Find an instance by its instance number.
  */
 struct paxos_instance *

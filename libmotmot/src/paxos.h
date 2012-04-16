@@ -82,9 +82,16 @@ typedef enum decree_kind {
 /* Decree value type. */
 struct paxos_value {
   dkind_t pv_dkind;    // decree kind
-  paxid_t pv_paxid;    // from ID
-  size_t pv_size;      // size of value
-  char *pv_data;       // decree value
+  paxid_t pv_srcid;    // ID of decree requester
+  paxid_t pv_reqid;    // request ID subordinate to requester
+  /**
+   * In order to reduce network traffic, requesters broadcast their requests
+   * to all acceptors, associating with each a session-unique ID (the
+   * combination of the requester's acceptor ID with an ID unique among the
+   * requests from that particular requester).  Any data they wish to pass
+   * along is queued up by the acceptors.  The proposer then makes decrees
+   * and orders commits relative to the request's unique ID.
+   */
 };
 
 /* Representation of a Paxos instance. */
@@ -97,7 +104,6 @@ struct paxos_instance {
 
 LIST_HEAD(instance_list, paxos_instance);
 
-void instance_free(struct paxos_instance *);
 struct paxos_instance *instance_find(struct instance_list *, paxid_t);
 struct paxos_instance *instance_add(struct instance_list *,
     struct paxos_instance *);
@@ -122,6 +128,7 @@ struct paxos_state {
   paxid_t self_id;                    // our own acceptor ID
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
   ballot_t ballot;                    // identity of the current ballot
+  paxid_t req_id;                     // local incrementing request ID
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
   struct instance_list ilist;         // list of all instances
   LIST_HEAD(, paxos_acceptor) alist;  // list of all Paxos participants
