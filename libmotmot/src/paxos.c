@@ -290,6 +290,7 @@ proposer_prepare(GIOChannel *source)
   paxos_payload_init(&py, 1);
   paxos_hdr_pack(&py, &hdr);
   paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  paxos_payload_destroy(&py);
 
   return 0;
 }
@@ -323,6 +324,7 @@ proposer_decree(struct paxos_instance *inst)
   paxos_hdr_pack(&py, &(inst->pi_hdr));
   paxos_val_pack(&py, &(inst->pi_val));
   paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  paxos_payload_destroy(&py);
 
   return 0;
 }
@@ -345,6 +347,7 @@ proposer_commit(struct paxos_instance *inst)
   paxos_payload_init(&py, 1);
   paxos_hdr_pack(&py, &(inst->pi_hdr));
   paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  paxos_payload_destroy(&py);
 
   // Mark the instance committed.
   inst->pi_votes = 0;
@@ -496,6 +499,7 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
     paxos_hdr_pack(&py, &(inst->pi_hdr));
     paxos_val_pack(&py, &(inst->pi_val));
     paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+    paxos_payload_destroy(&py);
   }
 
   // Free the prepare and return.
