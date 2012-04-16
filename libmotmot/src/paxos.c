@@ -175,8 +175,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
     retval = acceptor_dispatch(source, hdr, p + 1);
   }
 
-  // TODO: freeing the msgpack_object
-
+  msgpack_unpacked_destroy(&res);
   g_free(hdr);
   return retval;
 }
