@@ -6,6 +6,7 @@
 
 #include <glib.h>
 #include <msgpack.h>
+#include <assert.h>
 
 static void
 msgpack_pack_paxid(msgpack_packer *pk, paxid_t paxid)
@@ -14,7 +15,7 @@ msgpack_pack_paxid(msgpack_packer *pk, paxid_t paxid)
 }
 
 void
-paxos_payload_new(struct paxos_yak *py, size_t n)
+paxos_payload_init(struct paxos_yak *py, size_t n)
 {
   py->buf = msgpack_sbuffer_new();
   py->pk = msgpack_packer_new(py->buf, msgpack_sbuffer_write);
@@ -33,6 +34,9 @@ paxos_payload_destroy(struct paxos_yak *py)
 {
   msgpack_packer_free(py->pk);
   msgpack_sbuffer_free(py->buf);
+
+  py->pk = NULL;
+  py->buf = NULL;
 }
 
 char *
@@ -62,7 +66,12 @@ paxos_hdr_unpack(struct paxos_hdr *hdr, msgpack_object *o)
 {
   struct msgpack_object *p;
 
+  // Make sure the input is well-formed
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  assert(o->via.array.size == 4);
+
   p = o->via.array.ptr;
+  // TODO: check types of these
   hdr->ph_ballot.id = p->via.u64;
   hdr->ph_ballot.gen = (++p)->via.u64;
   hdr->ph_opcode = (++p)->via.u64;
@@ -84,7 +93,12 @@ paxos_val_unpack(struct paxos_val *val, msgpack_object *o)
 {
   struct msgpack_object *p;
 
+  // Make sure the input is well-formed
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  assert(o->via.array.size == 4);
+
   p = o->via.array.ptr;
+  // TODO: check types of these
   val->pv_dkind = p->via.u64;
   val->pv_paxid = (++p)->via.u64;
   val->pv_size = (++p)->via.raw.size;
