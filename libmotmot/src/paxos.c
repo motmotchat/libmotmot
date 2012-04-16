@@ -35,11 +35,11 @@ int proposer_ack_accept(struct paxos_header *);
 int proposer_ack_request(struct paxos_header *, msgpack_object *);
 
 // Acceptor operations
-int acceptor_ack_prepare(GIOChannel *, struct paxos_hdr *);
+int acceptor_ack_prepare(GIOChannel *, struct paxos_header *);
 int acceptor_promise();
-int acceptor_ack_decree(struct paxos_hdr *, msgpack_object *);
-int acceptor_accept(struct paxos_hdr *);
-int acceptor_ack_commit(struct paxos_hdr *);
+int acceptor_ack_decree(struct paxos_header *, msgpack_object *);
+int acceptor_accept(struct paxos_header *);
+int acceptor_ack_commit(struct paxos_header *);
 int acceptor_request(size_t, const char *);
 
 int
@@ -579,7 +579,7 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
  * rounds.
  */
 int
-acceptor_ack_prepare(GIOChannel *source, struct paxos_hdr *hdr)
+acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
 {
   if (pax.proposer->pa_chan != source) {
     // TODO: paxos_redirect();
@@ -610,7 +610,7 @@ acceptor_promise()
  * release it to the outside world just yet.
  */
 int
-acceptor_ack_decree(struct paxos_hdr *hdr, msgpack_object *o)
+acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 {
   return 0;
 }
@@ -622,7 +622,7 @@ acceptor_ack_decree(struct paxos_hdr *hdr, msgpack_object *o)
  * decree.
  */
 int
-acceptor_accept(struct paxos_hdr *hdr)
+acceptor_accept(struct paxos_header *hdr)
 {
   return 0;
 }
@@ -635,7 +635,7 @@ acceptor_accept(struct paxos_hdr *hdr)
  * value payload.
  */
 int
-acceptor_ack_commit(struct paxos_hdr *hdr)
+acceptor_ack_commit(struct paxos_header *hdr)
 {
   return 0;
 }
