@@ -52,7 +52,7 @@ paxos_payload_size(struct paxos_yak *py)
 }
 
 void
-paxos_hdr_pack(struct paxos_yak *py, struct paxos_hdr *hdr)
+paxos_header_pack(struct paxos_yak *py, struct paxos_header *hdr)
 {
   msgpack_pack_array(py->pk, 4);
   msgpack_pack_paxid(py->pk, hdr->ph_ballot.id);
@@ -62,7 +62,7 @@ paxos_hdr_pack(struct paxos_yak *py, struct paxos_hdr *hdr)
 }
 
 void
-paxos_hdr_unpack(struct paxos_hdr *hdr, msgpack_object *o)
+paxos_header_unpack(struct paxos_header *hdr, msgpack_object *o)
 {
   struct msgpack_object *p;
 
@@ -79,7 +79,7 @@ paxos_hdr_unpack(struct paxos_hdr *hdr, msgpack_object *o)
 }
 
 void
-paxos_val_pack(struct paxos_yak *py, struct paxos_val *val)
+paxos_value_pack(struct paxos_yak *py, struct paxos_value *val)
 {
   msgpack_pack_array(py->pk, 4);
   msgpack_pack_int(py->pk, val->pv_dkind);
@@ -89,7 +89,7 @@ paxos_val_pack(struct paxos_yak *py, struct paxos_val *val)
 }
 
 void
-paxos_val_unpack(struct paxos_val *val, msgpack_object *o)
+paxos_value_unpack(struct paxos_value *val, msgpack_object *o)
 {
   struct msgpack_object *p;
 

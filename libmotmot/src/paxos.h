@@ -33,7 +33,7 @@ typedef enum paxos_opcode {
 } paxop_t;
 
 /* Paxos message header that is included with any message. */
-struct paxos_hdr {
+struct paxos_header {
   ballot_t ph_ballot;  // ballot ID
   paxop_t ph_opcode;   // protocol opcode
   paxid_t ph_inum;     // Multi-Paxos instance number
@@ -60,7 +60,7 @@ struct paxos_hdr {
  *
  *   struct paxos_promise {
  *     struct paoxs_hdr hdr   // We use only the ballot.
- *     struct paxos_val val;
+ *     struct paxos_value val;
  *   } votes[];
  *
  * - OP_DECREE: Decrees are headers plus values.
@@ -80,7 +80,7 @@ typedef enum decree_kind {
 } dkind_t;
 
 /* Decree value type. */
-struct paxos_val {
+struct paxos_value {
   dkind_t pv_dkind;    // decree kind
   paxid_t pv_paxid;    // from ID
   size_t pv_size;      // size of value
@@ -89,10 +89,10 @@ struct paxos_val {
 
 /* Representation of a Paxos instance. */
 struct paxos_instance {
-  struct paxos_hdr pi_hdr;  // Paxos header identifying the instance
+  struct paxos_header pi_hdr;  // Paxos header identifying the instance
   unsigned pi_votes;        // number of accepts -OR- 0 if committed
   LIST_ENTRY(paxos_instance) pi_le;   // sorted linked list of instances
-  struct paxos_val pi_val;  // value of the decree
+  struct paxos_value pi_val;  // value of the decree
 };
 
 LIST_HEAD(instance_list, paxos_instance);

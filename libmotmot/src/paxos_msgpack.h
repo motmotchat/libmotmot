@@ -18,9 +18,9 @@ void paxos_payload_destroy(struct paxos_yak *);
 char *paxos_payload_data(struct paxos_yak *);
 size_t paxos_payload_size(struct paxos_yak *);
 
-void paxos_hdr_pack(struct paxos_yak *, struct paxos_hdr *);
-void paxos_hdr_unpack(struct paxos_hdr *, msgpack_object *);
-void paxos_val_pack(struct paxos_yak *, struct paxos_val *);
-void paxos_val_unpack(struct paxos_val *, msgpack_object *);
+void paxos_header_pack(struct paxos_yak *, struct paxos_header *);
+void paxos_header_unpack(struct paxos_header *, msgpack_object *);
+void paxos_value_pack(struct paxos_yak *, struct paxos_value *);
+void paxos_value_unpack(struct paxos_value *, msgpack_object *);
 
 #endif /* __PAXOS_MSGPACK_H__ */

@@ -30,14 +30,14 @@ void paxos_drop_connection(GIOChannel *);
 int proposer_prepare(GIOChannel *);
 int proposer_decree(struct paxos_instance *);
 int proposer_commit(struct paxos_instance *);
-int proposer_ack_promise(struct paxos_hdr *, msgpack_object *);
-int proposer_ack_accept(struct paxos_hdr *);
-int proposer_ack_request(struct paxos_hdr *, msgpack_object *);
+int proposer_ack_promise(struct paxos_header *, msgpack_object *);
+int proposer_ack_accept(struct paxos_header *);
+int proposer_ack_request(struct paxos_header *, msgpack_object *);
 
 // Acceptor operations
 
 int
-proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
+proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
   // If the message is for some other ballot, send a redirect.
@@ -83,7 +83,7 @@ proposer_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
 }
 
 int
-acceptor_dispatch(GIOChannel *source, struct paxos_hdr *hdr,
+acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
   switch (hdr->ph_opcode) {
@@ -121,7 +121,7 @@ int
 paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
 {
   int retval;
-  struct paxos_hdr *hdr;
+  struct paxos_header *hdr;
 
   msgpack_unpacker *pac;
   unsigned long len;
@@ -166,7 +166,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
     // TODO: error handling
     dprintf(2, "paxos_dispatch: Could not allocate header.\n");
   }
-  paxos_hdr_unpack(hdr, p);
+  paxos_header_unpack(hdr, p);
 
   // Switch on the type of message received.
   if (is_proposer()) {
@@ -233,7 +233,7 @@ int
 proposer_prepare(GIOChannel *source)
 {
   struct paxos_instance *it;
-  struct paxos_hdr hdr;
+  struct paxos_header hdr;
   struct paxos_yak py;
   paxid_t inum;
 
@@ -288,7 +288,7 @@ proposer_prepare(GIOChannel *source)
 
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
-  paxos_hdr_pack(&py, &hdr);
+  paxos_header_pack(&py, &hdr);
   paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
   paxos_payload_destroy(&py);
 
@@ -321,8 +321,8 @@ proposer_decree(struct paxos_instance *inst)
 
   // Pack and broadcast the decree.
   paxos_payload_init(&py, 2);
-  paxos_hdr_pack(&py, &(inst->pi_hdr));
-  paxos_val_pack(&py, &(inst->pi_val));
+  paxos_header_pack(&py, &(inst->pi_hdr));
+  paxos_value_pack(&py, &(inst->pi_val));
   paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
   paxos_payload_destroy(&py);
 
@@ -345,7 +345,7 @@ proposer_commit(struct paxos_instance *inst)
 
   // Pack and broadcast the commit.
   paxos_payload_init(&py, 1);
-  paxos_hdr_pack(&py, &(inst->pi_hdr));
+  paxos_header_pack(&py, &(inst->pi_hdr));
   paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
   paxos_payload_destroy(&py);
 
@@ -387,7 +387,7 @@ get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
  * any holes.  We then end the prepare.
  */
 int
-proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
+proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 {
   msgpack_object *p, *pend, *r;
   struct paxos_instance *inst, *it;
@@ -413,8 +413,8 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
     r = p->via.array.ptr;
 
     // Unpack a instance.
-    paxos_hdr_unpack(&inst->pi_hdr, r);
-    paxos_val_unpack(&inst->pi_val, r + 1);
+    paxos_header_unpack(&inst->pi_hdr, r);
+    paxos_value_unpack(&inst->pi_val, r + 1);
     inst->pi_votes = 1;
 
     // Get the closest instance with instance number >= the instance number
@@ -496,8 +496,8 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
 
     // Pack and broadcast the decree.
     paxos_payload_init(&py, 2);
-    paxos_hdr_pack(&py, &(inst->pi_hdr));
-    paxos_val_pack(&py, &(inst->pi_val));
+    paxos_header_pack(&py, &(inst->pi_hdr));
+    paxos_value_pack(&py, &(inst->pi_val));
     paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
     paxos_payload_destroy(&py);
   }
@@ -514,7 +514,7 @@ proposer_ack_promise(struct paxos_hdr *hdr, msgpack_object *o)
  * if we have a majority.
  */
 int
-proposer_ack_accept(struct paxos_hdr *hdr)
+proposer_ack_accept(struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
 
@@ -534,7 +534,7 @@ proposer_ack_accept(struct paxos_hdr *hdr)
  * proposer_ack_request - Dispatch a request as a decree.
  */
 int
-proposer_ack_request(struct paxos_hdr *hdr, msgpack_object *o)
+proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 {
   struct paxos_instance *inst;
 
@@ -543,7 +543,7 @@ proposer_ack_request(struct paxos_hdr *hdr, msgpack_object *o)
   if (inst == NULL) {
     // TODO: cry
   }
-  paxos_val_unpack(&inst->pi_val, o);
+  paxos_value_unpack(&inst->pi_val, o);
 
   // Send a decree.
   proposer_decree(inst);
