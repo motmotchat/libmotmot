@@ -353,6 +353,9 @@ proposer_commit(struct paxos_instance *inst)
   inst->pi_votes = 0;
 
   // XXX: Act on the decree (e.g., display chat, record configs).
+  // We'll need to find the corresponding request in the request queue for
+  // the actual data, but only for those dkinds that are associated with
+  // requests.
 
   return 0;
 }
@@ -401,7 +404,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   it = pax.prep->pp_first;
 
   // Allocate a scratch instance.
-  // XXX: We're leaking the data pointer, which we should stop passing anyway.
   inst = g_malloc(sizeof(*inst));
   if (inst == NULL) {
     // TODO: cry
@@ -441,7 +443,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // Free the scratch instance.
-  // XXX: Data pointer leakage!
   g_free(inst);
 
   // Acknowledge the prep.
@@ -480,7 +481,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
       inst->pi_val.pv_dkind = DEC_NULL;
       inst->pi_val.pv_srcid = pax.self_id;
-      inst->pi_val.pv_reqid = (++pax.req_id);
+      inst->pi_val.pv_reqid = pax.req_id;
 
       LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
     } else if (it->pi_votes != 0) {
@@ -546,6 +547,9 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 
   // Send a decree.
   proposer_decree(inst);
+
+  // XXX: We should decide how to pack the raw data into a request (perhaps
+  // as a third array?) and then unpack it and add it to our request queue.
 
   return 0;
 }

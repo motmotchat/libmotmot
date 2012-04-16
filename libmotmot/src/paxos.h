@@ -85,12 +85,15 @@ struct paxos_value {
   paxid_t pv_srcid;    // ID of decree requester
   paxid_t pv_reqid;    // request ID subordinate to requester
   /**
-   * In order to reduce network traffic, requesters broadcast their requests
-   * to all acceptors, associating with each a session-unique ID (the
-   * combination of the requester's acceptor ID with an ID unique among the
-   * requests from that particular requester).  Any data they wish to pass
-   * along is queued up by the acceptors.  The proposer then makes decrees
-   * and orders commits relative to the request's unique ID.
+   * In order to reduce network traffic, requesters broadcast any requests
+   * with additional data to all acceptors, associating with each a session-
+   * unique ID (the combination of the requester's acceptor ID with a ID
+   * unique among the requests from that particular requester).  Any data
+   * they pass along is queued up by the acceptors.  The proposer then makes
+   * decrees and orders commits relative to the request's unique ID.
+   *
+   * XXX: I think only DEC_CHAT needs requests?  Also do we even need
+   * DEC_RENEW?  (Probably not.)
    */
 };
 
