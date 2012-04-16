@@ -153,36 +153,70 @@ request_add(struct request_list *rlist, struct paxos_request *req)
 //  Acceptor list operations
 //
 
-/*
+/**
+ * paxos_send - Utility function to send the contents of buf on a channel
+ */
+int
+paxos_send(GIOChannel *chan, const char *buf, size_t size)
+{
+  GError *gerr = NULL;
+  GIOStatus status;
+  unsigned long len;
+
+  status = g_io_channel_write_chars(chan, buf, size, &len, &gerr);
+  if (status == G_IO_STATUS_ERROR) {
+    // TODO: error handling
+    dprintf(2, "paxos_send: Could not write prepare to socket.\n");
+    return 1;
+  }
+  if (len != size) {
+    // TODO: what if we get a partial write?
+    dprintf(2, "paxos_send: Partial write. Try again?\n");
+    return 1;
+  }
+
+  status = g_io_channel_flush(chan, &gerr);
+  if (status == G_IO_STATUS_ERROR) {
+    // TODO: error handling
+    dprintf(2, "paxos_send: Could not flush prepare on socket.\n");
+    return 1;
+  }
+
+  return 0;
+}
+
+/**
  * Broadcast a message to all acceptors.
  */
 int
-paxos_broadcast(char *buf, size_t size)
+paxos_broadcast(const char *buf, size_t size)
 {
   struct paxos_acceptor *acc;
-  GError *gerr;
-  GIOStatus status;
-  unsigned long len;
+  int retval;
 
   LIST_FOREACH(acc, &(pax.alist), pa_le) {
     if (acc->pa_chan == NULL) {
       continue;
     }
 
-    gerr = NULL;
-    status = g_io_channel_write_chars(acc->pa_chan, buf, size, &len, &gerr);
-    if (status == G_IO_STATUS_ERROR) {
-      // TODO: error handling
-      dprintf(2, "proposer_prepare: Could not write prepare to socket.\n");
-    }
-
-    gerr = NULL;
-    status = g_io_channel_flush(acc->pa_chan, &gerr);
-    if (status == G_IO_STATUS_ERROR) {
-      // TODO: error handling
-      dprintf(2, "proposer_prepare: Could not flush prepare on socket.\n");
+    retval = paxos_send(acc->pa_chan, buf, size);
+    if (retval) {
+      return retval;
     }
   }
 
   return 0;
+}
+
+/**
+ * Send a message to the proposer
+ */
+int
+paxos_send_to_proposer(const char *buf, size_t size)
+{
+  if (pax.proposer == NULL) {
+    return 1;
+  }
+
+  return paxos_send(pax.proposer->pa_chan, buf, size);
 }

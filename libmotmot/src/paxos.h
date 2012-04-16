@@ -162,6 +162,8 @@ inline paxid_t next_instance();
 
 /* Paxos protocol. */
 int paxos_dispatch(GIOChannel *, GIOCondition, void *);
-int paxos_broadcast(char *, size_t);
+int paxos_send(GIOChannel *, const char *, size_t);
+int paxos_broadcast(const char *, size_t);
+int paxos_send_to_proposer(const char *, size_t);
 
 #endif /* __PAXOS_H__ */
