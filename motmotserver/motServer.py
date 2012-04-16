@@ -15,6 +15,9 @@ class RemoteMethods:
     REGISTER_STATUS=5
     SERVER_SEND_FRIEND=31
     SERVER_SEND_UNFRIEND=32
+    ACCEPT_FRIEND=6
+    SERVER_SEND_ACCEPT=34
+    SERVER_SEND_STATUS_CHANGED=33
 
 class status:
     ONLINE=1
@@ -71,7 +74,7 @@ def execute_query(q, params):
             con.close()
 
 
-def registerFriend(userName, friend):
+def registerFriend(userName, friend, allowRemoteSend):
 
     cnt = execute_query("SELECT COUNT(friendId) from friends WHERE userName=? AND friend=?;", (userName, friend))
     if cnt[0] == 0:
@@ -79,35 +82,43 @@ def registerFriend(userName, friend):
 
     splt = friend.split("@")
     if splt[1] != DOMAIN_NAME:
-        address = (splt[1], 38009)
-        sock = socket.socket()
-        sock.connect(address)
+        if allowRemoteSend:
+            address = (splt[1], 38009)
+            sock = socket.socket()
+            sock.connect(address)
 
-        sock.sendall(msgpack.packb([1,31,friend,userName]))
-        rVal = sock.recv(4096)
-        rVal = msgpack.unpackb(rVal)
-        if rVal[2] != 60:
-            raise RPCError
+            sock.sendall(msgpack.packb([1,31,friend,userName]))
+            rVal = sock.recv(4096)
+            rVal = msgpack.unpackb(rVal)
+            if rVal[2] != 60:
+                raise RPCError
+            sock.close()
 
-        sock.close()
+    else:
+        cnt = execute_query("SELECT COUNT(friendId) from friends WHERE userName=? AND friend=?;", (friend, userName))
+        if cnt[0] == 0:
+            execute_query("INSERT INTO friends (userName, friend, accepted) VALUES (?, ?, 'False');", (friend, userName))
 
-def unregisterFriend(userName, friend):
+
+def unregisterFriend(userName, friend, allowRemoteSend):
 
     execute_query("DELETE FROM friends WHERE userName=? AND friend=?;", (userName, friend))
-
+    
+    execute_query("DELETE FROM friends WHERE userName=? AND friend=?;", (friend, userName))
     splt = friend.split("@")
     if splt[1] != DOMAIN_NAME:
-        address = (splt[1], 38009)
-        sock = socket.socket()
-        sock.connect(address)
+        if allowRemoteSend:
+            address = (splt[1], 38009)
+            sock = socket.socket()
+            sock.connect(address)
 
-        sock.sendall(msgpack.packb([1,32,friend,userName]))
-        rVal = sock.recv(4096)
-        rVal = msgpack.unpackb(rVal)
-        if rVal[2] != 60:
-            raise RPCError
+            sock.sendall(msgpack.packb([1,32,friend,userName]))
+            rVal = sock.recv(4096)
+            rVal = msgpack.unpackb(rVal)
+            if rVal[2] != 60:
+                raise RPCError
 
-        sock.close()
+            sock.close()
 
 def statusChanged(userName, status):
     con = None
@@ -115,7 +126,7 @@ def statusChanged(userName, status):
         con = lite.connect('config.db')
         cur = con.cursor()
         
-        cur.execute("SELECT friend FROM friends WHERE userName=?;", (userName,))
+        cur.execute("SELECT friend FROM friends WHERE userName=? AND accepted='true';", (userName,))
 
         rows = cur.fetchall()
 
@@ -143,6 +154,27 @@ def statusChanged(userName, status):
     finally:
         if con:
             con.close()
+
+def acceptFriend(acceptor, friend):
+
+    execute_query("UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;", (acceptor[0],friend))
+    splt = friend.split("@")
+    if splt[1] == DOMAIN_NAME:
+        execute_query("UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;", (friend, acceptor[0]))
+        if friend in qList:
+            qList[friend].put(acceptor)
+    else:
+        address = (splt[1], 38009)
+        sock = socket.socket()
+        sock.connect(address)
+
+        sock.sendall(msgpack.packb([1, 34, friend, acceptor[0], acceptor[1]]))
+        rVal = sock.recv(4096)
+        rVal = msgpack.unpackb(rVal)
+        if rVal[2] != 60:
+            raise RPCError
+
+        sock.close()
 
 class ReaderGreenlet(Greenlet):
 
@@ -175,10 +207,10 @@ class ReaderGreenlet(Greenlet):
                 else:
                     if (self.ipAddr, self.port) in authList:
                         if val[1] == RemoteMethods.REGISTER_FRIEND:
-                            registerFriend(authList[(self.ipAddr, self.port)][0], val[2])
+                            registerFriend(authList[(self.ipAddr, self.port)][0], val[2], True)
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.UNREGISTER_FRIEND:
-                            unregisterFriend(authList[(self.ipAddr, self.port)][0], val[2])
+                            unregisterFriend(authList[(self.ipAddr, self.port)][0], val[2], True)
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.GET_FRIEND_IP:
                             test = "foo"
@@ -187,10 +219,21 @@ class ReaderGreenlet(Greenlet):
                             statusChanged(authList[(self.ipAddr, self.port)][0], val[2])
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.SERVER_SEND_FRIEND:
-                            registerFriend(val[2], val[3])
+                            registerFriend(val[2], val[3], False)
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.SERVER_SEND_UNFRIEND:
-                            unregisterFriend(val[2], val[3])
+                            unregisterFriend(val[2], val[3], False)
+                            self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                        elif val[1] == RemoteMethods.ACCEPT_FRIEND:
+                            acceptFriend(authList[(self.ipAddr, self.port)], val[2])
+                            self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                        elif val[1] == RemoteMethods.SERVER_SEND_STATUS_CHANGED:
+                            if val[2] in qList:
+                                qList[val[2]].put((val[3], val[4]))
+                            self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                        elif val[1] == RemoteMethods.SERVER_SEND_ACCEPT:
+                            if val[2] in qList:
+                                qList[val[2]].put((val[3], val[4]))
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         else:
                             self.socket.sendall(msgpack.packb([1,99,"Method Not Found"]))

@@ -2,6 +2,7 @@
 
 from gevent import socket
 import msgpack
+import time
 
 if __name__ == '__main__':
     address = ('localhost', 8888)
@@ -9,7 +10,7 @@ if __name__ == '__main__':
     sock = socket.socket()
     sock.connect(address)
 
-    test = [1,1,"ebensing","12345"]
+    test = [1,1,"ej@bensing.com","12345"]
 
     sVal = msgpack.packb(test)
 
@@ -40,4 +41,25 @@ if __name__ == '__main__':
     sock.sendall(msgpack.packb(test))
 
     rVal = msgpack.unpackb(sock.recv(4096))
+    print rVal
+
+    sock.close()
+
+    sock2 = socket.socket()
+    sock2.connect(address)
+
+
+    test = [1,1,"julie@bensing.com", "12345"]
+
+    sock2.sendall(msgpack.packb(test))
+
+    rVal = msgpack.unpackb(sock2.recv(4096))
+    print rVal
+
+
+    test = [1,6,"ej@bensing.com"]
+
+    sock2.sendall(msgpack.packb(test))
+
+    rVal = msgpack.unpackb(sock2.recv(4096))
     print rVal
