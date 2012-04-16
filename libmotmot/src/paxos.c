@@ -581,7 +581,12 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 int
 acceptor_ack_prepare(GIOChannel *source, struct paxos_hdr *hdr)
 {
-  return 0;
+  if (pax.proposer->pa_chan != source) {
+    // TODO: paxos_redirect();
+    return 0;
+  }
+
+  return acceptor_promise();
 }
 
 /**
