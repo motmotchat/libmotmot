@@ -25,6 +25,7 @@ struct paxos_state pax;
 
 // Paxos operations
 void paxos_drop_connection(GIOChannel *);
+// int paxos_request();
 
 // Proposer operations
 int proposer_prepare(GIOChannel *);
@@ -79,7 +80,7 @@ proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
       break;
 
     case OP_REQUEST:
-      // TODO: Make a decree.
+      proposer_ack_request(hdr, o);
       break;
 
     case OP_REDIRECT:
