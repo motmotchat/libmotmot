@@ -7,6 +7,7 @@ import msgpack
 import sqlite3 as lite
 import sys
 import Queue
+import socket as bSock
 
 class RemoteMethods:
     AUTHENTICATE_USER=1
@@ -26,7 +27,10 @@ class status:
     ONLINE=1
     AWAY=2
     OFFLINE=3
-    BUSY=4
+    BUSY=4i
+
+class RPCError(Exception):
+    pass
     
 DOMAIN_NAME = "bensing.com"
 authList = {}
@@ -60,7 +64,7 @@ def doAuth(userName, password, ipAddr, port):
 def doAuthServer(hostName, ipAddr, port):
     auth = False
 
-    hostIp = socket.gethostbyname(hostName)
+    hostIp = bSock.gethostbyname(hostName)
     if hostIp == ipAddr:
         authList[(ipAddr, port)] = [hostName, status.ONLINE]
         auth = True
@@ -94,20 +98,23 @@ def registerFriend(userName, friend, allowRemoteSend):
     splt = friend.split("@")
     if splt[1] != DOMAIN_NAME:
         if allowRemoteSend:
-            address = (splt[1], 8888)
+            address = (bSock.gethostbyname(splt[1]), 8888)
+            print "sending friend to server: "
+            print address
             sock = socket.socket()
             sock.connect(address)
             
             sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            if rVal[2] != 61:
+            print rVal
+            if rVal[1] != 61:
                 raise RPCError
 
             sock.sendall(msgpack.packb([1,31,friend,userName]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            if rVal[2] != 60:
+            if rVal[1] != 60:
                 raise RPCError
             sock.close()
 
@@ -125,7 +132,7 @@ def unregisterFriend(userName, friend, allowRemoteSend):
     splt = friend.split("@")
     if splt[1] != DOMAIN_NAME:
         if allowRemoteSend:
-            address = (splt[1], 8888)
+            address = (bSock.gethostbyname(splt[1]), 8888)
             sock = socket.socket()
             sock.connect(address)
             
@@ -133,13 +140,13 @@ def unregisterFriend(userName, friend, allowRemoteSend):
             sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            if rVal[2] != 61:
+            if rVal[1] != 61:
                 raise RPCError
 
             sock.sendall(msgpack.packb([1,32,friend,userName]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            if rVal[2] != 60:
+            if rVal[1] != 60:
                 raise RPCError
 
             sock.close()
@@ -162,20 +169,20 @@ def statusChanged(userName, status):
                     qList[friend[0]].put((userName, status))
 
             else:
-                address = (splt[1], 8888)
+                address = (bSock.gethostbyname(splt[1]), 8888)
                 sock = socket.socket()
                 sock.connect(address)
 
                 sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
                 rVal = sock.recv(4096)
                 rVal = msgpack.unpackb(rVal)
-                if rVal[2] != 61:
+                if rVal[1] != 61:
                     raise RPCError
                 
                 sock.sendall(msgpack.packb([1, 33, friend[0], userName, status]))
                 rVal = sock.recv(4096)
                 rVal = msgpack.unpackb(rVal)
-                if rVal[2] != 60:
+                if rVal[1] != 60:
                     raise RPCError
 
                 sock.close()
@@ -194,20 +201,20 @@ def acceptFriend(acceptor, friend):
         if friend in qList:
             qList[friend].put(acceptor)
     else:
-        address = (splt[1], 8888)
+        address = (bSock.gethostbyname(splt[1]), 8888)
         sock = socket.socket()
         sock.connect(address)
 
         sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
         rVal = sock.recv(4096)
         rVal = msgpack.unpackb(rVal)
-        if rVal[2] != 61:
+        if rVal[1] != 61:
             raise RPCError
 
         sock.sendall(msgpack.packb([1, 34, friend, acceptor[0], acceptor[1]]))
         rVal = sock.recv(4096)
         rVal = msgpack.unpackb(rVal)
-        if rVal[2] != 60:
+        if rVal[1] != 60:
             raise RPCError
 
         sock.close()
@@ -312,5 +319,5 @@ def handleConnection(socket, address):
 
 if __name__ == '__main__':
     DOMAIN_NAME = sys.argv[1]
-    server = StreamServer(('localhost',8888), handleConnection)
+    server = StreamServer(('140.247.149.192',8888), handleConnection)
     server.serve_forever()
