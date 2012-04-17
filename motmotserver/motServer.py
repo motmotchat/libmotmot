@@ -27,7 +27,7 @@ class status:
     ONLINE=1
     AWAY=2
     OFFLINE=3
-    BUSY=4i
+    BUSY=4
 
 class RPCError(Exception):
     pass
@@ -279,6 +279,7 @@ class ReaderGreenlet(Greenlet):
                         elif val[1] == RemoteMethods.SERVER_SEND_STATUS_CHANGED:
                             if val[2] in qList:
                                 qList[val[2]].put((val[3], val[4]))
+                            execute_query("UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;", (val[2],val[3]))
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.SERVER_SEND_ACCEPT:
                             if val[2] in qList:
