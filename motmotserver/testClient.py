@@ -3,10 +3,11 @@
 from gevent import socket
 import msgpack
 import time
+import socket as bSock
 
 if __name__ == '__main__':
-    address = ('localhost', 8888)
-
+    address = (bSock.gethostbyname('bensing.com'), 8888)
+    
     sock = socket.socket()
     sock.connect(address)
 
@@ -21,7 +22,7 @@ if __name__ == '__main__':
     rVal = sock.recv(4096)
     print msgpack.unpackb(rVal)
 
-    test = [1,2,"julie@bensing.com"]
+    test = [1,2,"julie@hansbrough.com"]
 
     sock.sendall(msgpack.packb(test))
 
@@ -35,7 +36,7 @@ if __name__ == '__main__':
 
     rVal = sock.recv(4096)
     print msgpack.unpackb(rVal)
-    """
+    
     test = [1,5,2]
 
     sock.sendall(msgpack.packb(test))
@@ -63,3 +64,4 @@ if __name__ == '__main__':
 
     rVal = msgpack.unpackb(sock2.recv(4096))
     print rVal
+    """

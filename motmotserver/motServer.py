@@ -279,11 +279,11 @@ class ReaderGreenlet(Greenlet):
                         elif val[1] == RemoteMethods.SERVER_SEND_STATUS_CHANGED:
                             if val[2] in qList:
                                 qList[val[2]].put((val[3], val[4]))
-                            execute_query("UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;", (val[2],val[3]))
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.SERVER_SEND_ACCEPT:
                             if val[2] in qList:
                                 qList[val[2]].put((val[3], val[4]))
+                            execute_query("UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;", (val[2],val[3]))
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         else:
                             self.socket.sendall(msgpack.packb([1,99,"Method Not Found"]))
