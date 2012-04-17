@@ -93,12 +93,16 @@ instance_insert(struct instance_list *ilist, struct paxos_instance *inst)
     if (inst->pi_hdr.ph_inum == it->pi_hdr.ph_inum) {
       return it;
     } else if (inst->pi_hdr.ph_inum > it->pi_hdr.ph_inum) {
-      break;
+      // Insert into the list, sorted.
+      LIST_INSERT_AFTER(ilist, it, inst, pi_le);
+      return inst;
     }
   }
 
-  // Insert into the list, sorted.
-  LIST_INSERT_AFTER(ilist, it, inst, pi_le);
+  // We didn't find anything with a lower instance number, so just insert
+  // at head.
+  LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
+
   return inst;
 }
 

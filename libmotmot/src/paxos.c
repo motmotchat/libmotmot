@@ -459,13 +459,12 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
   inst = g_malloc0(sizeof(*inst));
   paxos_value_unpack(&inst->pi_val, o);
 
-  // Send a decree.
-  proposer_decree(inst);
-
   // XXX: We should decide how to pack the raw data into a request (perhaps
-  // as a third array?) and then unpack it and add it to our request queue.
+  // as a third array?) and then unpack it here and add it to our request
+  // queue.
 
-  return 0;
+  // Send a decree.
+  return proposer_decree(inst);
 }
 
 /**
@@ -519,7 +518,7 @@ proposer_ack_accept(struct paxos_header *hdr)
 
   // If we have a majority, send a commit message.
   if (inst->pi_votes >= MAJORITY) {
-    proposer_commit(inst);
+    return proposer_commit(inst);
   }
 
   return 0;
@@ -648,48 +647,26 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 {
   struct paxos_instance *inst, *it;
 
-  // Unpack the message value
+  // Initialize a new instance.
   inst = g_malloc0(sizeof(*inst));
   memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
   paxos_value_unpack(&inst->pi_val, o);
-  inst->pi_votes = 2; // XXX: it's at least 2...
+  inst->pi_votes = 1; // For acceptors, != 0 just means not committed.
 
-  // Look through the ilist backwards, since we expect to be mostly appending
-  LIST_FOREACH_REV(it, &pax.ilist, pi_le) {
-    if (it->pi_hdr.ph_inum < inst->pi_hdr.ph_inum) {
-      // We've found an insertion point
-      LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
-      break;
-    } else if (it->pi_hdr.ph_inum == inst->pi_hdr.ph_inum) {
-      // We have a duplicate instance number. What's going on?!
-      if (it->pi_votes > 0) {
-        // We haven't learned the value yet, so we probably got overruled by
-        // the new president's quorum
-        memcpy(&it->pi_hdr, &inst->pi_hdr, sizeof(inst->pi_hdr));
-        memcpy(&it->pi_val, &inst->pi_val, sizeof(inst->pi_val));
-        it->pi_votes = 2;
-        // Since we've just clobbered the old instance, free the one we made
-        g_free(inst);
-      } else {
-        // We've already learned that value, so ignore the decree. Hopefully
-        // it's the same as the one we already have, but let's not bother
-        // checking for now (TODO?)
-        g_free(inst);
-        return 0;
-      }
+  // Insert the new instance into the ilist.
+  it = instance_insert(&pax.ilist, inst);
+
+  // Check if we already had an instance of the same inum.
+  if (it != inst) {
+    // TODO: Check that the values are the same.
+    if (it->pi_votes == 0) {
+      // XXX: Do we need to do something different if the existing instance
+      // is already committed?
     }
+    g_free(inst);
   }
 
-  // We didn't find it. Now we check (1) if the list is empty, or (2) if the
-  // first element in the list has a larger instance number than us. Note
-  // that neither of these conditions will be true if we broke out of the
-  // previous loop, so we don't need to worry about weird edge cases
-  it = LIST_FIRST(&pax.ilist);
-  if (LIST_EMPTY(&pax.ilist) || it->pi_hdr.ph_inum > inst->pi_hdr.ph_inum) {
-    LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
-  }
-
-  // By now we've inserted the element *somewhere* in the list, so accept it
+  // We've created a new instance struct as necessary, so accept.
   return acceptor_accept(hdr);
 }
 
