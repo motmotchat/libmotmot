@@ -55,6 +55,7 @@ proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
 
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
+      g_error("Bad request PREPARE recieved by proposer. Redirecting...");
       // TODO: paxos_redirect();
       break;
     case OP_PROMISE:
@@ -62,6 +63,7 @@ proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
       break;
 
     case OP_DECREE:
+      g_error("Bad request DECREE recieved by proposer. Redirecting...");
       // TODO: paxos_redirect();
       break;
 
@@ -98,6 +100,7 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
       break;
 
     case OP_PROMISE:
+      g_error("Bad request PROMISE recieved by acceptor. Redirecting...");
       // TODO: paxos_redirect();
       break;
 
@@ -106,6 +109,7 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
       break;
 
     case OP_ACCEPT:
+      g_error("Bad request ACCEPT recieved by acceptor. Redirecting...");
       // TODO: paxos_redirect();
       break;
 
@@ -114,6 +118,7 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
       break;
 
     case OP_REQUEST:
+      g_error("Bad request REQUEST recieved by acceptor. Redirecting...");
       // TODO: paxos_redirect();
       break;
 
