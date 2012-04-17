@@ -81,7 +81,7 @@ paxos_header_unpack(struct paxos_header *hdr, msgpack_object *o)
 void
 paxos_value_pack(struct paxos_yak *py, struct paxos_value *val)
 {
-  msgpack_pack_array(py->pk, 4);
+  msgpack_pack_array(py->pk, 3);
   msgpack_pack_int(py->pk, val->pv_dkind);
   msgpack_pack_paxid(py->pk, val->pv_srcid);
   msgpack_pack_paxid(py->pk, val->pv_reqid);
@@ -94,13 +94,16 @@ paxos_value_unpack(struct paxos_value *val, msgpack_object *o)
 
   // Make sure the input is well-formed
   assert(o->type == MSGPACK_OBJECT_ARRAY);
-  assert(o->via.array.size == 4);
+  assert(o->via.array.size == 3);
 
   p = o->via.array.ptr;
   // TODO: check types of these
-  val->pv_dkind = p->via.u64;
-  val->pv_srcid = (++p)->via.u64;
-  val->pv_reqid = (++p)->via.u64;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  val->pv_dkind = (p++)->via.u64;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  val->pv_srcid = (p++)->via.u64;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  val->pv_reqid = (p++)->via.u64;
 
   return;
 }
