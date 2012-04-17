@@ -557,15 +557,15 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 }
 
 /**
- * acceptor_ack_prepare - Prepare for a new president
+ * acceptor_ack_prepare - Prepare for a new proposer.
  *
  * First, we check to see if we think that there's someone else who's more
- * eligible to be president. If there exists such a person, redirect this
+ * eligible to be president.  If there exists such a person, redirect this
  * candidate to that person.
  *
- * If we think that this person would be a good president, prepare for their
- * presidency by sending them a list of our pending promises for all future
- * rounds.
+ * If we think that this person would be a good proposer, prepare for their
+ * presidency by sending them a list of our pending accepts from all
+ * previous ballots.
  */
 int
 acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
@@ -579,73 +579,69 @@ acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
 }
 
 /**
- * acceptor_promise - Promise fealty to our new overlord
+ * acceptor_promise - Promise fealty to our new overlord.
  *
- * Send the president a promise to accept their decrees in perpetuity. We also
- * send them a list of all of our pending promises we've made. The data format
- * looks like:
+ * Send the proposer a promise to accept their decrees in perpetuity.  We
+ * also send them a list of all of the accepts we made in previous ballots.
+ * The data format looks like:
  *
  *    struct {
  *      paxos_header header;
  *      struct {
  *        paxos_header promise_header;
- *        paxos_header promise_value;
+ *        paxos_value promise_value;
  *      } promises[n];
  *    }
  *
- * where we pack the structs as two-element arrays
+ * where we pack the structs as two-element arrays.
  */
 int
 acceptor_promise(struct paxos_header *hdr)
 {
-  size_t count = LIST_COUNT(&pax.ilist);
-  bool found = FALSE;
+  size_t count;
   struct paxos_instance *it;
-  struct paxos_header header;
   struct paxos_yak py;
 
-  memcpy(&header, hdr, sizeof(header));
-  header.ph_opcode = OP_PROMISE;
-
+  // Start off the payload with the header.
+  hdr->ph_opcode = OP_PROMISE;
   paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &header);
+  paxos_header_pack(&py, hdr);
 
-  LIST_FOREACH(it, &pax.ilist, pi_le) {
-    if (it->pi_hdr.ph_inum >= hdr->ph_inum) {
-      if (!found) {
-        found = TRUE;
+  count = 0;
 
-        if (count == 0) {
-          // We don't have any values to commit
-          break;
-        }
-
-        paxos_payload_begin_array(&py, count);
-      }
-
-      // Write the pending promise and value
-      paxos_payload_init(&py, 2);
-      paxos_header_pack(&py, &it->pi_hdr);
-      paxos_value_pack(&py, &it->pi_val);
-      found = TRUE;
-    } else {
-      count--;
+  // Determine how many accepts we need to send back.
+  LIST_FOREACH_REV(it, &pax.ilist, pi_le) {
+    count++;
+    if (hdr->ph_inum >= it->pi_hdr.ph_inum) {
+      break;
     }
   }
 
-  paxos_send_to_proposer(UNYAK(&py));
+  // Start the payload of promises.
+  paxos_payload_begin_array(&py, count);
 
+  // For each instance starting at the iterator, pack an array containing
+  // information about our accept.
+  for (; it != (void *)&pax.ilist; it = LIST_NEXT(it, pi_le)) {
+    paxos_payload_begin_array(&py, 2);
+    paxos_header_pack(&py, &it->pi_hdr);
+    paxos_value_pack(&py, &it->pi_val);
+  }
+
+  // Send off our payload.
+  paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
+
   return 0;
 }
 
 /**
- * acceptor_ack_decree - Accept a value for a synod round
+ * acceptor_ack_decree - Accept a value for a Paxos instance.
  *
- * Move to commit the given value for the current synod round. After this step,
- * we consider the decree accepted and will only accept this decree going
- * forward. We do not consider the decree "learned," however, so we don't
- * release it to the outside world just yet.
+ * Move to commit the given value for the given Paxos instance.  After this
+ * step, we consider the value accepted and will only accept this particular
+ * value going forward.  We do not consider the decree "learned," however,
+ * so we don't release it to the outside world just yet.
  */
 int
 acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
