@@ -36,11 +36,11 @@ int proposer_ack_request(struct paxos_header *, msgpack_object *);
 
 // Acceptor operations
 int acceptor_ack_prepare(GIOChannel *, struct paxos_header *);
-int acceptor_promise();
+int acceptor_promise(struct paxos_header *);
 int acceptor_ack_decree(struct paxos_header *, msgpack_object *);
 int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
-int acceptor_request(size_t, const char *);
+int acceptor_request(dkind_t, size_t, const char *);
 
 int
 proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
@@ -586,18 +586,67 @@ acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
     return 0;
   }
 
-  return acceptor_promise();
+  return acceptor_promise(hdr);
 }
 
 /**
  * acceptor_promise - Promise fealty to our new overlord
  *
  * Send the president a promise to accept their decrees in perpituity. We also
- * send them a list of all of our pending promises we've made
+ * send them a list of all of our pending promises we've made. The data format
+ * looks like:
+ *
+ *    struct {
+ *      paxos_header header;
+ *      struct {
+ *        paxos_header promise_header;
+ *        paxos_header promise_value;
+ *      } promises[n];
+ *    }
+ *
+ * where we pack the structs as two-element arrays
  */
 int
-acceptor_promise()
+acceptor_promise(struct paxos_header *hdr)
 {
+  size_t count = LIST_COUNT(&pax.ilist);
+  bool found = FALSE;
+  struct paxos_instance *it;
+  struct paxos_header header;
+  struct paxos_yak py;
+
+  memcpy(&header, hdr, sizeof(header));
+  header.ph_opcode = OP_PROMISE;
+
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &header);
+
+  LIST_FOREACH(it, &pax.ilist, pi_le) {
+    if (it->pi_hdr.ph_inum >= hdr->ph_inum) {
+      if (!found) {
+        found = TRUE;
+
+        if (count == 0) {
+          // We don't have any values to commit
+          break;
+        }
+
+        paxos_payload_begin_array(&py, count);
+      }
+
+      // Write the pending promise and value
+      paxos_payload_init(&py, 2);
+      paxos_header_pack(&py, &it->pi_hdr);
+      paxos_value_pack(&py, &it->pi_val);
+      found = TRUE;
+    } else {
+      count--;
+    }
+  }
+
+  paxos_send_to_proposer(UNYAK(&py));
+
+  paxos_payload_destroy(&py);
   return 0;
 }
 
@@ -644,7 +693,7 @@ acceptor_ack_commit(struct paxos_header *hdr)
  * acceptor_request - Request the president to propose the given value
  */
 int
-acceptor_request(size_t len, const char *message)
+acceptor_request(dkind_t kind, size_t len, const char *message)
 {
   return 0;
 }
