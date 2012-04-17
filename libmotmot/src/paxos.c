@@ -730,6 +730,23 @@ acceptor_accept(struct paxos_header *hdr)
 int
 acceptor_ack_commit(struct paxos_header *hdr)
 {
+  struct paxos_instance *it;
+
+  // Look through the ilist backwards, since we expect to be mostly appending
+  LIST_FOREACH_REV(it, &pax.ilist, pi_le) {
+    if (it->pi_hdr.ph_inum == hdr->ph_inum) {
+      if (it->pi_hdr.ph_ballot.id  != hdr->ph_ballot.id ||
+          it->pi_hdr.ph_ballot.gen != hdr->ph_ballot.gen) {
+        // What's going on?!
+        g_critical("acceptor_ack_commit: Mismatching ballot numbers");
+        break;
+      }
+
+      // We use the sentinel value of 0 to indicate committed values
+      it->pi_votes = 0;
+      break;
+    }
+  }
   return 0;
 }
 
