@@ -302,7 +302,7 @@ proposer_prepare(GIOChannel *source)
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
   return 0;
@@ -336,7 +336,7 @@ proposer_decree(struct paxos_instance *inst)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &(inst->pi_hdr));
   paxos_value_pack(&py, &(inst->pi_val));
-  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
   return 0;
@@ -359,7 +359,7 @@ proposer_commit(struct paxos_instance *inst)
   // Pack and broadcast the commit.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+  paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
   // Mark the instance committed.
@@ -511,7 +511,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     paxos_payload_init(&py, 2);
     paxos_header_pack(&py, &(inst->pi_hdr));
     paxos_value_pack(&py, &(inst->pi_val));
-    paxos_broadcast(paxos_payload_data(&py), paxos_payload_size(&py));
+    paxos_broadcast(UNYAK(&py));
     paxos_payload_destroy(&py);
   }
 

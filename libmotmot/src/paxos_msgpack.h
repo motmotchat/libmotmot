@@ -7,6 +7,9 @@
 #include "paxos.h"
 #include <msgpack.h>
 
+// We often need a (char *, size_t) tuple (in argument lists, for instance)
+#define UNYAK(yak) paxos_payload_data(yak), paxos_payload_size(yak)
+
 struct paxos_yak {
   msgpack_packer *pk;
   msgpack_sbuffer *buf;
