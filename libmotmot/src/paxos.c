@@ -700,6 +700,18 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 int
 acceptor_accept(struct paxos_header *hdr)
 {
+  struct paxos_header header;
+  struct paxos_yak py;
+
+  memcpy(&header, hdr, sizeof(header));
+  header.ph_opcode = OP_ACCEPT;
+
+  paxos_payload_init(&py, 1);
+  paxos_header_pack(&py, &header);
+
+  paxos_send_to_proposer(UNYAK(&py));
+
+  paxos_payload_destroy(&py);
   return 0;
 }
 
