@@ -179,7 +179,8 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
 
   p = o.via.array.ptr;
 
-  // Unpack the Paxos header.
+  // Unpack the Paxos header.  This will be clobbered by the proposer/acceptor
+  // routines which the dispatch functions call.
   hdr = g_malloc0(sizeof(*hdr));
   paxos_header_unpack(hdr, p);
 
@@ -707,10 +708,10 @@ acceptor_ack_commit(struct paxos_header *hdr)
   // Retrieve the instance struct corresponding to the inum.
   inst = instance_find(&pax.ilist, pi_le);
 
-  // XXX: I don't think we need to check that the ballot numbers because
-  // Paxos is supposed to guarantee that a commit command from the proposer
-  // will always be consistent.  For the same reason, we shouldn't have to
-  // check that inst might be NULL.
+  // XXX: I don't think we need to check that the ballot numbers match
+  // because Paxos is supposed to guarantee that a commit command from the
+  // proposer will always be consistent.  For the same reason, we shouldn't
+  // have to check that inst might be NULL.
 
   // Mark the value as committed.
   inst->pi_votes = 0;
