@@ -29,11 +29,11 @@ void paxos_drop_connection(GIOChannel *);
 
 // Proposer operations
 int proposer_prepare(GIOChannel *);
-int proposer_decree(struct paxos_instance *);
-int proposer_commit(struct paxos_instance *);
 int proposer_ack_promise(struct paxos_header *, msgpack_object *);
-int proposer_ack_accept(struct paxos_header *);
 int proposer_ack_request(struct paxos_header *, msgpack_object *);
+int proposer_decree(struct paxos_instance *);
+int proposer_ack_accept(struct paxos_header *);
+int proposer_commit(struct paxos_instance *);
 
 // Acceptor operations
 int acceptor_ack_prepare(GIOChannel *, struct paxos_header *);
@@ -234,6 +234,23 @@ paxos_drop_connection(GIOChannel *source)
   close(g_io_channel_unix_get_fd(source));
 }
 
+/*
+ * Helper routine to obtain the instance on ilist with the closest instance
+ * number >= inum.  We are passed in an iterator to simulate a continuation.
+ */
+static struct paxos_instance *
+get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
+    paxid_t inum)
+{
+  for (; it != (void *)ilist; it = LIST_NEXT(it, pi_le)) {
+    if (inum <= it->pi_hdr.ph_inum) {
+      break;
+    }
+  }
+
+  return it;
+}
+
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
  *
@@ -304,88 +321,6 @@ proposer_prepare(GIOChannel *source)
   paxos_payload_destroy(&py);
 
   return 0;
-}
-
-/**
- * proposer_decree - Broadcast a decree.
- *
- * This function should be called with a paxos_instance struct that has a
- * well-defined value; however, the remaining fields will be rewritten.
- * If the instance was on a prepare list, it should be removed before
- * getting passed here.
- */
-int
-proposer_decree(struct paxos_instance *inst)
-{
-  struct paxos_yak py;
-
-  // Update the header.
-  inst->pi_hdr.ph_ballot = pax.ballot;
-  inst->pi_hdr.ph_opcode = OP_DECREE;
-  inst->pi_hdr.ph_inum = next_instance();
-
-  // Mark one vote.
-  inst->pi_votes = 1;
-
-  // Append to the ilist.
-  LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
-
-  // Pack and broadcast the decree.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_value_pack(&py, &(inst->pi_val));
-  paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
-
-  return 0;
-}
-
-/**
- * proposer_commit - Broadcast a commit message for a given Paxos instance.
- *
- * This should only be called when we receive a majority vote for a decree.
- * We broadcast a commit message and mark the instance committed.
- */
-int
-proposer_commit(struct paxos_instance *inst)
-{
-  struct paxos_yak py;
-
-  // Fix up the instance header.
-  inst->pi_hdr.ph_opcode = OP_COMMIT;
-
-  // Pack and broadcast the commit.
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
-
-  // Mark the instance committed.
-  inst->pi_votes = 0;
-
-  // XXX: Act on the decree (e.g., display chat, record configs).
-  // We'll need to find the corresponding request in the request queue for
-  // the actual data, but only for those dkinds that are associated with
-  // requests.
-
-  return 0;
-}
-
-/*
- * Helper routine to obtain the instance on ilist with the closest instance
- * number >= inum.  We are passed in an iterator to simulate a continuation.
- */
-static struct paxos_instance *
-get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
-    paxid_t inum)
-{
-  for (; it != (void *)ilist; it = LIST_NEXT(it, pi_le)) {
-    if (inum <= it->pi_hdr.ph_inum) {
-      break;
-    }
-  }
-
-  return it;
 }
 
 /**
@@ -513,6 +448,61 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 }
 
 /**
+ * proposer_ack_request - Dispatch a request as a decree.
+ */
+int
+proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
+{
+  struct paxos_instance *inst;
+
+  // Allocate an instance and unpack a value into it.
+  inst = g_malloc0(sizeof(*inst));
+  paxos_value_unpack(&inst->pi_val, o);
+
+  // Send a decree.
+  proposer_decree(inst);
+
+  // XXX: We should decide how to pack the raw data into a request (perhaps
+  // as a third array?) and then unpack it and add it to our request queue.
+
+  return 0;
+}
+
+/**
+ * proposer_decree - Broadcast a decree.
+ *
+ * This function should be called with a paxos_instance struct that has a
+ * well-defined value; however, the remaining fields will be rewritten.
+ * If the instance was on a prepare list, it should be removed before
+ * getting passed here.
+ */
+int
+proposer_decree(struct paxos_instance *inst)
+{
+  struct paxos_yak py;
+
+  // Update the header.
+  inst->pi_hdr.ph_ballot = pax.ballot;
+  inst->pi_hdr.ph_opcode = OP_DECREE;
+  inst->pi_hdr.ph_inum = next_instance();
+
+  // Mark one vote.
+  inst->pi_votes = 1;
+
+  // Append to the ilist.
+  LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
+
+  // Pack and broadcast the decree.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &(inst->pi_hdr));
+  paxos_value_pack(&py, &(inst->pi_val));
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
  * proposer_ack_accept - Acknowledge an acceptor's accept.
  *
  * Just increment the vote count of the correct Paxos instance and commit
@@ -536,22 +526,32 @@ proposer_ack_accept(struct paxos_header *hdr)
 }
 
 /**
- * proposer_ack_request - Dispatch a request as a decree.
+ * proposer_commit - Broadcast a commit message for a given Paxos instance.
+ *
+ * This should only be called when we receive a majority vote for a decree.
+ * We broadcast a commit message and mark the instance committed.
  */
 int
-proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
+proposer_commit(struct paxos_instance *inst)
 {
-  struct paxos_instance *inst;
+  struct paxos_yak py;
 
-  // Allocate an instance and unpack a value into it.
-  inst = g_malloc0(sizeof(*inst));
-  paxos_value_unpack(&inst->pi_val, o);
+  // Fix up the instance header.
+  inst->pi_hdr.ph_opcode = OP_COMMIT;
 
-  // Send a decree.
-  proposer_decree(inst);
+  // Pack and broadcast the commit.
+  paxos_payload_init(&py, 1);
+  paxos_header_pack(&py, &(inst->pi_hdr));
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
 
-  // XXX: We should decide how to pack the raw data into a request (perhaps
-  // as a third array?) and then unpack it and add it to our request queue.
+  // Mark the instance committed.
+  inst->pi_votes = 0;
+
+  // XXX: Act on the decree (e.g., display chat, record configs).
+  // We'll need to find the corresponding request in the request queue for
+  // the actual data, but only for those dkinds that are associated with
+  // requests.
 
   return 0;
 }
