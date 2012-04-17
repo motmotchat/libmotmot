@@ -15,10 +15,10 @@
 #define SOCKDIR   "conn/"
 #define MAXCONNS  100
 
-#define err(cond, errstr)   \
-  if (cond) {               \
-    perror(errstr);         \
-    exit(1);                \
+#define err(cond, errstr)                           \
+  if (cond) {                                       \
+    g_critical("%s: %s", errstr, strerror(errno));  \
+    exit(1);                                        \
   }
 
 GMainLoop *gmain;
@@ -71,7 +71,7 @@ create_socket_channel(int pid)
   channel = g_io_channel_unix_new(s);
   if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    dprintf(2, "create_socket_channel: Failed to set channel encoding.\n");
+    g_critical("create_socket_channel: Failed to set channel encoding.\n");
   }
 
   g_free(saddr);
@@ -111,9 +111,9 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
   status = g_io_channel_read_chars(source, buf, 4096, &len, &gerr);
   if (status == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    dprintf(2, "socket_recv: Could not read line from socket.\n");
+    g_warning("socket_recv: Could not read line from socket.\n");
   } else if (status == G_IO_STATUS_EOF) {
-    dprintf(2, "socket_recv: Received disconnect\n");
+    g_message("socket_recv: Received disconnect\n");
     return FALSE;
   }
 
@@ -121,7 +121,7 @@ socket_recv(GIOChannel *source, GIOCondition condition, void *data)
   msgpack_unpacked_init(&msg);
   if (!msgpack_unpack_next(&msg, buf, len, NULL)) {
     // TODO: error handling
-    dprintf(2, "socket_recv: Could not unpack message.\n");
+    g_error("socket_recv: Could not unpack message.\n");
   }
   printf("RECEIVED: ");
   msgpack_object_print(stdout, msg.data);
@@ -155,7 +155,7 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   channel = g_io_channel_unix_new(newfd);
   if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    dprintf(2, "socket_accept: Failed to set channel encoding.\n");
+    g_critical("socket_accept: Failed to set channel encoding.\n");
   }
   // TODO: check for errors here
   g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, &gerr);
@@ -164,7 +164,7 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   pac = msgpack_unpacker_new(MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
   if (pac == NULL) {
     // TODO: error handling
-    dprintf(2, "socket_accept: Failed to allocate msgpack_unpacker.\n");
+    g_critical("socket_accept: Failed to allocate msgpack_unpacker.\n");
   }
   g_io_add_watch(channel, G_IO_IN, socket_recv, pac);
 
@@ -228,9 +228,10 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
   // Read in a line and pack it.
   status = g_io_channel_read_line(channel, &msg, NULL, &eol, &gerr);
   if (status == G_IO_STATUS_EOF) {
+    // XXX: if stdin is closed, we should just give up
     return FALSE;
   } else if (status != G_IO_STATUS_NORMAL) {
-    dprintf(2, "Error reading from stdin");
+    g_critical("Error reading from stdin\n");
     return FALSE;
   }
 
@@ -256,13 +257,13 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
         &len, &gerr);
     if (status == G_IO_STATUS_ERROR) {
       // TODO: error handling
-      dprintf(2, "input_loop: Could not write message to socket.\n");
+      g_error("input_loop: Could not write message to socket.\n");
     }
     gerr = NULL;
     g_io_channel_flush(conns[i].channel, &gerr);
     if (status == G_IO_STATUS_ERROR) {
       // TODO: error handling
-      dprintf(2, "input_loop: Could not flush message to socket\n");
+      g_error("input_loop: Could not flush message to socket\n");
     }
   }
 

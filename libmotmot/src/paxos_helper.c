@@ -166,19 +166,19 @@ paxos_send(GIOChannel *chan, const char *buf, size_t size)
   status = g_io_channel_write_chars(chan, buf, size, &len, &gerr);
   if (status == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    dprintf(2, "paxos_send: Could not write prepare to socket.\n");
+    g_error("paxos_send: Could not write prepare to socket.\n");
     return 1;
   }
   if (len != size) {
     // TODO: what if we get a partial write?
-    dprintf(2, "paxos_send: Partial write. Try again?\n");
+    g_error("paxos_send: Partial write. Try again?\n");
     return 1;
   }
 
   status = g_io_channel_flush(chan, &gerr);
   if (status == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    dprintf(2, "paxos_send: Could not flush prepare on socket.\n");
+    g_error("paxos_send: Could not flush prepare on socket.\n");
     return 1;
   }
 

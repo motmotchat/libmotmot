@@ -154,7 +154,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
 
   if (status == G_IO_STATUS_ERROR) {
     // TODO: error handling
-    dprintf(2, "paxos_dispatch: Read from socket failed.\n");
+    g_warning("paxos_dispatch: Read from socket failed.\n");
   } else if (status == G_IO_STATUS_EOF) {
     paxos_drop_connection(source);
     return FALSE;
