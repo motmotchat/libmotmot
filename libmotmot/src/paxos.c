@@ -569,7 +569,6 @@ proposer_commit(struct paxos_instance *inst)
 int
 acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
 {
-  // XXX: I think this is wrong.
   if (pax.proposer->pa_chan != source) {
     // TODO: paxos_redirect();
     return 0;
