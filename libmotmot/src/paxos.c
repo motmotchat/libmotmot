@@ -569,6 +569,7 @@ proposer_commit(struct paxos_instance *inst)
 int
 acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
 {
+  // XXX: I think this is wrong.
   if (pax.proposer->pa_chan != source) {
     // TODO: paxos_redirect();
     return 0;
@@ -647,6 +648,8 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 {
   struct paxos_instance *inst, *it;
 
+  // TODO: Check that the decree is coming from the ballot we expect.
+
   // Initialize a new instance.
   inst = g_malloc0(sizeof(*inst));
   memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
@@ -671,32 +674,28 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 }
 
 /**
- * acceptor_accept - Notify the proposer we accept their decree
- *
- * Respond to the proposer with an acknowledgement that we have committed their
- * decree.
+ * acceptor_accept - Notify the proposer we accept their decree.
  */
 int
 acceptor_accept(struct paxos_header *hdr)
 {
-  struct paxos_header header;
   struct paxos_yak py;
 
-  memcpy(&header, hdr, sizeof(header));
-  header.ph_opcode = OP_ACCEPT;
-
+  // Pack a header.
+  hdr->ph_opcode = OP_ACCEPT;
   paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, &header);
+  paxos_header_pack(&py, hdr);
 
+  // Send the payload.
   paxos_send_to_proposer(UNYAK(&py));
-
   paxos_payload_destroy(&py);
+
   return 0;
 }
 
 
 /**
- * acceptor_ack_commit - Commit ("learn") a value
+ * acceptor_ack_commit - Commit ("learn") a value.
  *
  * Commit this value as a permanent learned value, and notify listeners of the
  * value payload.
@@ -704,26 +703,22 @@ acceptor_accept(struct paxos_header *hdr)
 int
 acceptor_ack_commit(struct paxos_header *hdr)
 {
-  struct paxos_instance *it;
+  struct paxos_instance *inst;
 
-  // Look through the ilist backwards, since we expect to be mostly appending
-  LIST_FOREACH_REV(it, &pax.ilist, pi_le) {
-    if (it->pi_hdr.ph_inum == hdr->ph_inum) {
-      if (it->pi_hdr.ph_ballot.id  != hdr->ph_ballot.id ||
-          it->pi_hdr.ph_ballot.gen != hdr->ph_ballot.gen) {
-        // What's going on?!
-        g_critical("acceptor_ack_commit: Mismatching ballot numbers");
-        return 0;
-      }
+  // Retrieve the instance struct corresponding to the inum.
+  inst = instance_find(&pax.ilist, pi_le);
 
-      // We use the sentinel value of 0 to indicate committed values
-      it->pi_votes = 0;
-      return 0;
-    }
-  }
+  // XXX: I don't think we need to check that the ballot numbers because
+  // Paxos is supposed to guarantee that a commit command from the proposer
+  // will always be consistent.  For the same reason, we shouldn't have to
+  // check that inst might be NULL.
 
-  g_critical("acceptor_ack_commit: Cannot commit unknown instance");
-  return 1;
+  // Mark the value as committed.
+  inst->pi_votes = 0;
+
+  // XXX: Tell the client library what's up.
+
+  return 0;
 }
 
 /**
