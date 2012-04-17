@@ -512,7 +512,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 }
 
 /**
- * proposer_ack_accept - Acknowedge an acceptor's accept.
+ * proposer_ack_accept - Acknowledge an acceptor's accept.
  *
  * Just increment the vote count of the correct Paxos instance and commit
  * if we have a majority.
@@ -580,7 +580,7 @@ acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
 /**
  * acceptor_promise - Promise fealty to our new overlord
  *
- * Send the president a promise to accept their decrees in perpituity. We also
+ * Send the president a promise to accept their decrees in perpetuity. We also
  * send them a list of all of our pending promises we've made. The data format
  * looks like:
  *
