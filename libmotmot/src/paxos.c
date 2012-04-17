@@ -174,7 +174,7 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
   p = o.via.array.ptr;
 
   // Unpack the Paxos header.
-  hdr = g_malloc(sizeof(*hdr));
+  hdr = g_malloc0(sizeof(*hdr));
   if (hdr == NULL) {
     // TODO: error handling
     dprintf(2, "paxos_dispatch: Could not allocate header.\n");
@@ -257,7 +257,7 @@ proposer_prepare(GIOChannel *source)
   }
 
   // Start a new prepare and a new ballot.
-  pax.prep = g_malloc(sizeof(*pax.prep));
+  pax.prep = g_malloc0(sizeof(*pax.prep));
   if (pax.prep == NULL) {
     // TODO: error handling
     return -1;
@@ -417,7 +417,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   it = pax.prep->pp_first;
 
   // Allocate a scratch instance.
-  inst = g_malloc(sizeof(*inst));
+  inst = g_malloc0(sizeof(*inst));
   if (inst == NULL) {
     // TODO: cry
   }
@@ -481,7 +481,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     if (it->pi_hdr.ph_inum > inum) {
       // Nobody in the quorum (including ourselves) has heard of this instance,
       // so make a null decree.
-      inst = g_malloc(sizeof(*inst));
+      inst = g_malloc0(sizeof(*inst));
       if (inst == NULL) {
         // TODO: cry
       }
@@ -552,7 +552,7 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_instance *inst;
 
   // Allocate an instance and unpack a value into it.
-  inst = g_malloc(sizeof(*inst));
+  inst = g_malloc0(sizeof(*inst));
   if (inst == NULL) {
     // TODO: cry
   }
