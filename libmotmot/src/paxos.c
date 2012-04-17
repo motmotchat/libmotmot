@@ -739,15 +739,17 @@ acceptor_ack_commit(struct paxos_header *hdr)
           it->pi_hdr.ph_ballot.gen != hdr->ph_ballot.gen) {
         // What's going on?!
         g_critical("acceptor_ack_commit: Mismatching ballot numbers");
-        break;
+        return 0;
       }
 
       // We use the sentinel value of 0 to indicate committed values
       it->pi_votes = 0;
-      break;
+      return 0;
     }
   }
-  return 0;
+
+  g_critical("acceptor_ack_commit: Cannot commit unknown instance");
+  return 1;
 }
 
 /**
