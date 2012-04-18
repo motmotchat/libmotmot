@@ -5,6 +5,7 @@
 #define __PAXOS_H__
 
 #include "list.h"
+#include "motmot.h"
 
 #include <stdint.h>
 #include <string.h>
