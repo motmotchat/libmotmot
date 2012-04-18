@@ -47,13 +47,6 @@ int
 proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
-  // If the message is for some other ballot, send a redirect.
-  // XXX: Not sure if we want to do this, say, for an OP_REQUEST.
-  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    // TODO: paxos_redirect();
-    return TRUE;
-  }
-
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
       g_error("Bad request PREPARE recieved by proposer. Redirecting...");
@@ -355,6 +348,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   paxid_t inum;
   struct paxos_yak py;
 
+  // If the promise is for some other ballot, send a redirect.
+  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+    // TODO: paxos_redirect();
+    return 0;
+  }
+
   // Initialize loop variables.
   p = o->via.array.ptr;
   pend = o->via.array.ptr + o->via.array.size;
@@ -467,6 +466,12 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 {
   struct paxos_instance *inst;
 
+  // If the request is for some other ballot, send a redirect but process
+  // the request anyway.
+  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+    // TODO: paxos_redirect();
+  }
+
   // Allocate an instance and unpack a value into it.
   inst = g_malloc0(sizeof(*inst));
   paxos_value_unpack(&inst->pi_val, o);
@@ -523,6 +528,12 @@ int
 proposer_ack_accept(struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
+
+  // If the accept is for some other ballot, send a redirect.
+  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+    // TODO: paxos_redirect();
+    return 0;
+  }
 
   // Find the decree of the correct instance and increment the vote count.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
@@ -613,6 +624,10 @@ acceptor_promise(struct paxos_header *hdr)
   struct paxos_instance *it;
   struct paxos_yak py;
 
+  // Set our ballot to the one given in the prepare.
+  pax.ballot.id = hdr->ph_ballot.id;
+  pax.ballot.gen = hdr->ph_ballot.gen;
+
   // Start off the payload with the header.
   hdr->ph_opcode = OP_PROMISE;
   paxos_payload_init(&py, 2);
@@ -657,9 +672,18 @@ acceptor_promise(struct paxos_header *hdr)
 int
 acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 {
+  int cmp;
   struct paxos_instance *inst, *it;
 
-  // TODO: Check that the decree is coming from the ballot we expect.
+  // Check the ballot on the message.
+  cmp = ballot_compare(hdr->ph_ballot, pax.ballot);
+  if (cmp < -1) {
+    // If the decree has a lower ballot number, send a redirect.
+    // TODO: paxos_redirect();
+    return 0;
+  } else if (cmp > 1) {
+    // XXX: What if the decree has a higher ballot?
+  }
 
   // Initialize a new instance.
   inst = g_malloc0(sizeof(*inst));
