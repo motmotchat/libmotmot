@@ -33,6 +33,7 @@ int proposer_ack_request(struct paxos_peer *, struct paxos_header *,
 int proposer_decree(struct paxos_instance *);
 int proposer_ack_accept(struct paxos_peer *, struct paxos_header *);
 int proposer_commit(struct paxos_instance *);
+int proposer_welcome(struct paxos_acceptor *);
 
 // Acceptor operations
 int acceptor_ack_prepare(struct paxos_peer *, struct paxos_header *);
@@ -172,6 +173,10 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REDIRECT:
       // TODO: Decide what to do.
       break;
+
+    case OP_WELCOME:
+      // Ignore.
+      break;
   }
 
   return TRUE;
@@ -210,6 +215,10 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 
     case OP_REDIRECT:
       // TODO: Think Real Hard (tm)
+      break;
+
+    case OP_WELCOME:
+      // TODO: Be welcomed.
       break;
   }
 
@@ -347,10 +356,13 @@ paxos_learn(struct paxos_instance *inst)
 
       // TODO: Initialize a paxos_peer via a callback.
 
-      // TODO: If we are the proposer, send the new acceptor its paxid.
-
       // Append to our list.
       acceptor_insert(&pax.alist, acc);
+
+      // If we are the proposer, send the new acceptor its paxid.
+      if (is_proposer()) {
+        paxos_welcome(acc);
+      }
       break;
 
     case DEC_PART:
@@ -721,6 +733,18 @@ proposer_commit(struct paxos_instance *inst)
   // Learn the value, i.e., act on the commit.
   paxos_learn(inst);
 
+  return 0;
+}
+
+/**
+ * proposer_welcome - Welcome new protocol participant by passing along
+ * a new paxid, the acceptor list, and all commits since the last sync.
+ *
+ * XXX: We should sync when we add a participant.
+ */
+int
+proposer_welcome(struct paxos_acceptor *acc)
+{
   return 0;
 }
 

@@ -37,6 +37,7 @@ typedef enum paxos_opcode {
   OP_COMMIT,            // commit a decree (Success)
   OP_REQUEST,           // request a decree from the proposer
   OP_REDIRECT,          // suggests the true identity of the proposer
+  OP_WELCOME,           // says hello to a new participant
 } paxop_t;
 
 /* Paxos message header that is included with any message. */
