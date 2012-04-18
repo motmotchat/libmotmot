@@ -6,7 +6,7 @@ from gevent import socket
 import msgpack
 import sqlite3 as lite
 import sys
-import Queue
+from gevent.queue import Queue
 import socket as bSock
 
 class RemoteMethods:
@@ -21,6 +21,8 @@ class RemoteMethods:
     ACCEPT_FRIEND=6
     SERVER_SEND_ACCEPT=34
     SERVER_SEND_STATUS_CHANGED=33
+    PUSH_CLIENT_STATUS=20
+    PUSH_FRIEND_ACCEPT=21
     
 
 class status:
@@ -44,7 +46,7 @@ def doAuth(userName, password, ipAddr, port):
         con = lite.connect('config.db')
         cur = con.cursor()
 
-        cur.execute("SELECT COUNT(userId) FROM users WHERE (userName=? AND password=?);    ",(userName, password))
+        cur.execute("SELECT COUNT(userId) FROM users WHERE (userName=? AND password=?);",(userName, password))
 
         count = cur.fetchone()
 
@@ -221,17 +223,19 @@ def acceptFriend(acceptor, friend):
 
 class ReaderGreenlet(Greenlet):
 
-    def __init__(self, socket, ipAddr, port):
+    def __init__(self, socket, ipAddr, port, gl_writer):
         Greenlet.__init__(self)
         self.socket = socket
         self.ipAddr = ipAddr
         self.port = port
+        self.gl_writer = gl_writer
 
     def _run(self):
         while True:
             line = self.socket.recv(4096)
             if not line:
                 del authList[(self.ipAddr, self.port)]
+                qList[authList[(self.ipAddr, self.port)][0]].put(['kill',])
                 print "Connection Gone"
                 break
 
@@ -242,31 +246,34 @@ class ReaderGreenlet(Greenlet):
                 self.socket.sendall(msgpack.packb([1,91,"Invalid Version Number"]))
             else:
                 if val[1] == RemoteMethods.AUTHENTICATE_USER:
-                    success = doAuth(val[2], val[3], self.ipAddr, self.port)
+                    success = doAuth(val[3], val[4], self.ipAddr, self.port)
                     if success:
-                        self.socket.sendall(msgpack.packb([1,61,"Authentication Succeeded"]))
+                        qList[val[3]] = Queue()
+                        self.gl_writer.start()
+                        qList[val[3]].put([1,61,val[2],"Authentication Succeeded"])
                     else:
                         self.socket.sendall(msgpack.packb([1,92,"Permission Denied"]))
                 elif val[1] == RemoteMethods.AUTHENTICATE_SERVER:
                     success = doAuthServer(val[2], self.ipAddr, self.port)
                     if success:
-                        self.socket.sendall(msgpack.packb([1,61,"Authentication Succeeded"]))
+                        self.gl_writer.start()
+                        qList[authList[(self.ipAddr, self.port)][0]].put([1,61,val[2],"Authentication Succeeded"])
                     else:
                         self.socket.sendall(msgpack.packb([1,92,"Permission Denied"]))
                 else:
                     if (self.ipAddr, self.port) in authList:
                         if val[1] == RemoteMethods.REGISTER_FRIEND:
-                            registerFriend(authList[(self.ipAddr, self.port)][0], val[2], True)
-                            self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                            registerFriend(authList[(self.ipAddr, self.port)][0], val[3], True)
+                            qList[authList[(self.ipAddr, self.port)][0]].put([1,60,val[2],"Successful"])
                         elif val[1] == RemoteMethods.UNREGISTER_FRIEND:
-                            unregisterFriend(authList[(self.ipAddr, self.port)][0], val[2], True)
-                            self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                            unregisterFriend(authList[(self.ipAddr, self.port)][0], val[3], True)
+                            qList[authList[(self.ipAddr, self.port)][0]].put([1,60,val[2],"Successful"])
                         elif val[1] == RemoteMethods.GET_FRIEND_IP:
                             test = "foo"
                         elif val[1] == RemoteMethods.REGISTER_STATUS:
-                            authList[(self.ipAddr, self.port)][1] = val[2]
-                            statusChanged(authList[(self.ipAddr, self.port)][0], val[2])
-                            self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                            authList[(self.ipAddr, self.port)][1] = val[3]
+                            statusChanged(authList[(self.ipAddr, self.port)][0], val[3])
+                            qList[authList[(self.ipAddr, self.port)][0]].put([1,60,val[2],"Successful"])
                         elif val[1] == RemoteMethods.SERVER_SEND_FRIEND:
                             registerFriend(val[2], val[3], False)
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
@@ -274,17 +281,19 @@ class ReaderGreenlet(Greenlet):
                             unregisterFriend(val[2], val[3], False)
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.ACCEPT_FRIEND:
-                            acceptFriend(authList[(self.ipAddr, self.port)], val[2])
-                            self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                            acceptFriend(authList[(self.ipAddr, self.port)], val[3])
+                            qList[authList[(self.ipAddr, self.port)][0]].put([1,60,val[2],"Successful"])
                         elif val[1] == RemoteMethods.SERVER_SEND_STATUS_CHANGED:
                             if val[2] in qList:
-                                qList[val[2]].put((val[3], val[4]))
+                                qList[val[2]].put([1,RemoteMethods.PUSH_CLIENT_STATUS,-1,val[3], val[4]])
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
                         elif val[1] == RemoteMethods.SERVER_SEND_ACCEPT:
                             if val[2] in qList:
-                                qList[val[2]].put((val[3], val[4]))
+                                qList[val[2]].put([1,RemoteMethods.PUSH_FRIEND_ACCEPT,-1,val[3], val[4]])
                             execute_query("UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;", (val[2],val[3]))
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                        elif val[1] == 60:
+                            temp = "possibly handle return calls here"
                         else:
                             self.socket.sendall(msgpack.packb([1,99,"Method Not Found"]))
                     else:
@@ -299,13 +308,25 @@ class writerGreenlet(Greenlet):
 
     def __init__(self, sock, ipAddr, port):
         Greenlet.__init__(self)
-        self.socket = socket
+        self.socket = sock
         self.ipAddr = ipAddr
         self.port = port
+        self.msgIdCnt = 0
 
     def _run(self):
         while True:
-           foo = "bar" 
+            item = qList[authList[(self.ipAddr,self.port)][0]].get()
+            if item[0] == 'kill':
+                break
+            needMsgId = [RemoteMethods.PUSH_CLIENT_STATUS,RemoteMethods.PUSH_FRIEND_ACCEPT]
+            if item[1] in needMsgId:
+                self.msgIdCnt+=1
+                item[2] = ['s',self.msgIdCnt]
+
+            print item
+            self.socket.sendall(msgpack.packb(item))
+            print "sent"
+
 
     def __str__(self):
         return 'Writer Greenlet ({0}:{1})'.format(self.ipAddr,self.port)
@@ -313,12 +334,12 @@ class writerGreenlet(Greenlet):
 def handleConnection(socket, address):
     print "New Connection from {0}:{1}".format(address[0], address[1])
     
-    qList[(address[0], address[1])] = Queue.Queue()
-    reader = ReaderGreenlet(socket, address[0], address[1])
+    writer = writerGreenlet(socket, address[0], address[1])
+    reader = ReaderGreenlet(socket, address[0], address[1], writer)
     reader.start()
 
 
 if __name__ == '__main__':
     DOMAIN_NAME = sys.argv[1]
-    server = StreamServer(('140.247.149.192',8888), handleConnection)
+    server = StreamServer(('127.0.0.1',8888), handleConnection)
     server.serve_forever()

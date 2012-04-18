@@ -6,12 +6,12 @@ import time
 import socket as bSock
 
 if __name__ == '__main__':
-    address = (bSock.gethostbyname('hansbrough.com'), 8888)
+    address = (bSock.gethostbyname('other.com'), 8888)
 
     sock = socket.socket()
     sock.connect(address)
 
-    test = [1,1,"julie@hansbrough.com","12345"]
+    test = [1,1,"test@other.com","12345"]
 
     sVal = msgpack.packb(test)
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     sock2.connect(address)
 
 
-    test = [1,1,"julie@bensing.com", "12345"]
+    test = [1,1,"test@bensing.com", "12345"]
 
     sock2.sendall(msgpack.packb(test))
 
