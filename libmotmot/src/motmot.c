@@ -17,6 +17,16 @@ struct motmot_callback_info {
 static LIST_HEAD(, motmot_callback_info) callback_list;
 
 /**
+ * motmot_init - Initialize libmotmot
+ */
+void
+motmot_init()
+{
+  LIST_INIT(&callback_list);
+  paxos_init();
+}
+
+/**
  * motmot_send - queue the message for reliable ordered broadcast
  */
 int
