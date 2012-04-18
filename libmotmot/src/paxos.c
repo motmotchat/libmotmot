@@ -24,7 +24,6 @@ swap(void **p1, void **p2)
 struct paxos_state pax;
 
 // General Paxos operations
-void paxos_drop_connection(GIOChannel *);
 int paxos_redirect(GIOChannel *, struct paxos_header *);
 
 // Proposer operations

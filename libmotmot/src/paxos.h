@@ -163,7 +163,11 @@ inline paxid_t next_instance();
 
 /* Paxos protocol. */
 void paxos_init(void);
+void paxos_add_peer(GIOChannel *); // TODO: implement this
+void paxos_drop_connection(GIOChannel *);
 int paxos_request(dkind_t, const char *, size_t len);
+
+/* Utility functions. */
 int paxos_dispatch(GIOChannel *, GIOCondition, void *);
 
 /* Paxos message sending. */
