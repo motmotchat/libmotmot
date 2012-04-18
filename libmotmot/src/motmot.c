@@ -8,7 +8,7 @@
 
 #include <glib.h>
 
-// Private data structures
+// Private data structures.
 struct motmot_callback_info {
   motmot_callback mc_callback;
   void *mc_data;
@@ -17,7 +17,7 @@ struct motmot_callback_info {
 static LIST_HEAD(, motmot_callback_info) callback_list;
 
 /**
- * motmot_init - Initialize libmotmot
+ * motmot_init - Initialize libmotmot.
  */
 void
 motmot_init()
@@ -34,9 +34,10 @@ motmot_send(const char *message, size_t len)
 {
   return paxos_request(DEC_CHAT, message, len);
 }
+
 /**
- * motmot_add_callback - Add a callback that will be called upon the receipt of
- * every message. Doesn't check for duplicates, so "don't do that."
+ * motmot_add_callback - Add a callback that will be called upon the receipt
+ * of every message.  Doesn't check for duplicates, so "don't do that."
  */
 int
 motmot_add_callback(motmot_callback fn, void *data)
@@ -50,6 +51,7 @@ motmot_add_callback(motmot_callback fn, void *data)
 
   return 0;
 }
+
 /**
  * motmot_remove_callback - Remove the given callback.
  */
