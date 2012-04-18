@@ -27,7 +27,7 @@ motmot_init()
 }
 
 /**
- * motmot_send - queue the message for reliable ordered broadcast
+ * motmot_send - Queue the message for reliable ordered broadcast.
  */
 int
 motmot_send(const char *message, size_t len)
@@ -35,7 +35,7 @@ motmot_send(const char *message, size_t len)
   return paxos_request(DEC_CHAT, message, len);
 }
 /**
- * motmot_add_callback - add a callback that will be called upon the receipt of
+ * motmot_add_callback - Add a callback that will be called upon the receipt of
  * every message. Doesn't check for duplicates, so "don't do that."
  */
 int
@@ -51,9 +51,7 @@ motmot_add_callback(motmot_callback fn, void *data)
   return 0;
 }
 /**
- * motmot_remove_callback - remove the given callback.
- *
- * Returns 0 if an element was successfully removed in this way, 1 otherwise.
+ * motmot_remove_callback - Remove the given callback.
  */
 int
 motmot_remove_callback(motmot_callback fn, void *data)
