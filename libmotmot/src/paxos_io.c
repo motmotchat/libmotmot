@@ -1,7 +1,6 @@
 /**
  * paxos_io.c - Paxos reliable IO utilities
  */
-
 #include "paxos.h"
 #include "paxos_io.h"
 
@@ -14,7 +13,7 @@ int paxos_peer_read(GIOChannel *, GIOCondition, void *);
 int paxos_peer_write(GIOChannel *, GIOCondition, void *);
 
 /**
- * paxos_peer_init - Set up peer read/write buffering
+ * paxos_peer_init - Set up peer read/write buffering.
  */
 void
 paxos_peer_init(GIOChannel *channel)
@@ -38,25 +37,25 @@ paxos_peer_destroy(struct paxos_peer *peer)
   GIOStatus status;
   GError *error;
 
-  // Clean up the msgpack read buffer / unpacker
+  // Clean up the msgpack read buffer / unpacker.
   msgpack_unpacker_destroy(&peer->pp_unpacker);
 
-  // Get rid of our event listeners
+  // Get rid of our event listeners.
   g_source_remove(peer->pp_read);
   g_source_remove(peer->pp_write);
 
-  // Flush and destroy the GIOChannel
+  // Flush and destroy the GIOChannel.
   status = g_io_channel_shutdown(peer->pp_channel, TRUE, &error);
   if (status != G_IO_STATUS_NORMAL) {
-    g_warning("paxos_peer_destroy: trouble destroying peer.\n");
+    g_warning("paxos_peer_destroy: Trouble destroying peer.\n");
   }
 
-  // Free the peer structure itself
+  // Free the peer structure itself.
   g_free(peer);
 }
 
 /**
- * paxos_peer_read - Buffer data from a socket read, and deserialize
+ * paxos_peer_read - Buffer data from a socket read and deserialize.
  */
 int
 paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
@@ -80,22 +79,21 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
     g_warning("paxos_peer_read: Read from socket failed.\n");
   } else if (status == G_IO_STATUS_EOF) {
     paxos_drop_connection(peer);
-
     return FALSE;
   }
 
-  // Inform the msgpack_unpacker how much of the buffer we actually consumed
+  // Inform the msgpack_unpacker how much of the buffer we actually consumed.
   msgpack_unpacker_buffer_consumed(&peer->pp_unpacker, bytes_read);
 
-  // Pop as many msgpack objects as we can get our hands on
+  // Pop as many msgpack objects as we can get our hands on.
   // TODO: If we have a lot of data buffered but don't have any messages,
-  // then something has gone terribly wrong and we should abort
+  // then something has gone terribly wrong and we should abort.
   msgpack_unpacked_init(&result);
   while (msgpack_unpacker_next(&peer->pp_unpacker, &result)) {
     if (paxos_dispatch(peer, &result.data)) {
       g_warning("paxos_read_peer: Dispatch failed.\n");
 
-      // Clean up after ourselves
+      // Clean up after ourselves.
       msgpack_unpacked_destroy(&result);
       return FALSE;
     }
@@ -106,7 +104,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
 }
 
 /**
- * paxos_peer_write - Write data reliably to a peer
+ * paxos_peer_write - Write data reliably to a peer.
  */
 int
 paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
@@ -133,7 +131,7 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
     return FALSE;
   }
 
-  // XXX: this is really awful
+  // XXX: This is really awful.
   if (bytes_written == peer->pp_write_buffer.length) {
     peer->pp_write_buffer.length = 0;
     peer->pp_write_buffer.data = NULL;
@@ -155,7 +153,7 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
 }
 
 /**
- * paxos_peer_send - Send the contents of a buffer to a peer
+ * paxos_peer_send - Send the contents of a buffer to a peer.
  */
 int
 paxos_peer_send(struct paxos_peer *peer, const char *buffer, size_t length)

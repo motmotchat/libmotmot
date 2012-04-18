@@ -18,28 +18,28 @@ typedef uint32_t  paxid_t;
 
 /* Totally ordered ID of a ballot. */
 typedef struct ballot {
-  paxid_t id;       // ID of the proposer
-  paxid_t gen;      // generation number of the ballot
+  paxid_t id;           // ID of the proposer
+  paxid_t gen;          // generation number of the ballot
 } ballot_t;
 
 int ballot_compare(ballot_t, ballot_t);
 
 /* Paxos message types. */
 typedef enum paxos_opcode {
-  OP_PREPARE = 0,   // declare new proposership (NextBallot)
-  OP_PROMISE,       // promise to ignore earlier proposers (LastVote)
-  OP_DECREE,        // propose a decree (BeginBallot)
-  OP_ACCEPT,        // accept a decree (Voted)
-  OP_COMMIT,        // commit a decree (Success)
-  OP_REQUEST,       // request a decree from the proposer
-  OP_REDIRECT,      // suggests the true identity of the proposer
+  OP_PREPARE = 0,       // declare new proposership (NextBallot)
+  OP_PROMISE,           // promise to ignore earlier proposers (LastVote)
+  OP_DECREE,            // propose a decree (BeginBallot)
+  OP_ACCEPT,            // accept a decree (Voted)
+  OP_COMMIT,            // commit a decree (Success)
+  OP_REQUEST,           // request a decree from the proposer
+  OP_REDIRECT,          // suggests the true identity of the proposer
 } paxop_t;
 
 /* Paxos message header that is included with any message. */
 struct paxos_header {
-  ballot_t ph_ballot;  // ballot ID
-  paxop_t ph_opcode;   // protocol opcode
-  paxid_t ph_inum;     // Multi-Paxos instance number
+  ballot_t ph_ballot;   // ballot ID
+  paxop_t ph_opcode;    // protocol opcode
+  paxid_t ph_inum;      // Multi-Paxos instance number
   /**
    * The ph_inum field means different things for the different ops:
    * - OP_PREPARE: The lowest instance for which the preparer has not committed
@@ -76,18 +76,18 @@ struct paxos_header {
 
 /* Kinds of decrees. */
 typedef enum decree_kind {
-  DEC_NULL = 0,   // null value
-  DEC_CHAT,       // chat message
-  DEC_RENEW,      // proposer lease renewal
-  DEC_JOIN,       // add an acceptor
-  DEC_LEAVE,      // remove an acceptor
+  DEC_NULL = 0,       // null value
+  DEC_CHAT,           // chat message
+  DEC_RENEW,          // proposer lease renewal
+  DEC_JOIN,           // add an acceptor
+  DEC_LEAVE,          // remove an acceptor
 } dkind_t;
 
 /* Decree value type. */
 struct paxos_value {
-  dkind_t pv_dkind;    // decree kind
-  paxid_t pv_srcid;    // ID of decree requester
-  paxid_t pv_reqid;    // request ID subordinate to requester
+  dkind_t pv_dkind;   // decree kind
+  paxid_t pv_srcid;   // ID of decree requester
+  paxid_t pv_reqid;   // request ID subordinate to requester
   /**
    * In order to reduce network traffic, requesters broadcast any requests
    * with additional data to all acceptors, associating with each a session-
@@ -103,10 +103,10 @@ struct paxos_value {
 
 /* Request containing (usually chat) data, pending proposer commit. */
 struct paxos_request {
-  struct paxos_value pr_val;  // request ID and kind
-  size_t pr_size;             // size of data
-  void *pr_data;              // data pointer dependent on kind
-  LIST_ENTRY(paxos_request) pr_le;  // sorted linked list of requests
+  struct paxos_value pr_val;          // request ID and kind
+  size_t pr_size;                     // size of data
+  void *pr_data;                      // data pointer dependent on kind
+  LIST_ENTRY(paxos_request) pr_le;    // sorted linked list of requests
 };
 
 LIST_HEAD(request_list, paxos_request);
@@ -139,10 +139,10 @@ struct paxos_acceptor {
 
 /* Preparation state for new proposers. */
 struct paxos_prep {
-  unsigned pp_nacks;                // number of prepare acks
-  paxid_t pp_inum;                  // instance number of the first hole
-  struct paxos_instance *pp_first;  // closest instance to the first hole
-                                    // with instance number <= pp_inum
+  unsigned pp_nacks;                  // number of prepare acks
+  paxid_t pp_inum;                    // instance number of the first hole
+  struct paxos_instance *pp_first;    // closest instance to the first hole
+                                      // with instance number <= pp_inum
 };
 
 /* Local state. */
