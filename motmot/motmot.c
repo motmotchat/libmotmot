@@ -48,11 +48,9 @@
 
 #include <glib.h>
 
-/* If you're using this as the basis of a prpl that will be distributed
- * separately from libpurple, remove the internal.h include below and replace
- * it with code to include your own config.h or similar.  If you're going to
- * provide for translation, you'll also need to setup the gettext macros. */
-#include "internal.h"
+// Nop!
+#define _
+#define N_
 
 #include "account.h"
 #include "accountopt.h"
@@ -519,8 +517,6 @@ static void nullprpl_login(PurpleAccount *acct)
       _("Unable to connect"));
     return;
   }
-  
-  purple_connection_set_state(gc, PURPLE_CONNECTED);
 
   purple_connection_update_progress(gc, _("Connected"),
                                     1,   /* which connection step this is */
@@ -1372,7 +1368,7 @@ static PurplePluginInfo info =
   N_("Null Protocol Plugin"),                              /* summary */
   N_("Null Protocol Plugin"),                              /* description */
   NULL,                                                    /* author */
-  PURPLE_WEBSITE,                                          /* homepage */
+  MOTMOT_WEBSITE,                                          /* homepage */
   NULL,                                                    /* load */
   NULL,                                                    /* unload */
   nullprpl_destroy,                                        /* destroy */
