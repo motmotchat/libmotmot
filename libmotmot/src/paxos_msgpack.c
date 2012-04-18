@@ -104,6 +104,11 @@ paxos_value_unpack(struct paxos_value *val, msgpack_object *o)
   val->pv_srcid = (p++)->via.u64;
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   val->pv_reqid = (p++)->via.u64;
+}
 
-  return;
+void
+paxos_raw_pack(struct paxos_yak *py, const char *buf, size_t n)
+{
+  msgpack_pack_raw(py->pk, n);
+  msgpack_pack_raw_body(py->pk, buf, n);
 }

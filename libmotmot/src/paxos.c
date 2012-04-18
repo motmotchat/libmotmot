@@ -237,10 +237,39 @@ paxos_drop_connection(GIOChannel *source)
  * paxos_request - Broadcast a out-of-protocol message to all acceptors,
  * asking that they cache the message, and requests the proposer to propose
  * it as a decree.
+ *
+ * We send the request as a header along with a two-object array consisting
+ * of a paxos_value (itself an array) and a msgpack raw (i.e., a string).
  */
 int
-paxos_request(dkind_t kind, const char *msg, size_t len)
+paxos_request(dkind_t dkind, const char *msg, size_t len)
 {
+  struct paxos_header hdr;
+  struct paxos_value val;
+  struct paxos_yak py;
+
+  // Initialize a header.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_REQUEST;
+  hdr.ph_inum = 0;  // Not used.
+
+  // Initialize a value, incrementing our request ID.
+  val.pv_dkind = dkind;
+  val.pv_srcid = pax.self_id;
+  val.pv_reqid = (++pax.req_id);
+
+  // Pack the request.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &hdr);
+  paxos_payload_begin_array(&py, 2);
+  paxos_value_pack(&py, &val);
+  paxos_raw_pack(&py, msg, len);
+
+  // Broadcast the request
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
   return 0;
 }
 
