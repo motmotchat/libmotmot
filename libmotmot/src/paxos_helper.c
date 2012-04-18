@@ -151,6 +151,15 @@ request_insert(struct request_list *rlist, struct paxos_request *req)
   return req;
 }
 
+/*
+ * Convenience function for denoting which dkinds are requests.
+ */
+int
+is_request(dkind_t dkind)
+{
+  return dkind == DEC_CHAT;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////
 //

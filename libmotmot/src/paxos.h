@@ -49,7 +49,10 @@ struct paxos_header {
    * - OP_PROMISE: The index of the first vote returned (as specified in
    *   the prepare message).
    * - OP_DECREE, OP_ACCEPT, OP_COMMIT: The instance number of the decree.
-   * - OP_REQUEST, OP_REDIRECT: Not used.
+   * - OP_REQUEST: The paxid of the acceptor who we think is the proposer who
+   *   will send our request.  This allows us to send a redirect appropriately.
+   *   This overload is a little gross but requests are out-of-protocol anyway.
+   * - OP_REDIRECT: Not used.
    * We start counting instances at 1 and use 0 as a sentinel value.
    */
 };
@@ -82,6 +85,8 @@ typedef enum decree_kind {
   DEC_JOIN,           // add an acceptor
   DEC_LEAVE,          // remove an acceptor
 } dkind_t;
+
+int is_request(dkind_t dkind);
 
 /* Decree value type. */
 struct paxos_value {

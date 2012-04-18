@@ -21,25 +21,28 @@ swap(void **p1, void **p2)
 // Local protocol state
 struct paxos_state pax;
 
-// Out-of-protocol functions
+// General Paxos functions
 int paxos_redirect(struct paxos_peer *, struct paxos_header *);
+int paxos_learn(struct paxos_instance *);
 
 // Proposer operations
 int proposer_prepare(void);
 int proposer_ack_promise(struct paxos_header *, msgpack_object *);
-int proposer_ack_request(struct paxos_header *, msgpack_object *);
+int proposer_ack_request(struct paxos_peer *, struct paxos_header *,
+    msgpack_object *);
 int proposer_decree(struct paxos_instance *);
-int proposer_ack_accept(struct paxos_header *);
+int proposer_ack_accept(struct paxos_peer *, struct paxos_header *);
 int proposer_commit(struct paxos_instance *);
 
 // Acceptor operations
 int acceptor_ack_prepare(struct paxos_peer *, struct paxos_header *);
 int acceptor_promise(struct paxos_header *);
 int acceptor_ack_decree(struct paxos_peer *, struct paxos_header *,
-                        msgpack_object *);
+    msgpack_object *);
 int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
-int acceptor_ack_request(struct paxos_header *, msgpack_object *);
+int acceptor_ack_request(struct paxos_peer *,struct paxos_header *,
+    msgpack_object *);
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,12 +85,12 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   struct paxos_instance *inst;
   struct paxos_yak py;
 
-  // Initialize a header.
-  // XXX: Should we check to see if pax.proposer->pa_paxid == pax.ballot.id?
+  // Initialize a header.  We overload ph_inum to the ID of the acceptor who
+  // we believe to be the proposer.
   hdr.ph_ballot.id = pax.ballot.id;
   hdr.ph_ballot.gen = pax.ballot.gen;
   hdr.ph_opcode = OP_REQUEST;
-  hdr.ph_inum = 0;  // Not used.
+  hdr.ph_inum = pax.proposer->pa_paxid;
 
   // Allocate a request and initialize it.
   req = g_malloc0(sizeof(*req));
@@ -129,11 +132,11 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 {
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
-      // XXX: If this happens, it means that two proposers are connected to
-      // one another yet both think that they are at the head of the list of
-      // acceptors.  This list is the result of iterative Paxos commits,
-      // and hence a proposer receiving an OP_PREPARE probably qualifies as
-      // an inconsistent state.
+      // If this happens, it means that two proposers share a live connection
+      // yet both think that they are at the head of the list of acceptors.
+      // This list is the result of iterative Paxos commits, and hence a
+      // proposer receiving an OP_PREPARE qualifies as an inconsistent state
+      // of the system.
       g_critical("Proposer received OP_PREPARE.");
       break;
 
@@ -142,12 +145,14 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_DECREE:
+      // XXX: If the decree is for a higher ballot number, we should probably
+      // cry.
       g_error("Bad opcode OP_DECREE recieved by proposer. Redirecting...");
       paxos_redirect(source, hdr);
       break;
 
     case OP_ACCEPT:
-      proposer_ack_accept(hdr);
+      proposer_ack_accept(source, hdr);
       break;
 
     case OP_COMMIT:
@@ -158,7 +163,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_REQUEST:
-      proposer_ack_request(hdr, o);
+      proposer_ack_request(source, hdr, o);
       break;
 
     case OP_REDIRECT:
@@ -197,7 +202,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_REQUEST:
-      acceptor_ack_request(hdr, o);
+      acceptor_ack_request(source, hdr, o);
       break;
 
     case OP_REDIRECT:
@@ -303,6 +308,38 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
   // Send the payload.
   paxos_peer_send(source, UNYAK(&py));
   paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+int
+paxos_learn(struct paxos_instance *inst)
+{
+  struct paxos_request *req;
+
+  // Pull the request from the request queue if applicable.
+  if (is_request(inst->pi_val.pv_dkind)) {
+    req = request_find(&pax.rlist, inst->pi_val.pv_srcid,
+                       inst->pi_val.pv_reqid);
+  }
+
+  // XXX: Act on the decree (e.g., display chat, record configs).
+  switch (inst->pi_val.pv_dkind) {
+    case DEC_NULL:
+      break;
+
+    case DEC_CHAT:
+      break;
+
+    case DEC_RENEW:
+      break;
+
+    case DEC_JOIN:
+      break;
+
+    case DEC_LEAVE:
+      break;
+  }
 
   return 0;
 }
@@ -540,22 +577,23 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
 /**
  * proposer_ack_request - Dispatch a request as a decree.
+ *
+ * Regardless of whether the requester thinks we are the proposer, we
+ * benevolently handle their request.  However, we send a redirect if they
+ * mistook another acceptor as having proposership.
  */
 int
-proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
+proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
+    msgpack_object *o)
 {
   struct paxos_request *req;
   struct paxos_instance *inst;
 
-  // If the request is for some other ballot, send a redirect but process
-  // the request anyway.
-  // XXX: Maybe the person they indicate in the ballot is the one sending
-  // the redirect instead?
-  /*
-  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+  // The requester overloads ph_inst to the acceptor it believes to be the
+  // proposer.  If we are not identified as the proposer, send a redirect.
+  if (hdr->ph_inum != pax.self_id) {
     paxos_redirect(source, hdr);
   }
-  */
 
   // Allocate a request and unpack into it.
   req = g_malloc0(sizeof(*req));
@@ -613,15 +651,13 @@ proposer_decree(struct paxos_instance *inst)
  * if we have a majority.
  */
 int
-proposer_ack_accept(struct paxos_header *hdr)
+proposer_ack_accept(struct paxos_peer *source, struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
 
   // If the accept is for some other ballot, send a redirect.
   if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    // XXX: Or maybe just ignore it?
-    return 0;
-    // return paxos_redirect(source, hdr);
+    return paxos_redirect(source, hdr);
   }
 
   // Find the decree of the correct instance and increment the vote count.
@@ -659,10 +695,8 @@ proposer_commit(struct paxos_instance *inst)
   // Mark the instance committed.
   inst->pi_votes = 0;
 
-  // XXX: Act on the decree (e.g., display chat, record configs).
-  // We'll need to find the corresponding request in the request queue for
-  // the actual data, but only for those dkinds that are associated with
-  // requests.
+  // Learn the value, i.e., act on the commit.
+  paxos_learn(inst);
 
   return 0;
 }
@@ -771,7 +805,7 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
   int cmp;
-  struct paxos_instance *inst, *it;
+  struct paxos_instance *inst;
 
   // Check the ballot on the message.
   cmp = ballot_compare(hdr->ph_ballot, pax.ballot);
@@ -782,23 +816,26 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     // XXX: What if the decree has a higher ballot?
   }
 
-  // Initialize a new instance.
-  inst = g_malloc0(sizeof(*inst));
-  memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
-  paxos_value_unpack(&inst->pi_val, o);
-  inst->pi_votes = 1; // For acceptors, != 0 just means not committed.
+  // See if we have seen this instance for another ballot.
+  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  if (inst == NULL) {
+    // We haven't seen this instance, so initialize a new one.
+    inst = g_malloc0(sizeof(*inst));
+    memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
+    paxos_value_unpack(&inst->pi_val, o);
+    inst->pi_votes = 1; // For acceptors, != 0 just means not committed.
 
-  // Insert the new instance into the ilist.
-  it = instance_insert(&pax.ilist, inst);
-
-  // Check if we already had an instance of the same inum.
-  if (it != inst) {
-    // TODO: Check that the values are the same.
-    if (it->pi_votes == 0) {
-      // XXX: Do we need to do something different if the existing instance
-      // is already committed?
+    // Insert the new instance into the ilist.
+    inst = instance_insert(&pax.ilist, inst);
+  } else {
+    // We found an instance of the same number.  If the existing instance
+    // is NOT a commit, and if the new instance has a higher ballot number,
+    // switch the new one in.
+    if (inst->pi_votes != 0 &&
+        ballot_compare(hdr->ph_ballot, inst->pi_hdr.ph_ballot) > 1) {
+      memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
+      paxos_value_unpack(&inst->pi_val, o);
     }
-    g_free(inst);
   }
 
   // We've created a new instance struct as necessary, so accept.
@@ -848,7 +885,8 @@ acceptor_ack_commit(struct paxos_header *hdr)
   // Mark the value as committed.
   inst->pi_votes = 0;
 
-  // XXX: Tell the client library what's up.
+  // Learn the value, i.e., act on the commit.
+  paxos_learn(inst);
 
   return 0;
 }
@@ -856,14 +894,19 @@ acceptor_ack_commit(struct paxos_header *hdr)
 /*
  * acceptor_ack_request - Cache a requester's message, waiting for the
  * proposer to decree it.
- *
- * XXX: If the request message identified us as the proposer, but we are not,
- * in fact, the proposer, send a redirect.
  */
 int
-acceptor_ack_request(struct paxos_header *hdr, msgpack_object *o)
+acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
+    msgpack_object *o)
 {
   struct paxos_request *req;
+
+  // The requester overloads ph_inst to the acceptor it believes to be the
+  // proposer.  If we are incorrectly identified as the proposer, send a
+  // redirect.
+  if (hdr->ph_inum == pax.self_id && is_proposer()) {
+    paxos_redirect(source, hdr);
+  }
 
   // Allocate a request and unpack into it.
   req = g_malloc0(sizeof(*req));
