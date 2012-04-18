@@ -146,14 +146,13 @@ struct paxos_state {
   paxid_t self_id;                    // our own acceptor ID
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
   ballot_t ballot;                    // identity of the current ballot
+  paxid_t req_id;                     // local incrementing request ID
 
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
 
-  paxid_t req_id;                     // local incrementing request ID
-  struct request_list rlist;          // queued up requests waiting for commit
-
-  struct instance_list ilist;         // list of all instances
   LIST_HEAD(, paxos_acceptor) alist;  // list of all Paxos participants
+  struct instance_list ilist;         // list of all instances
+  struct request_list rlist;          // queued up requests waiting for commit
 };
 
 extern struct paxos_state pax;
@@ -163,6 +162,7 @@ inline paxid_t next_instance();
 #define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
 
 /* Paxos protocol. */
+void paxos_init(void);
 int paxos_dispatch(GIOChannel *, GIOCondition, void *);
 int paxos_send(GIOChannel *, const char *, size_t);
 int paxos_broadcast(const char *, size_t);

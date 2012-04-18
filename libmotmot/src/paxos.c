@@ -23,7 +23,7 @@ swap(void **p1, void **p2)
 // Local protocol state
 struct paxos_state pax;
 
-// Paxos operations
+// General Paxos operations
 void paxos_drop_connection(GIOChannel *);
 int paxos_request(dkind_t, const char *, size_t len);
 int paxos_redirect(GIOChannel *, struct paxos_header *);
@@ -43,6 +43,12 @@ int acceptor_ack_decree(GIOChannel *, struct paxos_header *, msgpack_object *);
 int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
 int acceptor_ack_request(struct paxos_header *, msgpack_object *);
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Dispatch routines
+//
 
 int
 proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
@@ -129,7 +135,7 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
   return TRUE;
 }
 
-/*
+/**
  * Handle a Paxos message.
  *
  * XXX: We should probably separate the protocol work from the buffer motion.
@@ -192,6 +198,31 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
   msgpack_unpacked_destroy(&res);
   g_free(hdr);
   return retval;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  General Paxos protocol functions
+//
+
+/**
+ * paxos_init - Initialize local Paxos state.
+ */
+void
+paxos_init()
+{
+  pax.self_id = 0;  // XXX: Obviously wrong.
+  pax.proposer = NULL;
+  pax.ballot.id = 0;
+  pax.ballot.gen = 0;
+  pax.req_id = 0;
+
+  pax.prep = NULL;
+
+  LIST_INIT(&pax.alist);
+  LIST_INIT(&pax.ilist);
+  LIST_INIT(&pax.rlist);
 }
 
 /**
@@ -301,6 +332,12 @@ paxos_redirect(GIOChannel *source, struct paxos_header *recv_hdr)
 
   return 0;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Proposer protocol
+//
 
 /*
  * Helper routine to obtain the instance on ilist with the closest instance
@@ -650,6 +687,12 @@ proposer_commit(struct paxos_instance *inst)
 
   return 0;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Acceptor protocol
+//
 
 /**
  * acceptor_ack_prepare - Prepare for a new proposer.
