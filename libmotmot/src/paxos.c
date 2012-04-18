@@ -410,8 +410,7 @@ proposer_prepare()
  *
  * We acknowledge the promise by incrementing the number of acceptors who
  * have responded to the prepare, and by accounting for the acceptor's
- * votes on those decrees for which we indicated we did not have commit
- * information.
+ * votes on those decrees for which we do not have commit information.
  *
  * If we attain a majority of promises, we make decrees for all those
  * instances in which any acceptor voted, as well as null decrees for
@@ -485,10 +484,10 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
-  it = LIST_FIRST(&pax.ilist);
+  it = pax.prep->pp_first;
 
   // For each Paxos instance for which we don't have a commit, send a decree.
-  for (inum = pax.prep->pp_nacks; ; ++inum) {
+  for (inum = pax.prep->pp_inum; ; ++inum) {
     // Get the closest instance with number >= inum.
     it = get_instance_lub(it, &pax.ilist, inum);
 
@@ -496,6 +495,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     if (it == (void *)&pax.ilist) {
       break;
     }
+
+    inst = NULL;
 
     if (it->pi_hdr.ph_inum > inum) {
       // Nobody in the quorum (including ourselves) has heard of this instance,
@@ -524,11 +525,13 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     }
 
     // Pack and broadcast the decree.
-    paxos_payload_init(&py, 2);
-    paxos_header_pack(&py, &(inst->pi_hdr));
-    paxos_value_pack(&py, &(inst->pi_val));
-    paxos_broadcast(UNYAK(&py));
-    paxos_payload_destroy(&py);
+    if (inst != NULL) {
+      paxos_payload_init(&py, 2);
+      paxos_header_pack(&py, &(inst->pi_hdr));
+      paxos_value_pack(&py, &(inst->pi_val));
+      paxos_broadcast(UNYAK(&py));
+      paxos_payload_destroy(&py);
+    }
   }
 
   // Free the prepare and return.
