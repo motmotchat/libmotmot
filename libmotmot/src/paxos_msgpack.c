@@ -109,10 +109,12 @@ paxos_value_unpack(struct paxos_value *val, msgpack_object *o)
 }
 
 void
-paxos_raw_pack(struct paxos_yak *py, const char *buf, size_t n)
+paxos_request_pack(struct paxos_yak *py, struct paxos_request *req)
 {
-  msgpack_pack_raw(py->pk, n);
-  msgpack_pack_raw_body(py->pk, buf, n);
+  msgpack_pack_array(py->pk, 2);
+  paxos_value_pack(py, &req->pr_val);
+  msgpack_pack_raw(py->pk, req->pr_size);
+  msgpack_pack_raw_body(py->pk, req->pr_data, req->pr_size);
 }
 
 void

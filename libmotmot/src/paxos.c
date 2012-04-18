@@ -80,7 +80,8 @@ int
 paxos_request(dkind_t dkind, const char *msg, size_t len)
 {
   struct paxos_header hdr;
-  struct paxos_value val;
+  struct paxos_request *req;
+  struct paxos_instance *inst;
   struct paxos_yak py;
 
   // Initialize a header.
@@ -90,23 +91,37 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   hdr.ph_opcode = OP_REQUEST;
   hdr.ph_inum = 0;  // Not used.
 
-  // Initialize a value, incrementing our request ID.
-  val.pv_dkind = dkind;
-  val.pv_srcid = pax.self_id;
-  val.pv_reqid = (++pax.req_id);
+  // Allocate a request and initialize it.
+  req = g_malloc0(sizeof(*req));
+  req->pr_val.pv_dkind = dkind;
+  req->pr_val.pv_srcid = pax.self_id;
+  req->pr_val.pv_reqid = (++pax.req_id);  // Increment our req_id.
+  req->pr_size = len;
+  memcpy(req->pr_data, msg, len);
 
-  // Pack the request.
+  // Add it to the request queue.
+  request_insert(&pax.rlist, req);
+
+  // Pack the request payload.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &hdr);
-  paxos_payload_begin_array(&py, 2);
-  paxos_value_pack(&py, &val);
-  paxos_raw_pack(&py, msg, len);
+  paxos_request_pack(&py, req);
 
   // Broadcast the request
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  // If we are the proposer, decree it immediately.
+  if (is_proposer()) {
+    // Allocate an instance and copy in the value from the request.
+    inst = g_malloc0(sizeof(*inst));
+    memcpy(&inst->pi_val, &req->pr_val, sizeof(struct paxos_request));
+
+    // Send a decree.
+    return proposer_decree(inst);
+  } else {
+    return 0;
+  }
 }
 
 static int
