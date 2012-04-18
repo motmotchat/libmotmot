@@ -260,6 +260,7 @@ paxos_drop_connection(struct paxos_peer *source)
       break;
     }
   }
+  paxos_peer_destroy(source);
 
   // Oh noes!  Did we lose the proposer?
   if (it->pa_paxid == pax.proposer->pa_paxid) {
@@ -276,8 +277,6 @@ paxos_drop_connection(struct paxos_peer *source)
       proposer_prepare();
     }
   }
-
-  paxos_peer_destroy(source);
 }
 
 /**
@@ -423,11 +422,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   paxid_t inum;
   struct paxos_yak py;
 
-  // If the promise is for some other ballot, send a redirect.
+  // If the promise is for some other ballot, just ignore it.  Acceptors
+  // should only be sending a promise to us in response to a prepare from
+  // us.  If we sent a redirect, by the time the acceptor got it, our
+  // newer prepare would have arrived.
   if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    // XXX: Or can we just ignore it?
     return 0;
-    // return paxos_redirect(source, hdr);
   }
 
   // Initialize loop variables.
@@ -687,7 +687,10 @@ proposer_commit(struct paxos_instance *inst)
 int
 acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
 {
-  if (pax.proposer->pa_peer != source) {
+  // Only promise if we think the preparer is the proposer and if the new
+  // ballot number is greater than the existing one.
+  if (ballot_compare(hdr->ph_ballot, pax.ballot) > 1 ||
+      pax.proposer->pa_peer != source) {
     return paxos_redirect(source, hdr);
   }
 
@@ -709,7 +712,7 @@ acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
  *      } promises[n];
  *    }
  *
- * where we pack the structs as two-element arrays.
+ * where we pack the internal structs as two-element arrays.
  */
 int
 acceptor_promise(struct paxos_header *hdr)
