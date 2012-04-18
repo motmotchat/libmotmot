@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0`
 LDFLAGS=`pkg-config --libs glib-2.0` -lmsgpack
 
-all: tags motmot motmot.o paxos.o paxos_helper.o paxos_msgpack.o paxos_io.o
+all: tags motmot
 
 motmot: main.o motmot.o paxos.o paxos_helper.o paxos_msgpack.o paxos_io.o
 	$(CC) $(LDFLAGS) -o motmot obj/*.o
