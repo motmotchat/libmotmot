@@ -95,10 +95,13 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   // Allocate a request and initialize it.
   req = g_malloc0(sizeof(*req));
   req->pr_val.pv_dkind = dkind;
-  req->pr_val.pv_srcid = pax.self_id;
-  req->pr_val.pv_reqid = (++pax.req_id);  // Increment our req_id.
+  req->pr_val.pv_reqid.id = pax.self_id;
+  req->pr_val.pv_reqid.gen = (++pax.req_id);  // Increment our req_id.
   req->pr_size = len;
-  memcpy(req->pr_data, msg, len);
+
+  if (msg != NULL) {
+    memcpy(req->pr_data, msg, len);
+  }
 
   // Add it to the request queue.
   request_insert(&pax.rlist, req);
@@ -319,8 +322,7 @@ paxos_learn(struct paxos_instance *inst)
 
   // Pull the request from the request queue if applicable.
   if (is_request(inst->pi_val.pv_dkind)) {
-    req = request_find(&pax.rlist, inst->pi_val.pv_srcid,
-                       inst->pi_val.pv_reqid);
+    req = request_find(&pax.rlist, inst->pi_val.pv_reqid);
   }
 
   // XXX: Act on the decree (e.g., display chat, record configs).
@@ -337,7 +339,7 @@ paxos_learn(struct paxos_instance *inst)
     case DEC_JOIN:
       break;
 
-    case DEC_LEAVE:
+    case DEC_PART:
       break;
   }
 
@@ -501,7 +503,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       // is NOT a commit, and if the new instance has a higher ballot number,
       // switch the new one in.
       if (it->pi_votes != 0 &&
-          ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 1) {
+          ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 0) {
         LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
         LIST_REMOVE(&pax.ilist, it, pi_le);
         swap((void **)&inst, (void **)&it);
@@ -546,8 +548,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_votes = 1;
 
       inst->pi_val.pv_dkind = DEC_NULL;
-      inst->pi_val.pv_srcid = pax.self_id;
-      inst->pi_val.pv_reqid = pax.req_id;
+      inst->pi_val.pv_reqid.id = pax.self_id;
+      inst->pi_val.pv_reqid.gen = pax.req_id;
 
       LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
     } else if (it->pi_votes != 0) {
@@ -723,7 +725,7 @@ acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
 {
   // Only promise if we think the preparer is the proposer and if the new
   // ballot number is greater than the existing one.
-  if (ballot_compare(hdr->ph_ballot, pax.ballot) > 1 ||
+  if (ballot_compare(hdr->ph_ballot, pax.ballot) > 0 ||
       pax.proposer->pa_peer != source) {
     return paxos_redirect(source, hdr);
   }
@@ -809,10 +811,10 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
 
   // Check the ballot on the message.
   cmp = ballot_compare(hdr->ph_ballot, pax.ballot);
-  if (cmp < -1) {
+  if (cmp < 0) {
     // If the decree has a lower ballot number, send a redirect.
     return paxos_redirect(source, hdr);
-  } else if (cmp > 1) {
+  } else if (cmp > 0) {
     // XXX: What if the decree has a higher ballot?
   }
 
@@ -832,7 +834,7 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     // is NOT a commit, and if the new instance has a higher ballot number,
     // switch the new one in.
     if (inst->pi_votes != 0 &&
-        ballot_compare(hdr->ph_ballot, inst->pi_hdr.ph_ballot) > 1) {
+        ballot_compare(hdr->ph_ballot, inst->pi_hdr.ph_ballot) > 0) {
       memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
       paxos_value_unpack(&inst->pi_val, o);
     }

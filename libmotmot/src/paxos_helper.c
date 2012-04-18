@@ -31,10 +31,25 @@ next_instance()
 }
 
 /*
- * Compare two ballot IDs.
+ * Compare two paxid's.
  */
 int
-ballot_compare(ballot_t x, ballot_t y)
+paxid_compare(paxid_t x, paxid_t y)
+{
+  if (x < y) {
+    return -1;
+  } else if (x > y) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+/*
+ * Compare two paxid pairs.
+ */
+int
+ppair_compare(ppair_t x, ppair_t y)
 {
   // Compare generation first.
   if (x.gen < y.gen) {
@@ -53,102 +68,16 @@ ballot_compare(ballot_t x, ballot_t y)
   }
 }
 
-
-///////////////////////////////////////////////////////////////////////////
-//
-//  Instance and request list operations
-//
-
-/*
- * Find an instance by its instance number.
- */
-struct paxos_instance *
-instance_find(struct instance_list *ilist, paxid_t inum)
+int
+ballot_compare(ballot_t x, ballot_t y)
 {
-  struct paxos_instance *it;
-
-  // We assume we want a more recent instance, so we search in reverse.
-  LIST_FOREACH_REV(it, ilist, pi_le) {
-    if (inum == it->pi_hdr.ph_inum) {
-      return it;
-    } else if (inum > it->pi_hdr.ph_inum) {
-      break;
-    }
-  }
-
-  return NULL;
+  return ppair_compare(x, y);
 }
 
-/*
- * Add an instance.  If an instance with the same instance number already
- * exists, the list is not modified and the existing instance is returned.
- */
-struct paxos_instance *
-instance_insert(struct instance_list *ilist, struct paxos_instance *inst)
+int
+reqid_compare(reqid_t x, reqid_t y)
 {
-  struct paxos_instance *it;
-
-  // We're probably ~appending.
-  LIST_FOREACH_REV(it, ilist, pi_le) {
-    if (inst->pi_hdr.ph_inum == it->pi_hdr.ph_inum) {
-      return it;
-    } else if (inst->pi_hdr.ph_inum > it->pi_hdr.ph_inum) {
-      // Insert into the list, sorted.
-      LIST_INSERT_AFTER(ilist, it, inst, pi_le);
-      return inst;
-    }
-  }
-
-  // We didn't find anything with a lower instance number, so just insert
-  // at head.
-  LIST_INSERT_HEAD(ilist, inst, pi_le);
-  return inst;
-}
-
-/*
- * Find a request by its full request ID.
- */
-struct paxos_request *
-request_find(struct request_list *rlist, paxid_t srcid, paxid_t reqid)
-{
-  struct paxos_request *it;
-
-  // We assume we want an earlier request, so we search forward.
-  LIST_FOREACH(it, rlist, pr_le) {
-    if (srcid == it->pr_val.pv_srcid && reqid == it->pr_val.pv_reqid) {
-      return it;
-    } else if (srcid <= it->pr_val.pv_srcid && reqid < it->pr_val.pv_reqid) {
-      break;
-    }
-  }
-
-  return NULL;
-}
-
-/*
- * Add a request.  If a request with the same request ID already exists, the
- * list is not modified and the existing request is returned.
- */
-struct paxos_request *
-request_insert(struct request_list *rlist, struct paxos_request *req)
-{
-  struct paxos_request *it;
-
-  // We're probably ~appending.
-  LIST_FOREACH_REV(it, rlist, pr_le) {
-    if (req->pr_val.pv_srcid == it->pr_val.pv_srcid &&
-        req->pr_val.pv_reqid == it->pr_val.pv_reqid) {
-      return it;
-    } else if (req->pr_val.pv_srcid >= it->pr_val.pv_srcid &&
-               req->pr_val.pv_reqid > it->pr_val.pv_reqid) {
-      LIST_INSERT_AFTER(rlist, it, req, pr_le);
-      return req;
-    }
-  }
-
-  // We didn't find anything with a lower request ID, so just insert at head.
-  LIST_INSERT_HEAD(rlist, req, pr_le);
-  return req;
+  return ppair_compare(x, y);
 }
 
 /*
@@ -157,8 +86,102 @@ request_insert(struct request_list *rlist, struct paxos_request *req)
 int
 is_request(dkind_t dkind)
 {
-  return dkind == DEC_CHAT;
+  return (dkind == DEC_CHAT || dkind == DEC_JOIN || dkind == DEC_PART);
 }
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Specific list operations.
+//
+
+#define XLIST_FIND_IMPL(name, id_t, le_field, id_field, compare)      \
+  struct paxos_##name *                                               \
+  name##_find(struct name##_list *head, id_t id)                      \
+  {                                                                   \
+    int cmp;                                                          \
+    struct paxos_##name *it;                                          \
+                                                                      \
+    LIST_FOREACH(it, head, le_field) {                                \
+      cmp = compare(id, it->id_field);                                \
+      if (cmp == 0) {                                                 \
+        return it;                                                    \
+      } else if (cmp < 0) {                                           \
+        break;                                                        \
+      }                                                               \
+    }                                                                 \
+                                                                      \
+    return NULL;                                                      \
+  }
+
+#define XLIST_FIND_REV_IMPL(name, id_t, le_field, id_field, compare)  \
+  struct paxos_##name *                                               \
+  name##_find(struct name##_list *head, id_t id)                      \
+  {                                                                   \
+    int cmp;                                                          \
+    struct paxos_##name *it;                                          \
+                                                                      \
+    LIST_FOREACH_REV(it, head, le_field) {                            \
+      cmp = compare(id, it->id_field);                                \
+      if (cmp == 0) {                                                 \
+        return it;                                                    \
+      } else if (cmp > 0) {                                           \
+        break;                                                        \
+      }                                                               \
+    }                                                                 \
+                                                                      \
+    return NULL;                                                      \
+  }
+
+#define XLIST_INSERT_IMPL(name, le_field, id_field, compare)          \
+  struct paxos_##name *                                               \
+  name##_insert(struct name##_list *head, struct paxos_##name *elt)   \
+  {                                                                   \
+    int cmp;                                                          \
+    struct paxos_##name *it;                                          \
+                                                                      \
+    LIST_FOREACH(it, head, le_field) {                                \
+      cmp = compare(elt->id_field, it->id_field);                     \
+      if (cmp == 0) {                                                 \
+        return it;                                                    \
+      } else if (cmp < 0) {                                           \
+        LIST_INSERT_BEFORE(head, it, elt, le_field);                  \
+        return elt;                                                   \
+      }                                                               \
+    }                                                                 \
+                                                                      \
+    LIST_INSERT_TAIL(head, elt, le_field);                            \
+    return elt;                                                       \
+  }
+
+#define XLIST_INSERT_REV_IMPL(name, le_field, id_field, compare)      \
+  struct paxos_##name *                                               \
+  name##_insert(struct name##_list *head, struct paxos_##name *elt)   \
+  {                                                                   \
+    int cmp;                                                          \
+    struct paxos_##name *it;                                            \
+                                                                      \
+    LIST_FOREACH_REV(it, head, le_field) {                            \
+      cmp = compare(elt->id_field, it->id_field);                     \
+      if (cmp == 0) {                                                 \
+        return it;                                                    \
+      } else if (cmp > 0) {                                           \
+        LIST_INSERT_AFTER(head, it, elt, le_field);                   \
+        return elt;                                                   \
+      }                                                               \
+    }                                                                 \
+                                                                      \
+    LIST_INSERT_HEAD(head, elt, le_field);                            \
+    return elt;                                                       \
+  }
+
+XLIST_FIND_IMPL(acceptor, paxid_t, pa_le, pa_rank, paxid_compare);
+XLIST_FIND_REV_IMPL(instance, paxid_t, pi_le, pi_hdr.ph_inum, paxid_compare);
+XLIST_FIND_IMPL(request, reqid_t, pr_le, pr_val.pv_reqid, reqid_compare);
+
+XLIST_INSERT_REV_IMPL(acceptor, pa_le, pa_rank, paxid_compare);
+XLIST_INSERT_REV_IMPL(instance, pi_le, pi_hdr.ph_inum, paxid_compare);
+XLIST_INSERT_REV_IMPL(request, pr_le, pr_val.pv_reqid, reqid_compare);
 
 
 ///////////////////////////////////////////////////////////////////////////
