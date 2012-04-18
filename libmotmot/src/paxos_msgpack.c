@@ -66,15 +66,18 @@ paxos_header_unpack(struct paxos_header *hdr, msgpack_object *o)
 {
   struct msgpack_object *p;
 
-  // Make sure the input is well-formed
+  // Make sure the input is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
   assert(o->via.array.size == 4);
 
   p = o->via.array.ptr;
-  // TODO: check types of these
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   hdr->ph_ballot.id = p->via.u64;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   hdr->ph_ballot.gen = (++p)->via.u64;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   hdr->ph_opcode = (++p)->via.u64;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   hdr->ph_inum = (++p)->via.u64;
 }
 
@@ -92,18 +95,17 @@ paxos_value_unpack(struct paxos_value *val, msgpack_object *o)
 {
   struct msgpack_object *p;
 
-  // Make sure the input is well-formed
+  // Make sure the input is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
   assert(o->via.array.size == 3);
 
   p = o->via.array.ptr;
-  // TODO: check types of these
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  val->pv_dkind = (p++)->via.u64;
+  val->pv_dkind = p->via.u64;
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  val->pv_srcid = (p++)->via.u64;
+  val->pv_srcid = (++p)->via.u64;
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  val->pv_reqid = (p++)->via.u64;
+  val->pv_reqid = (++p)->via.u64;
 }
 
 void
@@ -111,4 +113,23 @@ paxos_raw_pack(struct paxos_yak *py, const char *buf, size_t n)
 {
   msgpack_pack_raw(py->pk, n);
   msgpack_pack_raw_body(py->pk, buf, n);
+}
+
+void
+paxos_request_unpack(struct paxos_request *req, msgpack_object *o)
+{
+  struct msgpack_object *p;
+
+  // Make sure the input is well-formed.
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  assert(o->via.array.size == 2);
+
+  // Unpack the value.
+  p = o->via.array.ptr;
+  paxos_value_unpack(&req->pr_val, p++);
+
+  // Unpack the raw data.
+  assert(p->type == MSGPACK_OBJECT_RAW);
+  req->pr_size = p->via.raw.size;
+  memcpy(req->pr_data, p->via.raw.ptr, p->via.raw.size);
 }

@@ -249,6 +249,7 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   struct paxos_yak py;
 
   // Initialize a header.
+  // XXX: Should we check to see if pax.proposer->pa_paxid == pax.ballot.id?
   hdr.ph_ballot.id = pax.ballot.id;
   hdr.ph_ballot.gen = pax.ballot.gen;
   hdr.ph_opcode = OP_REQUEST;
@@ -527,6 +528,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 int
 proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 {
+  struct paxos_request *req;
   struct paxos_instance *inst;
 
   // If the request is for some other ballot, send a redirect but process
@@ -539,13 +541,16 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
   }
   */
 
-  // Allocate an instance and unpack a value into it.
-  inst = g_malloc0(sizeof(*inst));
-  paxos_value_unpack(&inst->pi_val, o);
+  // Allocate a request and unpack into it.
+  req = g_malloc0(sizeof(*req));
+  paxos_request_unpack(req, o);
 
-  // XXX: We should decide how to pack the raw data into a request (perhaps
-  // as a third array?) and then unpack it here and add it to our request
-  // queue.
+  // Add it to the request queue.
+  request_insert(&pax.rlist, req);
+
+  // Allocate an instance and copy in the value from the request.
+  inst = g_malloc0(sizeof(*inst));
+  memcpy(&inst->pi_val, &req->pr_val, sizeof(struct paxos_request));
 
   // Send a decree.
   return proposer_decree(inst);
@@ -826,9 +831,21 @@ acceptor_ack_commit(struct paxos_header *hdr)
 /*
  * acceptor_ack_request - Cache a requester's message, waiting for the
  * proposer to decree it.
+ *
+ * XXX: If the request message identified us as the proposer, but we are not,
+ * in fact, the proposer, send a redirect.
  */
 int
 acceptor_ack_request(struct paxos_header *hdr, msgpack_object *o)
 {
+  struct paxos_request *req;
+
+  // Allocate a request and unpack into it.
+  req = g_malloc0(sizeof(*req));
+  paxos_request_unpack(req, o);
+
+  // Add it to the request queue.
+  request_insert(&pax.rlist, req);
+
   return 0;
 }

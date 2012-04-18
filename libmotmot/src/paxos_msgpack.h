@@ -26,5 +26,6 @@ void paxos_header_unpack(struct paxos_header *, msgpack_object *);
 void paxos_value_pack(struct paxos_yak *, struct paxos_value *);
 void paxos_value_unpack(struct paxos_value *, msgpack_object *);
 void paxos_raw_pack(struct paxos_yak *, const char *, size_t);
+void paxos_request_unpack(struct paxos_request *, msgpack_object *);
 
 #endif /* __PAXOS_MSGPACK_H__ */

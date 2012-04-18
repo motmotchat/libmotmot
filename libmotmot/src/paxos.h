@@ -101,6 +101,7 @@ struct paxos_value {
 /* Request containing (usually chat) data, pending proposer commit. */
 struct paxos_request {
   struct paxos_value pr_val;  // request ID and kind
+  size_t pr_size;             // size of data
   void *pr_data;              // data pointer dependent on kind
   LIST_ENTRY(paxos_request) pr_le;  // sorted linked list of requests
 };

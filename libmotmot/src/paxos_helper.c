@@ -130,7 +130,7 @@ request_find(struct request_list *rlist, paxid_t srcid, paxid_t reqid)
  * list is not modified and the existing request is returned.
  */
 struct paxos_request *
-request_add(struct request_list *rlist, struct paxos_request *req)
+request_insert(struct request_list *rlist, struct paxos_request *req)
 {
   struct paxos_request *it;
 
