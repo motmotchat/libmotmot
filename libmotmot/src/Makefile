@@ -5,13 +5,13 @@ LDFLAGS=`pkg-config --libs glib-2.0` -lmsgpack
 all: tags motmot motmot.o paxos.o paxos_helper.o paxos_msgpack.o
 
 motmot: main.o
-	$(CC) $(LDFLAGS) -o motmot *.o
+	$(CC) $(LDFLAGS) -o motmot obj/*.o
 
 .c.o:
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o obj/$@
 
 tags:
 	ctags -R
 
 clean:
-	-rm -rf *.o conn/* motmot
+	-rm -rf obj/*.o conn/* motmot
