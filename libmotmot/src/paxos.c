@@ -25,7 +25,7 @@ struct paxos_state pax;
 
 // Paxos operations
 void paxos_drop_connection(GIOChannel *);
-// int paxos_request();
+int paxos_request(dkind_t, const char *, size_t len);
 
 // Proposer operations
 int proposer_prepare(GIOChannel *);
@@ -41,7 +41,7 @@ int acceptor_promise(struct paxos_header *);
 int acceptor_ack_decree(struct paxos_header *, msgpack_object *);
 int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
-int acceptor_request(dkind_t, size_t, const char *);
+int acceptor_ack_request(struct paxos_header *, msgpack_object *);
 
 int
 proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
@@ -233,6 +233,17 @@ paxos_drop_connection(GIOChannel *source)
 
   // Close the channel socket.
   close(g_io_channel_unix_get_fd(source));
+}
+
+/**
+ * paxos_request - Broadcast a out-of-protocol message to all acceptors,
+ * asking that they cache the message, and requests the proposer to propose
+ * it as a decree.
+ */
+int
+paxos_request(dkind_t kind, const char *msg, size_t len)
+{
+  return 0;
 }
 
 /*
@@ -706,7 +717,7 @@ acceptor_ack_commit(struct paxos_header *hdr)
   struct paxos_instance *inst;
 
   // Retrieve the instance struct corresponding to the inum.
-  inst = instance_find(&pax.ilist, pi_le);
+  inst = instance_find(&pax.ilist, hdr->ph_inum);
 
   // XXX: I don't think we need to check that the ballot numbers match
   // because Paxos is supposed to guarantee that a commit command from the
@@ -721,11 +732,12 @@ acceptor_ack_commit(struct paxos_header *hdr)
   return 0;
 }
 
-/**
- * acceptor_request - Request the president to propose the given value
+/*
+ * acceptor_ack_request - Cache a requester's message, waiting for the
+ * proposer to decree it.
  */
 int
-acceptor_request(dkind_t kind, size_t len, const char *message)
+acceptor_ack_request(struct paxos_header *hdr, msgpack_object *o)
 {
   return 0;
 }
