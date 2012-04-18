@@ -23,11 +23,11 @@ swap(void **p1, void **p2)
 // Local protocol state
 struct paxos_state pax;
 
-// General Paxos operations
+// Out-of-protocol functions
 int paxos_redirect(GIOChannel *, struct paxos_header *);
 
 // Proposer operations
-int proposer_prepare(GIOChannel *);
+int proposer_prepare(void);
 int proposer_ack_promise(struct paxos_header *, msgpack_object *);
 int proposer_ack_request(struct paxos_header *, msgpack_object *);
 int proposer_decree(struct paxos_instance *);
@@ -68,9 +68,9 @@ paxos_init()
 }
 
 /**
- * paxos_request - Broadcast a out-of-protocol message to all acceptors,
- * asking that they cache the message, and requests the proposer to propose
- * it as a decree.
+ * paxos_request - Broadcast an out-of-protocol message to all acceptors,
+ * asking that they cache the message and requesting that the proposer
+ * propose it as a decree.
  *
  * We send the request as a header along with a two-object array consisting
  * of a paxos_value (itself an array) and a msgpack raw (i.e., a string).
@@ -110,17 +110,18 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  // If we are the proposer, decree it immediately.
-  if (is_proposer()) {
-    // Allocate an instance and copy in the value from the request.
-    inst = g_malloc0(sizeof(*inst));
-    memcpy(&inst->pi_val, &req->pr_val, sizeof(struct paxos_request));
-
-    // Send a decree.
-    return proposer_decree(inst);
-  } else {
+  // If we aren't the proposer, return.
+  if (!is_proposer()) {
     return 0;
   }
+
+  // We're the proposer, so allocate an instance and copy in the value from
+  // the request.
+  inst = g_malloc0(sizeof(*inst));
+  memcpy(&inst->pi_val, &req->pr_val, sizeof(struct paxos_request));
+
+  // Send a decree.
+  return proposer_decree(inst);
 }
 
 static int
@@ -132,8 +133,8 @@ proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
       // XXX: If this happens, it means that two proposers are connected to
       // one another yet both think that they are at the head of the list of
       // acceptors.  This list is the result of iterative Paxos commits,
-      // and hence a proposer receiving an OP_PREPARE should qualify as an
-      // inconsistent state.
+      // and hence a proposer receiving an OP_PREPARE probably qualifies as
+      // an inconsistent state.
       g_critical("Proposer received OP_PREPARE.");
       break;
 
@@ -250,13 +251,11 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
   msgpack_unpacker_next(pac, &res);
   o = res.data;
 
-  // TODO: error handling?
-  assert(o.type == MSGPACK_OBJECT_ARRAY && o.via.array.size > 0 &&
-      o.via.array.size <= 2);
-
+  assert(o.type == MSGPACK_OBJECT_ARRAY);
+  assert(o.via.array.size > 0 && o.via.array.size <= 2);
   p = o.via.array.ptr;
 
-  // Unpack the Paxos header.  This will be clobbered by the proposer/acceptor
+  // Unpack the Paxos header.  This may be clobbered by the proposer/acceptor
   // routines which the dispatch functions call.
   hdr = g_malloc0(sizeof(*hdr));
   paxos_header_unpack(hdr, p);
@@ -298,6 +297,9 @@ paxos_drop_connection(GIOChannel *source)
     }
   }
 
+  // Close the channel socket.
+  close(g_io_channel_unix_get_fd(source));
+
   // Oh noes!  Did we lose the proposer?
   if (it->pa_paxid == pax.proposer->pa_paxid) {
     // Let's mark the new one.
@@ -310,12 +312,9 @@ paxos_drop_connection(GIOChannel *source)
 
     // If we're the new proposer, send a prepare.
     if (is_proposer()) {
-      proposer_prepare(source);
+      proposer_prepare();
     }
   }
-
-  // Close the channel socket.
-  close(g_io_channel_unix_get_fd(source));
 }
 
 /**
@@ -380,7 +379,7 @@ get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
  *  - We were next in line to be proposer.
  */
 int
-proposer_prepare(GIOChannel *source)
+proposer_prepare()
 {
   struct paxos_instance *it;
   struct paxos_header hdr;
@@ -393,14 +392,14 @@ proposer_prepare(GIOChannel *source)
     g_free(pax.prep);
   }
 
-  // Start a new prepare and a new ballot.
-  pax.prep = g_malloc0(sizeof(*pax.prep));
+  // Start a new ballot.
   pax.ballot.id = pax.self_id;
   pax.ballot.gen++;
 
-  // Default to the next instance.
+  // Start a new prepare.
+  pax.prep = g_malloc0(sizeof(*pax.prep));
   pax.prep->pp_nacks = 1;
-  pax.prep->pp_inum = next_instance();
+  pax.prep->pp_inum = next_instance();  // Default to next instance.
   pax.prep->pp_first = NULL;
 
   // We let inum lag one list entry behind the iterator in our loop to
@@ -428,7 +427,8 @@ proposer_prepare(GIOChannel *source)
   }
 
   // Initialize a Paxos header.
-  hdr.ph_ballot = pax.ballot;
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
   hdr.ph_opcode = OP_PREPARE;
   hdr.ph_inum = pax.prep->pp_inum;
 
