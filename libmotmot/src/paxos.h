@@ -166,7 +166,7 @@ struct paxos_state {
 
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
 
-  LIST_HEAD(, paxos_acceptor) alist;  // list of all Paxos participants
+  struct acceptor_list alist;         // list of all Paxos participants
   struct instance_list ilist;         // list of all instances
   struct request_list rlist;          // queued up requests waiting for commit
 };

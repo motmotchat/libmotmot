@@ -319,6 +319,7 @@ int
 paxos_learn(struct paxos_instance *inst)
 {
   struct paxos_request *req;
+  struct paxos_acceptor *acc;
 
   // Pull the request from the request queue if applicable.
   if (is_request(inst->pi_val.pv_dkind)) {
@@ -337,9 +338,29 @@ paxos_learn(struct paxos_instance *inst)
       break;
 
     case DEC_JOIN:
+      // Initialize a new acceptor struct.  Its paxid will be the instance
+      // number of its join decree, as will its rank.
+      acc = g_malloc0(sizeof(*acc));
+      acc->pa_paxid = inst->pi_hdr.ph_inum;
+      acc->pa_rank = inst->pi_hdr.ph_inum;
+      acc->pa_peer = NULL;
+
+      // TODO: Initialize a paxos_peer via a callback.
+
+      // TODO: If we are the proposer, send the new acceptor its paxid.
+
+      // Append to our list.
+      acceptor_insert(&pax.alist, acc);
       break;
 
     case DEC_PART:
+      // TODO: Find the acceptor being removed (how?)
+
+      // TODO: Destroy the paxos_peer via a callback.
+
+      // Cleanup.
+      LIST_REMOVE(&pax.alist, acc, pa_le);
+      g_free(acc);
       break;
   }
 
