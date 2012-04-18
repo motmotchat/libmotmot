@@ -101,8 +101,7 @@ instance_insert(struct instance_list *ilist, struct paxos_instance *inst)
 
   // We didn't find anything with a lower instance number, so just insert
   // at head.
-  LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
-
+  LIST_INSERT_HEAD(ilist, inst, pi_le);
   return inst;
 }
 
@@ -142,12 +141,13 @@ request_add(struct request_list *rlist, struct paxos_request *req)
       return it;
     } else if (req->pr_val.pv_srcid >= it->pr_val.pv_srcid &&
                req->pr_val.pv_reqid > it->pr_val.pv_reqid) {
-      break;
+      LIST_INSERT_AFTER(rlist, it, req, pr_le);
+      return req;
     }
   }
 
-  // Insert into the list, sorted.
-  LIST_INSERT_AFTER(rlist, it, req, pr_le);
+  // We didn't find anything with a lower request ID, so just insert at head.
+  LIST_INSERT_HEAD(rlist, req, pr_le);
   return req;
 }
 
