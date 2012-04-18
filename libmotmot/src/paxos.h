@@ -67,7 +67,8 @@ struct paxos_header {
  * - OP_ACCEPT: Acceptances are headers.
  * - OP_COMMIT: Commits are just headers.
  * - OP_REQUEST: Requests are headers plus values.
- * - OP_REDIRECT: Redirects are just headers.
+ * - OP_REDIRECT: Redirects are two headers: the first one is the one with the
+ *   corrected ballot, and the second is the original header.
  */
 
 /* Kinds of decrees. */

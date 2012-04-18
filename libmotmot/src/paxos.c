@@ -26,6 +26,7 @@ struct paxos_state pax;
 // Paxos operations
 void paxos_drop_connection(GIOChannel *);
 int paxos_request(dkind_t, const char *, size_t len);
+int paxos_redirect(GIOChannel *, struct paxos_header *);
 
 // Proposer operations
 int proposer_prepare(GIOChannel *);
@@ -38,7 +39,7 @@ int proposer_commit(struct paxos_instance *);
 // Acceptor operations
 int acceptor_ack_prepare(GIOChannel *, struct paxos_header *);
 int acceptor_promise(struct paxos_header *);
-int acceptor_ack_decree(struct paxos_header *, msgpack_object *);
+int acceptor_ack_decree(GIOChannel *, struct paxos_header *, msgpack_object *);
 int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
 int acceptor_ack_request(struct paxos_header *, msgpack_object *);
@@ -49,16 +50,21 @@ proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
 {
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
-      g_error("Bad request PREPARE recieved by proposer. Redirecting...");
-      // TODO: paxos_redirect();
+      // XXX: If this happens, it means that two proposers are connected to
+      // one another yet both think that they are at the head of the list of
+      // acceptors.  This list is the result of iterative Paxos commits,
+      // and hence a proposer receiving an OP_PREPARE should qualify as an
+      // inconsistent state.
+      g_critical("Proposer received OP_PREPARE.");
       break;
+
     case OP_PROMISE:
       proposer_ack_promise(hdr, o);
       break;
 
     case OP_DECREE:
-      g_error("Bad request DECREE recieved by proposer. Redirecting...");
-      // TODO: paxos_redirect();
+      g_error("Bad opcode OP_DECREE recieved by proposer. Redirecting...");
+      paxos_redirect(source, hdr);
       break;
 
     case OP_ACCEPT:
@@ -94,17 +100,17 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
       break;
 
     case OP_PROMISE:
-      g_error("Bad request PROMISE recieved by acceptor. Redirecting...");
-      // TODO: paxos_redirect();
+      g_error("Bad opcode OP_PROMISE recieved by acceptor. Redirecting...");
+      paxos_redirect(source, hdr);
       break;
 
     case OP_DECREE:
-      acceptor_ack_decree(hdr, o);
+      acceptor_ack_decree(source, hdr, o);
       break;
 
     case OP_ACCEPT:
-      g_error("Bad request ACCEPT recieved by acceptor. Redirecting...");
-      // TODO: paxos_redirect();
+      g_error("Bad opcode OP_ACCEPT recieved by acceptor. Redirecting...");
+      paxos_redirect(source, hdr);
       break;
 
     case OP_COMMIT:
@@ -112,8 +118,7 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
       break;
 
     case OP_REQUEST:
-      g_error("Bad request REQUEST recieved by acceptor. Redirecting...");
-      // TODO: paxos_redirect();
+      acceptor_ack_request(hdr, o);
       break;
 
     case OP_REDIRECT:
@@ -239,6 +244,34 @@ paxos_request(dkind_t kind, const char *msg, size_t len)
   return 0;
 }
 
+/**
+ * paxos_redirect - Tell the sender of the message that we're not their
+ * guy.  Tell them who their guy is.
+ */
+int
+paxos_redirect(GIOChannel *source, struct paxos_header *recv_hdr)
+{
+  struct paxos_header hdr;
+  struct paxos_yak py;
+
+  // Initialize a header.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_REDIRECT;
+  hdr.ph_inum = 0;  // Not used.
+
+  // Pack a payload, which includes the weird header we were sent.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &hdr);
+  paxos_header_pack(&py, recv_hdr);
+
+  // Send the payload.
+  paxos_send(source, UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
 /*
  * Helper routine to obtain the instance on ilist with the closest instance
  * number >= inum.  We are passed in an iterator to simulate a continuation.
@@ -350,8 +383,9 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
   // If the promise is for some other ballot, send a redirect.
   if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    // TODO: paxos_redirect();
+    // XXX: Or can we just ignore it?
     return 0;
+    // return paxos_redirect(source, hdr);
   }
 
   // Initialize loop variables.
@@ -468,9 +502,13 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 
   // If the request is for some other ballot, send a redirect but process
   // the request anyway.
+  // XXX: Maybe the person they indicate in the ballot is the one sending
+  // the redirect instead?
+  /*
   if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    // TODO: paxos_redirect();
+    paxos_redirect(source, hdr);
   }
+  */
 
   // Allocate an instance and unpack a value into it.
   inst = g_malloc0(sizeof(*inst));
@@ -531,8 +569,9 @@ proposer_ack_accept(struct paxos_header *hdr)
 
   // If the accept is for some other ballot, send a redirect.
   if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    // TODO: paxos_redirect();
+    // XXX: Or maybe just ignore it?
     return 0;
+    // return paxos_redirect(source, hdr);
   }
 
   // Find the decree of the correct instance and increment the vote count.
@@ -593,8 +632,7 @@ int
 acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
 {
   if (pax.proposer->pa_chan != source) {
-    // TODO: paxos_redirect();
-    return 0;
+    return paxos_redirect(source, hdr);
   }
 
   return acceptor_promise(hdr);
@@ -670,7 +708,8 @@ acceptor_promise(struct paxos_header *hdr)
  * so we don't release it to the outside world just yet.
  */
 int
-acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
+acceptor_ack_decree(GIOChannel *source, struct paxos_header *hdr,
+    msgpack_object *o)
 {
   int cmp;
   struct paxos_instance *inst, *it;
@@ -679,8 +718,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   cmp = ballot_compare(hdr->ph_ballot, pax.ballot);
   if (cmp < -1) {
     // If the decree has a lower ballot number, send a redirect.
-    // TODO: paxos_redirect();
-    return 0;
+    return paxos_redirect(source, hdr);
   } else if (cmp > 1) {
     // XXX: What if the decree has a higher ballot?
   }
