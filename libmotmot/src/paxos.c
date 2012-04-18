@@ -218,7 +218,7 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
   struct paxos_header *hdr;
 
   assert(o->type == MSGPACK_OBJECT_ARRAY);
-  assert(&& o->via.array.size > 0 && o->via.array.size <= 2);
+  assert(o->via.array.size > 0 && o->via.array.size <= 2);
 
   // Unpack the Paxos header.  This may be clobbered by the proposer/acceptor
   // routines which the dispatch functions call.
