@@ -158,52 +158,20 @@ request_insert(struct request_list *rlist, struct paxos_request *req)
 //
 
 /**
- * paxos_send - Utility function to send the contents of buf on a channel
- */
-int
-paxos_send(GIOChannel *chan, const char *buf, size_t size)
-{
-  GError *gerr = NULL;
-  GIOStatus status;
-  unsigned long len;
-
-  status = g_io_channel_write_chars(chan, buf, size, &len, &gerr);
-  if (status == G_IO_STATUS_ERROR) {
-    // TODO: error handling
-    g_error("paxos_send: Could not write prepare to socket.\n");
-    return 1;
-  }
-  if (len != size) {
-    // TODO: what if we get a partial write?
-    g_error("paxos_send: Partial write. Try again?\n");
-    return 1;
-  }
-
-  status = g_io_channel_flush(chan, &gerr);
-  if (status == G_IO_STATUS_ERROR) {
-    // TODO: error handling
-    g_error("paxos_send: Could not flush prepare on socket.\n");
-    return 1;
-  }
-
-  return 0;
-}
-
-/**
  * Broadcast a message to all acceptors.
  */
 int
-paxos_broadcast(const char *buf, size_t size)
+paxos_broadcast(const char *buffer, size_t length)
 {
   struct paxos_acceptor *acc;
   int retval;
 
   LIST_FOREACH(acc, &(pax.alist), pa_le) {
-    if (acc->pa_chan == NULL) {
+    if (acc->pa_peer == NULL) {
       continue;
     }
 
-    retval = paxos_send(acc->pa_chan, buf, size);
+    retval = paxos_peer_send(acc->pa_peer, buffer, length);
     if (retval) {
       return retval;
     }
@@ -216,11 +184,11 @@ paxos_broadcast(const char *buf, size_t size)
  * Send a message to the proposer
  */
 int
-paxos_send_to_proposer(const char *buf, size_t size)
+paxos_send_to_proposer(const char *buffer, size_t length)
 {
   if (pax.proposer == NULL) {
     return 1;
   }
 
-  return paxos_send(pax.proposer->pa_chan, buf, size);
+  return paxos_peer_send(pax.proposer->pa_peer, buffer, length);
 }

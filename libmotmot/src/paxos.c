@@ -10,8 +10,6 @@
 #include <unistd.h>
 #include <glib.h>
 
-#define MPBUFSIZE 4096
-
 static inline void
 swap(void **p1, void **p2)
 {
@@ -24,7 +22,7 @@ swap(void **p1, void **p2)
 struct paxos_state pax;
 
 // Out-of-protocol functions
-int paxos_redirect(GIOChannel *, struct paxos_header *);
+int paxos_redirect(struct paxos_peer *, struct paxos_header *);
 
 // Proposer operations
 int proposer_prepare(void);
@@ -35,9 +33,10 @@ int proposer_ack_accept(struct paxos_header *);
 int proposer_commit(struct paxos_instance *);
 
 // Acceptor operations
-int acceptor_ack_prepare(GIOChannel *, struct paxos_header *);
+int acceptor_ack_prepare(struct paxos_peer *, struct paxos_header *);
 int acceptor_promise(struct paxos_header *);
-int acceptor_ack_decree(GIOChannel *, struct paxos_header *, msgpack_object *);
+int acceptor_ack_decree(struct paxos_peer *, struct paxos_header *,
+                        msgpack_object *);
 int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
 int acceptor_ack_request(struct paxos_header *, msgpack_object *);
@@ -125,7 +124,7 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
 }
 
 static int
-proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
+proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
   switch (hdr->ph_opcode) {
@@ -171,7 +170,7 @@ proposer_dispatch(GIOChannel *source, struct paxos_header *hdr,
 }
 
 static int
-acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
+acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
   switch (hdr->ph_opcode) {
@@ -211,63 +210,29 @@ acceptor_dispatch(GIOChannel *source, struct paxos_header *hdr,
 
 /**
  * Handle a Paxos message.
- *
- * XXX: We should probably separate the protocol work from the buffer motion.
  */
 int
-paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
+paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 {
   int retval;
   struct paxos_header *hdr;
 
-  msgpack_unpacker *pac;
-  unsigned long len;
-  msgpack_unpacked res;
-  msgpack_object o, *p;
-
-  GIOStatus status;
-  GError *gerr = NULL;
-
-  // Prep the msgpack stream.
-  pac = (msgpack_unpacker *)data;
-  msgpack_unpacker_reserve_buffer(pac, MPBUFSIZE);
-
-  // Read up to MPBUFSIZE bytes into the stream.
-  status = g_io_channel_read_chars(source, msgpack_unpacker_buffer(pac),
-                                   MPBUFSIZE, &len, &gerr);
-
-  if (status == G_IO_STATUS_ERROR) {
-    // TODO: error handling
-    g_warning("paxos_dispatch: Read from socket failed.\n");
-  } else if (status == G_IO_STATUS_EOF) {
-    paxos_drop_connection(source);
-    return FALSE;
-  }
-
-  msgpack_unpacker_buffer_consumed(pac, len);
-
-  // Pop a single Paxos payload.
-  msgpack_unpacked_init(&res);
-  msgpack_unpacker_next(pac, &res);
-  o = res.data;
-
-  assert(o.type == MSGPACK_OBJECT_ARRAY);
-  assert(o.via.array.size > 0 && o.via.array.size <= 2);
-  p = o.via.array.ptr;
+  // TODO: error handling?
+  assert(o->type == MSGPACK_OBJECT_ARRAY && o->via.array.size > 0 &&
+      o->via.array.size <= 2);
 
   // Unpack the Paxos header.  This may be clobbered by the proposer/acceptor
   // routines which the dispatch functions call.
   hdr = g_malloc0(sizeof(*hdr));
-  paxos_header_unpack(hdr, p);
+  paxos_header_unpack(hdr, o->via.array.ptr);
 
   // Switch on the type of message received.
   if (is_proposer()) {
-    retval = proposer_dispatch(source, hdr, p + 1);
+    retval = proposer_dispatch(source, hdr, o->via.array.ptr + 1);
   } else {
-    retval = acceptor_dispatch(source, hdr, p + 1);
+    retval = acceptor_dispatch(source, hdr, o->via.array.ptr + 1);
   }
 
-  msgpack_unpacked_destroy(&res);
   g_free(hdr);
   return retval;
 }
@@ -285,26 +250,23 @@ paxos_dispatch(GIOChannel *source, GIOCondition condition, void *data)
  * and start a prepare phase if necessary.
  */
 void
-paxos_drop_connection(GIOChannel *source)
+paxos_drop_connection(struct paxos_peer *source)
 {
   struct paxos_acceptor *it;
 
   // Connection dropped; mark the acceptor as dead.
   LIST_FOREACH(it, &pax.alist, pa_le) {
-    if (it->pa_chan == source) {
-      it->pa_chan = NULL;
+    if (it->pa_peer == source) {
+      it->pa_peer = NULL;
       break;
     }
   }
-
-  // Close the channel socket.
-  close(g_io_channel_unix_get_fd(source));
 
   // Oh noes!  Did we lose the proposer?
   if (it->pa_paxid == pax.proposer->pa_paxid) {
     // Let's mark the new one.
     LIST_FOREACH(it, &pax.alist, pa_le) {
-      if (it->pa_chan != NULL) {
+      if (it->pa_peer != NULL) {
         pax.proposer = it;
         break;
       }
@@ -315,6 +277,8 @@ paxos_drop_connection(GIOChannel *source)
       proposer_prepare();
     }
   }
+
+  paxos_peer_destroy(source);
 }
 
 /**
@@ -322,7 +286,7 @@ paxos_drop_connection(GIOChannel *source)
  * guy.  Tell them who their guy is.
  */
 int
-paxos_redirect(GIOChannel *source, struct paxos_header *recv_hdr)
+paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
 {
   struct paxos_header hdr;
   struct paxos_yak py;
@@ -339,7 +303,7 @@ paxos_redirect(GIOChannel *source, struct paxos_header *recv_hdr)
   paxos_header_pack(&py, recv_hdr);
 
   // Send the payload.
-  paxos_send(source, UNYAK(&py));
+  paxos_peer_send(source, UNYAK(&py));
   paxos_payload_destroy(&py);
 
   return 0;
@@ -719,9 +683,9 @@ proposer_commit(struct paxos_instance *inst)
  * previous ballots.
  */
 int
-acceptor_ack_prepare(GIOChannel *source, struct paxos_header *hdr)
+acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
 {
-  if (pax.proposer->pa_chan != source) {
+  if (pax.proposer->pa_peer != source) {
     return paxos_redirect(source, hdr);
   }
 
@@ -798,7 +762,7 @@ acceptor_promise(struct paxos_header *hdr)
  * so we don't release it to the outside world just yet.
  */
 int
-acceptor_ack_decree(GIOChannel *source, struct paxos_header *hdr,
+acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
   int cmp;

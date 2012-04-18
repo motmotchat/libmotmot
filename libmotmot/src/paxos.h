@@ -6,9 +6,11 @@
 
 #include "list.h"
 #include "motmot.h"
+#include "paxos_io.h"
 
 #include <stdint.h>
 #include <string.h>
+#include <msgpack.h>
 #include <glib.h>
 
 /* Paxos ID type. */
@@ -115,10 +117,10 @@ struct paxos_request *request_insert(struct request_list *,
 
 /* Representation of a Paxos instance. */
 struct paxos_instance {
-  struct paxos_header pi_hdr;  // Paxos header identifying the instance
-  unsigned pi_votes;        // number of accepts -OR- 0 if committed
+  struct paxos_header pi_hdr;         // Paxos header identifying the instance
+  unsigned pi_votes;                  // number of accepts -OR- 0 if committed
   LIST_ENTRY(paxos_instance) pi_le;   // sorted linked list of instances
-  struct paxos_value pi_val;  // value of the decree
+  struct paxos_value pi_val;          // value of the decree
 };
 
 LIST_HEAD(instance_list, paxos_instance);
@@ -129,15 +131,16 @@ struct paxos_instance *instance_insert(struct instance_list *,
 
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
-  paxid_t pa_paxid;         // agent's ID
-  GIOChannel *pa_chan;      // agent's channel; NULL if we think it's dead
+  paxid_t pa_paxid;                   // agent's ID
+  struct paxos_peer *pa_peer;         // agent's connection information; NULL if
+                                      // we think it's dead
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
 };
 
 /* Preparation state for new proposers. */
 struct paxos_prep {
-  unsigned pp_nacks;    // number of prepare acks
-  paxid_t pp_inum;      // instance number of the first hole
+  unsigned pp_nacks;                // number of prepare acks
+  paxid_t pp_inum;                  // instance number of the first hole
   struct paxos_instance *pp_first;  // closest instance to the first hole
                                     // with instance number <= pp_inum
 };
@@ -165,14 +168,13 @@ inline paxid_t next_instance();
 /* Paxos protocol. */
 void paxos_init(void);
 void paxos_add_peer(GIOChannel *); // TODO: implement this
-void paxos_drop_connection(GIOChannel *);
+void paxos_drop_connection(struct paxos_peer *);
 int paxos_request(dkind_t, const char *, size_t len);
 
 /* Utility functions. */
-int paxos_dispatch(GIOChannel *, GIOCondition, void *);
+int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
 
 /* Paxos message sending. */
-int paxos_send(GIOChannel *, const char *, size_t);
 int paxos_broadcast(const char *, size_t);
 int paxos_send_to_proposer(const char *, size_t);
 
