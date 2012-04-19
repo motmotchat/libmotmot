@@ -81,7 +81,6 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   socklen_t len;
   struct sockaddr_un *saddr;
 
-  msgpack_unpacker *pac;
   GIOChannel *channel;
   GError *gerr;
 
@@ -92,6 +91,8 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   newfd = accept(fd, (struct sockaddr *)saddr, &len);
   err(newfd < 0, "accept");
 
+  g_free(saddr);
+
   // Wrap it in a channel.
   channel = g_io_channel_unix_new(newfd);
   if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
@@ -101,16 +102,8 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   // TODO: check for errors here
   g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, &gerr);
 
-  // Associate a msgpack unpacker and watch it.
-  pac = msgpack_unpacker_new(MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
-  if (pac == NULL) {
-    // TODO: error handling
-    g_error("socket_accept: Failed to allocate msgpack_unpacker.\n");
-  }
-  // XXX: Paxosify this
-  // g_io_add_watch(channel, G_IO_IN, socket_recv, pac);
+  motmot_watch(channel);
 
-  g_free(saddr);
   return TRUE;
 }
 
