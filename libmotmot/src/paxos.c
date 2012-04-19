@@ -1330,7 +1330,7 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     // switch the new one in.
     if (inst->pi_votes != 0 &&
         ballot_compare(hdr->ph_ballot, inst->pi_hdr.ph_ballot) > 0) {
-      memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
+      memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
       paxos_value_unpack(&inst->pi_val, o);
 
       // Accept the decree.
