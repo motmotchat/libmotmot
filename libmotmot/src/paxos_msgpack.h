@@ -21,6 +21,9 @@ void paxos_payload_destroy(struct paxos_yak *);
 char *paxos_payload_data(struct paxos_yak *);
 size_t paxos_payload_size(struct paxos_yak *);
 
+void paxos_paxid_pack(struct paxos_yak *, paxid_t);
+void paxos_paxid_unpack(paxid_t *, msgpack_object *);
+
 void paxos_header_pack(struct paxos_yak *, struct paxos_header *);
 void paxos_header_unpack(struct paxos_header *, msgpack_object *);
 void paxos_value_pack(struct paxos_yak *, struct paxos_value *);

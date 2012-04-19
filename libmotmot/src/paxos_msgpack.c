@@ -52,6 +52,19 @@ paxos_payload_size(struct paxos_yak *py)
 }
 
 void
+paxos_paxid_pack(struct paxos_yak *py, paxid_t paxid)
+{
+  msgpack_pack_paxid(py->pk, paxid);
+}
+
+void
+paxos_paxid_unpack(paxid_t *paxid, msgpack_object *o)
+{
+  assert(o->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  *paxid = o->via.u64;
+}
+
+void
 paxos_header_pack(struct paxos_yak *py, struct paxos_header *hdr)
 {
   msgpack_pack_array(py->pk, 4);

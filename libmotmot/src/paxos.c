@@ -34,6 +34,9 @@ int proposer_decree(struct paxos_instance *);
 int proposer_ack_accept(struct paxos_peer *, struct paxos_header *);
 int proposer_commit(struct paxos_instance *);
 int proposer_welcome(struct paxos_acceptor *);
+int proposer_sync(void);
+int proposer_ack_sync(struct paxos_header *, msgpack_object *);
+int proposer_truncate(struct paxos_header *);
 
 // Acceptor operations
 int acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *);
@@ -45,6 +48,8 @@ int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
 int acceptor_ack_request(struct paxos_peer *,struct paxos_header *,
     msgpack_object *);
+int acceptor_ack_sync(struct paxos_header *);
+int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,12 +64,15 @@ void
 paxos_init()
 {
   pax.self_id = 0;  // XXX: Obviously wrong.
+  pax.req_id = 0;
   pax.proposer = NULL;
   pax.ballot.id = 0;
   pax.ballot.gen = 0;
-  pax.req_id = 0;
+  pax.istart = 1;
 
   pax.prep = NULL;
+  pax.sync = NULL;
+  pax.sync_id = 0;
 
   LIST_INIT(&pax.alist);
   LIST_INIT(&pax.ilist);
@@ -178,6 +186,15 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_WELCOME:
       // Ignore.
       break;
+
+    case OP_SYNC:
+      proposer_ack_sync(hdr, o);
+      break;
+
+    case OP_TRUNCATE:
+      // Holy fucking shit what is happening.
+      g_critical("Proposer received OP_TRUNCATE.");
+      break;
   }
 
   return TRUE;
@@ -220,6 +237,14 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 
     case OP_WELCOME:
       acceptor_ack_welcome(hdr, o);
+      break;
+
+    case OP_SYNC:
+      acceptor_ack_sync(hdr);
+      break;
+
+    case OP_TRUNCATE:
+      acceptor_ack_truncate(hdr, o);
       break;
   }
 
@@ -325,6 +350,9 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
   return 0;
 }
 
+/**
+ * paxos_learn - Do something useful with the value of a commit.
+ */
 int
 paxos_learn(struct paxos_instance *inst)
 {
@@ -385,7 +413,7 @@ paxos_learn(struct paxos_instance *inst)
 //  Proposer protocol
 //
 
-/*
+/**
  * Helper routine to obtain the instance on ilist with the closest instance
  * number >= inum.  We are passed in an iterator to simulate a continuation.
  */
@@ -403,6 +431,70 @@ get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
 }
 
 /**
+ * Given a starting inum and an ilist, determine the inum which immediately
+ * succeeds the last inum of the longest continuous prefix starting at the
+ * starting value---i.e., the first hole.  We also return the nearest
+ * instance to this hole which occurs no later than the holey instance.
+ *
+ * Note that uncommitted instances count as "missing".
+ */
+static paxid_t
+ilist_first_hole(struct paxos_instance **inst, struct instance_list *ilist,
+    paxid_t start)
+{
+  paxid_t inum;
+  struct paxos_instance *it;
+
+  // Obtain the first instance with inum >= start.
+  it = get_instance_lub(LIST_FIRST(ilist), ilist, start);
+
+  // If its inum != start, then start itself represents a hole.
+  if (it->pi_hdr.ph_inum != start) {
+    *inst = LIST_PREV(it, pi_le);
+    if (*inst == (void *)ilist) {
+      *inst = NULL;
+    }
+    return start;
+  }
+
+  // If the start instance is uncommitted, it's the hole we want.
+  if (it->pi_votes != 0) {
+    *inst = it;
+    return start;
+  }
+
+  // We let inum lag one list entry behind the iterator in our loop to
+  // detect holes; we use *inst to detect success.
+  inum = start - 1;
+  *inst = NULL;
+
+  // Identify our first uncommitted or unrecorded instance.
+  LIST_FOREACH(it, ilist, pi_le) {
+    if (it->pi_hdr.ph_inum != inum + 1) {
+      // We know there exists a previous element because start corresponded
+      // to some existing instance.
+      *inst = LIST_PREV(it, pi_le);
+      return inum + 1;
+    }
+    if (it->pi_votes != 0) {
+      // We found an uncommitted instance, so return it.
+      *inst = it;
+      return it->pi_hdr.ph_inum;
+    }
+    inum = it->pi_hdr.ph_inum;
+  }
+
+  // Default to the next unused instance.
+  if (*inst == NULL) {
+    *inst = LIST_LAST(ilist);
+    return LIST_LAST(ilist)->pi_hdr.ph_inum + 1;
+  }
+
+  // Impossible.
+  return 0;
+}
+
+/**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
  *
  * The initiation of a prepare sequence is only allowed if we believe
@@ -415,15 +507,14 @@ get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
 int
 proposer_prepare()
 {
-  struct paxos_instance *it;
   struct paxos_header hdr;
   struct paxos_yak py;
-  paxid_t inum;
 
   // If we were already preparing, get rid of that prepare.
   // XXX: I don't think this is possible.
   if (pax.prep != NULL) {
     g_free(pax.prep);
+    pax.prep = NULL;
   }
 
   // Start a new ballot.
@@ -433,38 +524,17 @@ proposer_prepare()
   // Start a new prepare.
   pax.prep = g_malloc0(sizeof(*pax.prep));
   pax.prep->pp_nacks = 1;
-  pax.prep->pp_inum = next_instance();  // Default to next instance.
   pax.prep->pp_first = NULL;
 
-  // We let inum lag one list entry behind the iterator in our loop to
-  // detect holes.
-  inum = LIST_FIRST(&pax.ilist)->pi_hdr.ph_inum - 1;
-
-  // Identify our first uncommitted or unrecorded instance (defaulting to
-  // next_instance()).
-  LIST_FOREACH(it, &pax.ilist, pi_le) {
-    if (it->pi_hdr.ph_inum != inum + 1) {
-      pax.prep->pp_inum = inum + 1;
-      pax.prep->pp_first = LIST_PREV(it, pi_le);
-      break;
-    }
-    if (it->pi_votes != 0) {
-      pax.prep->pp_inum = it->pi_hdr.ph_inum;
-      pax.prep->pp_first = it;
-      break;
-    }
-    inum = it->pi_hdr.ph_inum;
-  }
-
-  if (pax.prep->pp_first == NULL) {
-    pax.prep->pp_first = LIST_LAST(&pax.ilist);
-  }
+  // Obtain the first hole.
+  pax.prep->pp_hole = ilist_first_hole(&pax.prep->pp_first, &pax.ilist,
+                                       pax.istart);
 
   // Initialize a Paxos header.
   hdr.ph_ballot.id = pax.ballot.id;
   hdr.ph_ballot.gen = pax.ballot.gen;
   hdr.ph_opcode = OP_PREPARE;
-  hdr.ph_inum = pax.prep->pp_inum;
+  hdr.ph_inum = pax.prep->pp_hole;
 
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
@@ -558,7 +628,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   it = pax.prep->pp_first;
 
   // For each Paxos instance for which we don't have a commit, send a decree.
-  for (inum = pax.prep->pp_inum; ; ++inum) {
+  for (inum = pax.prep->pp_hole; ; ++inum) {
     // Get the closest instance with number >= inum.
     it = get_instance_lub(it, &pax.ilist, inum);
 
@@ -587,8 +657,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
     } else if (it->pi_votes != 0) {
       // The quorum has seen this instance before, but it has not been
-      // committed.  By the first part of ack_promise, the vote we have
-      // here is the highest-ballot vote, so decree it again.
+      // committed.  By the first part of ack_promise, the vote we have here
+      // is the highest-ballot vote, so decree it again.
       inst = it;
       inst->pi_hdr.ph_ballot = pax.ballot;
       inst->pi_hdr.ph_opcode = OP_DECREE;
@@ -607,10 +677,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
   // Free the prepare.
   g_free(pax.prep);
+  pax.prep = NULL;
 
   // Kill any dropped acceptors we still have in our acceptor list.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
     if (acc->pa_peer == NULL) {
+      // XXX: Do something here.
     }
   }
 
@@ -805,6 +877,114 @@ proposer_welcome(struct paxos_acceptor *acc)
   return 0;
 }
 
+/**
+ * proposer_sync - Send a sync command to all acceptors.
+ *
+ * For a sync to succeed, all acceptors need to tell us the location of the
+ * first hole in their (hopefully mostly contiguous) list of committed
+ * Paxos instances.  We take the minimum of these values and then command
+ * everyone to truncate everything before the first hole.
+ *
+ * XXX: Implement retry protocol to obtain missing commits.
+ */
+int
+proposer_sync()
+{
+  struct paxos_header hdr;
+  struct paxos_yak py;
+
+  // If we're already syncing, increment the skip counter.
+  // XXX: Do something with this, perhaps?
+  if (pax.sync != NULL) {
+    pax.sync->ps_skips++;
+  }
+
+  // Create a new sync.
+  pax.sync = g_malloc0(sizeof(*(pax.sync)));
+  pax.sync->ps_total = LIST_COUNT(&pax.alist);
+  pax.sync->ps_nacks = 1; // Counting ourselves.
+  pax.sync->ps_skips = 0;
+
+  // Initialize a header.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_SYNC;
+  hdr.ph_inum = (++pax.sync_id);  // Sync number.
+
+  // Pack and broadcast the sync.
+  paxos_payload_init(&py, 1);
+  paxos_header_pack(&py, &hdr);
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
+ * proposer_ack_sync - Update sync state based on acceptor's reply.
+ */
+int
+proposer_ack_sync(struct paxos_header *hdr, msgpack_object *o)
+{
+  paxid_t hole;
+
+  // Ignore syncs for older sync commands.
+  if (hdr->ph_inum != pax.sync_id) {
+    return 0;
+  }
+
+  // Update our knowledge of the first commit hole.
+  paxos_paxid_unpack(&hole, o);
+  if (hole < pax.sync->ps_hole) {
+    pax.sync->ps_hole = hole;
+  }
+
+  // Increment nacks and command a truncate if the sync is over.
+  pax.sync->ps_nacks++;
+  if (pax.sync->ps_nacks == pax.sync->ps_total) {
+    return proposer_truncate(hdr);
+  }
+
+  return 0;
+}
+
+/**
+ * proposer_truncate - Command all acceptors to drop the contiguous prefix
+ * of Paxos instances for which they all have committed.
+ */
+int
+proposer_truncate(struct paxos_header *hdr)
+{
+  paxid_t hole;
+  struct paxos_instance *inst;
+  struct paxos_yak py;
+
+  // Obtain our own first instance hole.
+  hole = ilist_first_hole(&inst, &pax.ilist, pax.istart);
+  if (hole < pax.sync->ps_hole) {
+    pax.sync->ps_hole = hole;
+  }
+
+  // Make this hole our new istart.
+  assert(pax.sync->ps_hole <= pax.istart);
+  pax.istart = pax.sync->ps_hole;
+
+  // XXX: Do the truncate (< pax.istart).
+
+  // Pack and broadcast a truncate command.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, hdr);
+  paxos_paxid_pack(&py, pax.istart);
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  // End the sync.
+  g_free(pax.sync);
+  pax.sync = NULL;
+
+  return 0;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -813,6 +993,9 @@ proposer_welcome(struct paxos_acceptor *acc)
 
 /**
  * acceptor_ack_welcome - Be welcomed to the Paxos system.
+ *
+ * This allows us to populate our ballot, alist, and ilist, as well as to
+ * learn our assigned paxid.
  */
 int
 acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *o)
@@ -1042,7 +1225,7 @@ acceptor_ack_commit(struct paxos_header *hdr)
   return 0;
 }
 
-/*
+/**
  * acceptor_ack_request - Cache a requester's message, waiting for the
  * proposer to decree it.
  */
@@ -1065,6 +1248,42 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
 
   // Add it to the request queue.
   request_insert(&pax.rlist, req);
+
+  return 0;
+}
+
+/**
+ * acceptor_ack_sync - Respond to the sync request of a proposer.
+ *
+ * We respond by sending our the first hole in our instance list.
+ */
+int
+acceptor_ack_sync(struct paxos_header *hdr)
+{
+  paxid_t hole;
+  struct paxos_instance *inst;
+  struct paxos_yak py;
+
+  // Obtain the hole.
+  hole = ilist_first_hole(&inst, &pax.ilist, pax.istart);
+
+  // Pack and broadcast the response.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, hdr);
+  paxos_paxid_pack(&py, hole);
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+int
+acceptor_ack_truncate(struct paxos_header *hdr, msgpack_object *o)
+{
+  // Unpack the new istart.
+  paxos_paxid_unpack(&pax.istart, o);
+
+  // XXX: Do the truncate (< pax.istart).
 
   return 0;
 }

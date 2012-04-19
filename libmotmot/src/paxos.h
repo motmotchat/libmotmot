@@ -38,6 +38,8 @@ typedef enum paxos_opcode {
   OP_REQUEST,           // request a decree from the proposer
   OP_REDIRECT,          // suggests the true identity of the proposer
   OP_WELCOME,           // says hello to a new participant
+  OP_SYNC,              // sync up ilists in preparation for a truncate
+  OP_TRUNCATE           // order acceptors to truncate their ilists
 } paxop_t;
 
 /* Paxos message header that is included with any message. */
@@ -47,17 +49,28 @@ struct paxos_header {
   paxid_t ph_inum;      // Multi-Paxos instance number
   /**
    * The ph_inum field means different things for the different ops:
+   *
    * - OP_PREPARE: The lowest instance for which the preparer has not committed
    *   a value.  Any acceptor who accepts the prepare will return to us the
    *   most recent value they accepted for each Paxos instance they participated
    *   in, starting with ph_inum.
+   *
    * - OP_PROMISE: The index of the first vote returned (as specified in
    *   the prepare message).
+   *
    * - OP_DECREE, OP_ACCEPT, OP_COMMIT: The instance number of the decree.
+   *
    * - OP_REQUEST: The paxid of the acceptor who we think is the proposer who
    *   will send our request.  This allows us to send a redirect appropriately.
    *   This overload is a little gross but requests are out-of-protocol anyway.
+   *
    * - OP_REDIRECT: Not used.
+   *
+   * - OP_WELCOME: Sends the new acceptor's assigned paxid (which is, in fact,
+   *   the instance number of its JOIN).
+   *
+   * - OP_SYNC: Sends the proposer-use-only ID of the sync, which is echoed.
+   *
    * We start counting instances at 1 and use 0 as a sentinel value.
    */
 };
@@ -84,11 +97,11 @@ struct paxos_header {
 
 /* Kinds of decrees. */
 typedef enum decree_kind {
-  DEC_NULL = 0,       // null value
-  DEC_CHAT,           // chat message
-  DEC_RENEW,          // proposer lease renewal
-  DEC_JOIN,           // add an acceptor
-  DEC_PART,           // remove an acceptor
+  DEC_NULL = 0,         // null value
+  DEC_CHAT,             // chat message
+  DEC_RENEW,            // proposer lease renewal
+  DEC_JOIN,             // add an acceptor
+  DEC_PART,             // remove an acceptor
 } dkind_t;
 
 int is_request(dkind_t dkind);
@@ -114,9 +127,9 @@ struct paxos_value {
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
   paxid_t pa_paxid;                   // agent's ID; also the instance number of
-                                      // the agent's JOIN decree
+                                      //   the agent's JOIN decree
   struct paxos_peer *pa_peer;         // agent's connection information; NULL if
-                                      // we think it's dead
+                                      //   we think it's dead
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
 };
 LIST_HEAD(acceptor_list, paxos_acceptor);
@@ -150,12 +163,22 @@ struct paxos_request *request_find(struct request_list *, reqid_t);
 struct paxos_request *request_insert(struct request_list *,
     struct paxos_request *);
 
-/* Preparation state for new proposers. */
+/* Preparation state used by new proposers. */
 struct paxos_prep {
   unsigned pp_nacks;                  // number of prepare acks
-  paxid_t pp_inum;                    // instance number of the first hole
+  paxid_t pp_hole;                    // instance number of the first hole
   struct paxos_instance *pp_first;    // closest instance to the first hole
-                                      // with instance number <= pp_inum
+                                      //   with instance number <= pp_inum
+};
+
+/* Sync state used by proposers during sync. */
+struct paxos_sync {
+  unsigned ps_total;                  // number of acceptors syncing
+  unsigned ps_nacks;                  // number of sync acks
+  unsigned ps_skips;                  // number of times we skipped starting
+                                      //   a new sync
+  paxid_t ps_hole;                    // inum of the first hole among all
+                                      //   acceptors
 };
 
 /* Local state. */
@@ -164,8 +187,11 @@ struct paxos_state {
   paxid_t req_id;                     // local incrementing request ID
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
   ballot_t ballot;                    // identity of the current ballot
+  paxid_t istart;                     // starting point of instance numbers
 
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
+  struct paxos_sync *sync;            // sync state; NULL if not syncing
+  paxid_t sync_id;                    // locally-unique sync ID
 
   struct acceptor_list alist;         // list of all Paxos participants
   struct instance_list ilist;         // list of all instances
