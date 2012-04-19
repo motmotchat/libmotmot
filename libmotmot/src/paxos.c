@@ -410,7 +410,7 @@ paxos_learn(struct paxos_instance *inst)
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  Proposer protocol
+//  Static ilist helper routines
 //
 
 /**
@@ -493,6 +493,12 @@ ilist_first_hole(struct paxos_instance **inst, struct instance_list *ilist,
   // Impossible.
   return 0;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Proposer protocol
+//
 
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
