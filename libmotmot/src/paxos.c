@@ -1155,8 +1155,8 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 
   // Make sure the alist is well-formed...
   assert(arr->type == MSGPACK_OBJECT_ARRAY);
-  p = o->via.array.ptr;
-  pend = o->via.array.ptr + o->via.array.size;
+  p = arr->via.array.ptr;
+  pend = arr->via.array.ptr + arr->via.array.size;
 
   // ...and populate our alist.
   for (; p != pend; ++p) {
@@ -1175,8 +1175,8 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 
   // Make sure the ilist is well-formed...
   assert(arr->type == MSGPACK_OBJECT_ARRAY);
-  p = o->via.array.ptr;
-  pend = o->via.array.ptr + o->via.array.size;
+  p = arr->via.array.ptr;
+  pend = arr->via.array.ptr + o->via.array.size;
 
   // ...and populate our ilist.
   for (; p != pend; ++p) {
