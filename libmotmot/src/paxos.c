@@ -876,7 +876,8 @@ proposer_decree(struct paxos_instance *inst)
   struct paxos_yak py;
 
   // Update the header.
-  inst->pi_hdr.ph_ballot = pax.ballot;
+  inst->pi_hdr.ph_ballot.id = pax.ballot.id;
+  inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_inum = next_instance();
 
