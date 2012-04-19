@@ -1141,6 +1141,11 @@ acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *o)
     acc = g_malloc0(sizeof(*acc));
     paxos_acceptor_unpack(acc, p);
     LIST_INSERT_TAIL(&pax.alist, acc, pa_le);
+
+    // Set the proposer correctly.
+    if (acc->pa_paxid == hdr->ph_ballot.id) {
+      pax.proposer = acc;
+    }
   }
 
   arr++;
