@@ -134,19 +134,19 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 
 int
 print_chat(const char *buf, size_t len) {
-  printf("CHAT: %.*s", (int)len, buf);
+  printf("CHAT: %.*s\n", (int)len, buf);
   return 0;
 }
 
 int
 print_join(const char *buf, size_t len) {
-  printf("JOIN: %.*s", (int)len, buf);
+  printf("JOIN: %.*s\n", (int)len, buf);
   return 0;
 }
 
 int
 print_part(const char *buf, size_t len) {
-  printf("PART: %.*s", (int)len, buf);
+  printf("PART: %.*s\n", (int)len, buf);
   return 0;
 }
 
