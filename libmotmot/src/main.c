@@ -182,7 +182,9 @@ main(int argc, char *argv[])
   motmot_init(connect_unix, print_chat, print_join, print_part);
 
   // Start a new chat.
-  motmot_session();
+  if (argc > 2) {
+    motmot_session();
+  }
 
   for (i = 2; i < argc; i++) {
     motmot_invite(argv[i], strlen(argv[i]));
