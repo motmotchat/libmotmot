@@ -182,8 +182,7 @@ main(int argc, char *argv[])
   motmot_init(connect_unix, print_chat, print_join, print_part);
 
   for (i = 2; i < argc; i++) {
-    channel = connect_unix(argv[i], strlen(argv[i]));
-    // TODO: add paxos participant
+    motmot_invite(argv[i], strlen(argv[i]));
   }
 
   g_main_loop_run(gmain);
