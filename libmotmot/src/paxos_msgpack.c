@@ -149,7 +149,10 @@ paxos_request_unpack(struct paxos_request *req, msgpack_object *o)
   // Unpack the raw data.
   assert(p->type == MSGPACK_OBJECT_RAW);
   req->pr_size = p->via.raw.size;
-  memcpy(req->pr_data, p->via.raw.ptr, p->via.raw.size);
+
+  if (req->pr_size > 0) {
+    req->pr_data = g_memdup(p->via.raw.ptr, p->via.raw.size);
+  }
 }
 
 void

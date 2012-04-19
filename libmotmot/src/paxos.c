@@ -122,7 +122,7 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   req->pr_size = len;
 
   if (msg != NULL) {
-    memcpy(req->pr_data, msg, len);
+    req->pr_data = g_memdup(msg, len);
   }
 
   // Add it to the request queue if needed.
