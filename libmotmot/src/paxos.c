@@ -149,7 +149,7 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   // We're the proposer, so allocate an instance and copy in the value from
   // the request.
   inst = g_malloc0(sizeof(*inst));
-  memcpy(&inst->pi_val, &req->pr_val, sizeof(struct paxos_request));
+  memcpy(&inst->pi_val, &req->pr_val, sizeof(*(req->pr_val)));
 
   // Send a decree.
   return proposer_decree(inst);
