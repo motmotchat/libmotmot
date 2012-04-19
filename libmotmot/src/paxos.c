@@ -59,11 +59,13 @@ int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
 
 /**
  * paxos_init - Initialize local Paxos state.
+ *
+ * Most of our state is worthless until we are welcomed to the system.
  */
 void
 paxos_init()
 {
-  pax.self_id = 0;  // XXX: Obviously wrong.
+  pax.self_id = 0;
   pax.req_id = 0;
   pax.proposer = NULL;
   pax.ballot.id = 0;
@@ -364,7 +366,7 @@ paxos_learn(struct paxos_instance *inst)
     req = request_find(&pax.rlist, inst->pi_val.pv_reqid);
   }
 
-  // XXX: Act on the decree (e.g., display chat, record configs).
+  // Act on the decree (e.g., display chat, record acceptor list changes).
   switch (inst->pi_val.pv_dkind) {
     case DEC_NULL:
       break;
