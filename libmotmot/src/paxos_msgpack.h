@@ -28,4 +28,9 @@ void paxos_value_unpack(struct paxos_value *, msgpack_object *);
 void paxos_request_pack(struct paxos_yak *, struct paxos_request *);
 void paxos_request_unpack(struct paxos_request *, msgpack_object *);
 
+void paxos_acceptor_pack(struct paxos_yak *, struct paxos_acceptor *);
+void paxos_acceptor_unpack(struct paxos_acceptor *, msgpack_object *);
+void paxos_instance_pack(struct paxos_yak *, struct paxos_instance *);
+void paxos_instance_unpack(struct paxos_instance *, msgpack_object *);
+
 #endif /* __PAXOS_MSGPACK_H__ */

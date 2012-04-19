@@ -36,6 +36,7 @@ int proposer_commit(struct paxos_instance *);
 int proposer_welcome(struct paxos_acceptor *);
 
 // Acceptor operations
+int acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *);
 int acceptor_ack_prepare(struct paxos_peer *, struct paxos_header *);
 int acceptor_promise(struct paxos_header *);
 int acceptor_ack_decree(struct paxos_peer *, struct paxos_header *,
@@ -112,7 +113,7 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   paxos_header_pack(&py, &hdr);
   paxos_request_pack(&py, req);
 
-  // Broadcast the request
+  // Broadcast the request.
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
@@ -347,11 +348,10 @@ paxos_learn(struct paxos_instance *inst)
       break;
 
     case DEC_JOIN:
-      // Initialize a new acceptor struct.  Its paxid will be the instance
-      // number of its join decree, as will its rank.
+      // Initialize a new acceptor struct.  Its paxid is the instance number
+      // of the JOIN.
       acc = g_malloc0(sizeof(*acc));
       acc->pa_paxid = inst->pi_hdr.ph_inum;
-      acc->pa_rank = inst->pi_hdr.ph_inum;
       acc->pa_peer = NULL;
 
       // TODO: Initialize a paxos_peer via a callback.
@@ -489,10 +489,11 @@ proposer_prepare()
 int
 proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 {
-  msgpack_object *p, *pend, *r;
+  msgpack_object *p, *pend;
   struct paxos_instance *inst, *it;
   paxid_t inum;
   struct paxos_yak py;
+  struct paxos_acceptor *acc;
 
   // If the promise is for some other ballot, just ignore it.  Acceptors
   // should only be sending a promise to us in response to a prepare from
@@ -502,10 +503,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
+  // Make sure the payload is well-formed.
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+
   // Initialize loop variables.
   p = o->via.array.ptr;
   pend = o->via.array.ptr + o->via.array.size;
-
   it = pax.prep->pp_first;
 
   // Allocate a scratch instance.
@@ -514,11 +517,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // Loop through all the vote information.  Note that we assume the votes
   // are sorted by instance number.
   for (; p != pend; ++p) {
-    r = p->via.array.ptr;
-
     // Unpack a instance.
-    paxos_header_unpack(&inst->pi_hdr, r);
-    paxos_value_unpack(&inst->pi_val, r + 1);
+    paxos_instance_unpack(inst, p);
     inst->pi_votes = 1;
 
     // Get the closest instance with instance number >= the instance number
@@ -605,8 +605,15 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     }
   }
 
-  // Free the prepare and return.
+  // Free the prepare.
   g_free(pax.prep);
+
+  // Kill any dropped acceptors we still have in our acceptor list.
+  LIST_FOREACH(acc, &pax.alist, pa_le) {
+    if (acc->pa_peer == NULL) {
+    }
+  }
+
   return 0;
 }
 
@@ -738,13 +745,63 @@ proposer_commit(struct paxos_instance *inst)
 
 /**
  * proposer_welcome - Welcome new protocol participant by passing along
- * a new paxid, the acceptor list, and all commits since the last sync.
+ *
+ * struct {
+ *   paxos_header hdr;
+ *   struct {
+ *     paxos_acceptor alist[];
+ *     paxos_instance ilist[];
+ *   } init_info;
+ * }
+ *
+ * The header contains the ballot information and the new acceptor's paxid
+ * in ph_inum (since its inum is just the instance number of its JOIN).
+ * We also send over our list of acceptors and instances to start the new
+ * acceptor off.
  *
  * XXX: We should sync when we add a participant.
  */
 int
 proposer_welcome(struct paxos_acceptor *acc)
 {
+  struct paxos_header hdr;
+  struct paxos_acceptor *acc_it;
+  struct paxos_instance *inst_it;
+  struct paxos_yak py;
+
+  // Initialize a header.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_WELCOME;
+
+  // The new acceptor's ID is also the instance number of its JOIN.
+  hdr.ph_inum = acc->pa_paxid;
+
+  // Pack the header into a new payload.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &hdr);
+
+  // Start the info payload.
+  paxos_payload_begin_array(&py, 2);
+
+  // Pack the entire alist.  Hopefully we don't have too many un-reaped
+  // dropped acceptors (we shouldn't).
+  paxos_payload_begin_array(&py, LIST_COUNT(&pax.alist));
+  LIST_FOREACH(acc_it, &pax.alist, pa_le) {
+    paxos_acceptor_pack(&py, acc_it);
+  }
+
+  // Pack the entire ilist.  We should have just synced, so this shouldn't
+  // be unconscionably large.
+  paxos_payload_begin_array(&py, LIST_COUNT(&pax.ilist));
+  LIST_FOREACH(inst_it, &pax.ilist, pi_le) {
+    paxos_instance_pack(&py, inst_it);
+  }
+
+  // Broadcast the welcome.
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
   return 0;
 }
 
@@ -753,6 +810,55 @@ proposer_welcome(struct paxos_acceptor *acc)
 //
 //  Acceptor protocol
 //
+
+/**
+ * acceptor_ack_welcome - Be welcomed to the Paxos system.
+ */
+int
+acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *o)
+{
+  msgpack_object *arr, *p, *pend;
+  struct paxos_acceptor *acc;
+  struct paxos_instance *inst;
+
+  // Set our local state.
+  pax.ballot.id = hdr->ph_ballot.id;
+  pax.ballot.gen = hdr->ph_ballot.gen;
+  pax.self_id = hdr->ph_inum;
+
+  // Make sure the payload is well-formed.
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  assert(o->via.array.size == 2);
+  arr = o->via.array.ptr;
+
+  // Make sure the alist is well-formed...
+  assert(arr->type == MSGPACK_OBJECT_ARRAY);
+  p = o->via.array.ptr;
+  pend = o->via.array.ptr + o->via.array.size;
+
+  // ...and populate our alist.
+  for (; p != pend; ++p) {
+    acc = g_malloc0(sizeof(*acc));
+    paxos_acceptor_unpack(acc, p);
+    LIST_INSERT_TAIL(&pax.alist, acc, pa_le);
+  }
+
+  arr++;
+
+  // Make sure the ilist is well-formed...
+  assert(arr->type == MSGPACK_OBJECT_ARRAY);
+  p = o->via.array.ptr;
+  pend = o->via.array.ptr + o->via.array.size;
+
+  // ...and populate our ilist.
+  for (; p != pend; ++p) {
+    inst = g_malloc0(sizeof(*inst));
+    paxos_instance_unpack(inst, p);
+    LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
+  }
+
+  return 0;
+}
 
 /**
  * acceptor_ack_prepare - Prepare for a new proposer.
@@ -824,12 +930,10 @@ acceptor_promise(struct paxos_header *hdr)
   // Start the payload of promises.
   paxos_payload_begin_array(&py, count);
 
-  // For each instance starting at the iterator, pack an array containing
-  // information about our accept.
+  // Pack all the instances starting at the lowest-numbered instance
+  // requested.
   for (; it != (void *)&pax.ilist; it = LIST_NEXT(it, pi_le)) {
-    paxos_payload_begin_array(&py, 2);
-    paxos_header_pack(&py, &it->pi_hdr);
-    paxos_value_pack(&py, &it->pi_val);
+    paxos_instance_pack(&py, it);
   }
 
   // Send off our payload.

@@ -175,11 +175,11 @@ is_request(dkind_t dkind)
     return elt;                                                       \
   }
 
-XLIST_FIND_IMPL(acceptor, paxid_t, pa_le, pa_rank, paxid_compare);
+XLIST_FIND_IMPL(acceptor, paxid_t, pa_le, pa_paxid, paxid_compare);
 XLIST_FIND_REV_IMPL(instance, paxid_t, pi_le, pi_hdr.ph_inum, paxid_compare);
 XLIST_FIND_IMPL(request, reqid_t, pr_le, pr_val.pv_reqid, reqid_compare);
 
-XLIST_INSERT_REV_IMPL(acceptor, pa_le, pa_rank, paxid_compare);
+XLIST_INSERT_REV_IMPL(acceptor, pa_le, pa_paxid, paxid_compare);
 XLIST_INSERT_REV_IMPL(instance, pi_le, pi_hdr.ph_inum, paxid_compare);
 XLIST_INSERT_REV_IMPL(request, pr_le, pr_val.pv_reqid, reqid_compare);
 

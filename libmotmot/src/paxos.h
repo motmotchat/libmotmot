@@ -113,8 +113,8 @@ struct paxos_value {
 
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
-  paxid_t pa_paxid;                   // agent's ID
-  paxid_t pa_rank;                    // instance number in which agent joined
+  paxid_t pa_paxid;                   // agent's ID; also the instance number of
+                                      // the agent's JOIN decree
   struct paxos_peer *pa_peer;         // agent's connection information; NULL if
                                       // we think it's dead
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
