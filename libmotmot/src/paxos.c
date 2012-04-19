@@ -125,6 +125,7 @@ paxos_start()
 
   // Add it to our ilist to mark our JOIN.
   LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
+  pax.istart = 1;
 
   // Add ourselves to the acceptor list.
   acc = g_malloc(sizeof(*acc));
@@ -963,6 +964,7 @@ proposer_commit(struct paxos_instance *inst)
  * struct {
  *   paxos_header hdr;
  *   struct {
+ *     paxid_t istart;
  *     paxos_acceptor alist[];
  *     paxos_instance ilist[];
  *   } init_info;
@@ -995,8 +997,9 @@ proposer_welcome(struct paxos_acceptor *acc)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &hdr);
 
-  // Start the info payload.
-  paxos_payload_begin_array(&py, 2);
+  // Start off the info payload with the istart.
+  paxos_payload_begin_array(&py, 3);
+  paxos_paxid_pack(&py, pax.istart);
 
   // Pack the entire alist.  Hopefully we don't have too many un-reaped
   // dropped acceptors (we shouldn't).
@@ -1155,8 +1158,14 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 
   // Make sure the payload is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
-  assert(o->via.array.size == 2);
+  assert(o->via.array.size == 3);
   arr = o->via.array.ptr;
+
+  // Unpack the istart.
+  assert(arr->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  pax.istart = arr->via.u64;
+
+  arr++
 
   // Make sure the alist is well-formed...
   assert(arr->type == MSGPACK_OBJECT_ARRAY);
