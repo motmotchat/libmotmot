@@ -70,7 +70,7 @@
 #include "version.h"
 
 #include "motmot.h"
-
+#define SERVER_VERSION 1
 
 #define NULLPRPL_ID "prpl-null"
 static PurplePlugin *_null_protocol = NULL;
@@ -106,20 +106,97 @@ typedef struct {
 /*
  * MOTMOT CODE!
  */
+typedef enum{
+  INT,
+  RAW,
+  CHAR,
+} dtype;
+
 typedef struct{
+  dtype d;
   int n;
   void *data;
 } motmot_data;
+void motmot_server_write(motmot_data *data, int n, PurpleConnection *gc);
 
 static void motmot_login_cb(gpointer data, gint source, const gchar *error_message);
-int motmot_server_write(motmot_data *data, int n, const char *msg, int fd);
 
 char *motmot_host = "127.0.0.1";
 int motmot_port = 8888;
 
+#define MM_SERVER_BUFF 512
+
+// reads in code, dispatches
+static void motmot_server_input_cb(gpointer data, gint source, PurpleInputCondition cond)
+{
+	PurpleConnection *gc = data;
+	motmot_conn *mm = gc->proto_data;
+	int len;
+
+  char buff[MM_SERVER_BUFF];
+
+	len = read(mm->write_fd, buff, MM_SERVER_BUFF);
+	if (len < 0 && errno == EAGAIN) {
+		return;
+	} else if (len < 0) {
+		gchar *tmp = g_strdup_printf(_("Lost connection with server: %s"),
+				g_strerror(errno));
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+		g_free(tmp);
+		return;
+	} else if (len == 0) {
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+			_("Server closed the connection"));
+		return;
+	}
+
+}
+
 // writes data to specified file descriptor. returns a number
-int motmot_server_write(motmot_data *data, int n, const char *msg, int fd){
-  return 0;
+void motmot_server_write(motmot_data *data, int n, PurpleConnection *gc){
+  int i;
+  motmot_data d;
+  int len;
+  int fd = ((motmot_conn *) (gc -> proto_data)) -> write_fd;
+
+  msgpack_sbuffer* buffer = msgpack_sbuffer_new();
+  msgpack_packer* pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
+
+  msgpack_pack_array(pk, n);
+
+
+  for(i = 0; i < n; i++){
+    d = data[i];
+    if(d.d == RAW){
+      msgpack_pack_raw(pk, d.n);
+      msgpack_pack_raw_body(pk, d.data, d.n);
+    }
+    else if(d.d == INT){
+      msgpack_pack_int(pk, *((int *) (d.data)));
+    }
+    else if(d.d == CHAR){
+      msgpack_pack_uint8(pk, *((char *) (d.data)));
+    }
+  }
+
+  len = write(fd, buffer -> data, buffer -> size);
+	if (len < 0 && errno == EAGAIN) {
+		return;
+	} else if (len < 0) {
+		gchar *tmp = g_strdup_printf(_("Lost connection with server: %s"),
+				g_strerror(errno));
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+		g_free(tmp);
+		return;
+	} else if (len == 0) {
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+			_("Server closed the connection"));
+		return;
+	}
 }
 
 /*
@@ -388,13 +465,13 @@ static void nullprpl_login(PurpleAccount *acct)
   PurpleConnection *gc = purple_account_get_connection(acct);
   GList *offline_messages;
 
+
   purple_debug_info("nullprpl", "logging in %s\n", acct->username);
 
   purple_connection_update_progress(gc, _("Connecting"),
                                     0,   /* which connection step this is */
                                     2);  /* total number of steps */
 
-  purple_connection_set_state(gc, PURPLE_CONNECTED);
 
   /* tell purple about everyone on our buddy list who's connected */
   foreach_nullprpl_gc(discover_status, gc, NULL);
@@ -429,6 +506,7 @@ static void nullprpl_login(PurpleAccount *acct)
 
   gc -> proto_data = mm;
   mm -> write_fd = -1;
+  mm -> act = acct;
 
 
 
@@ -442,16 +520,26 @@ static void nullprpl_login(PurpleAccount *acct)
     return;
   }
   
+  purple_connection_set_state(gc, PURPLE_CONNECTED);
+
   purple_connection_update_progress(gc, _("Connected"),
                                     1,   /* which connection step this is */
                                     2);  /* total number of steps */
+
 }
 
 static void motmot_login_cb(gpointer data, gint source, const gchar *error_message)
 {
+  motmot_data tmp[6];
+  int op = 1;
+  int id = 0;
+  char type = 'c';
+  const char *use;
+  const char *pass;
+  int version = SERVER_VERSION;
+
 	PurpleConnection *gc = data;
 	motmot_conn *mm = gc->proto_data;
-
 	if (source < 0) {
 		gchar *tmp = g_strdup_printf(_("Unable to connect: %s"),
 			error_message);
@@ -463,6 +551,37 @@ static void motmot_login_cb(gpointer data, gint source, const gchar *error_messa
 
 	mm->write_fd = source;
 
+  use = purple_account_get_username(mm -> act);
+  pass = purple_account_get_password(mm -> act);
+  if(!pass){
+    pass = "axe";
+  }
+
+  tmp[0].n = sizeof(int);
+  tmp[0].data = &version;
+  tmp[0].d = INT;
+
+  tmp[1].n = sizeof(int);
+  tmp[1].data = &op;
+  tmp[1].d = INT;
+
+  tmp[2].n = sizeof(char);
+  tmp[2].data = &type;
+  tmp[2].d = CHAR;
+
+  tmp[3].n = sizeof(int);
+  tmp[3].data = &id;
+  tmp[3].d = INT;
+
+  tmp[4].n = strlen(use);
+  tmp[4].data = use;
+  tmp[4].d = RAW;
+
+  tmp[5].n = strlen(pass);
+  tmp[5].data = pass;
+  tmp[5].d = RAW;
+
+  motmot_server_write(tmp, 6, gc);
 }
 
 
