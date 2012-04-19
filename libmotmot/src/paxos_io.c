@@ -23,6 +23,10 @@ paxos_peer_init(GIOChannel *channel)
   peer = g_malloc0(sizeof(*peer));
   peer->pp_channel = channel;
 
+  // Put the peer's channel into nonblocking mode
+  // TODO: error checking
+  g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, NULL);
+
   // Set up the read listener.
   msgpack_unpacker_init(&peer->pp_unpacker, MPBUFSIZE);
   peer->pp_read = g_io_add_watch(channel, G_IO_IN, paxos_peer_read, peer);
