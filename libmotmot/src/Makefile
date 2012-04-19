@@ -18,6 +18,6 @@ tags:
 	ctags -R
 
 clean:
-	-rm -rf $(DEPDIR) $(SRC:.c=.o) motmot
+	-rm -rf conn/* $(DEPDIR) $(SRC:.c=.o) motmot
 
 -include $(addprefix $(DEPDIR),$(SRC:.c=.d))
