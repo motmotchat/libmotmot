@@ -28,6 +28,14 @@ void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part);
 void motmot_session(void);
 
 /**
+ * motmot_watch - Watch a given channel for activity.
+ *
+ * @param channel   The channel to watch
+ * @returns         0 on success, nonzero on error
+ */
+int motmot_watch(GIOChannel *channel);
+
+/**
  * motmot_invite - Add user to chat.
  *
  * @param handle    String containing a handle recognized by the client's

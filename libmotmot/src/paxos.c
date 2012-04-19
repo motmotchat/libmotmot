@@ -39,7 +39,8 @@ int proposer_ack_sync(struct paxos_header *, msgpack_object *);
 int proposer_truncate(struct paxos_header *);
 
 // Acceptor operations
-int acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *);
+int acceptor_ack_welcome(struct paxos_peer *, struct paxos_header *,
+    msgpack_object *);
 int acceptor_ack_prepare(struct paxos_peer *, struct paxos_header *);
 int acceptor_promise(struct paxos_header *);
 int acceptor_ack_decree(struct paxos_peer *, struct paxos_header *,
@@ -303,7 +304,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_WELCOME:
-      acceptor_ack_welcome(hdr, o);
+      acceptor_ack_welcome(source, hdr, o);
       break;
 
     case OP_SYNC:
@@ -1115,7 +1116,8 @@ proposer_truncate(struct paxos_header *hdr)
  * learn our assigned paxid.
  */
 int
-acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *o)
+acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
+    msgpack_object *o)
 {
   msgpack_object *arr, *p, *pend;
   struct paxos_acceptor *acc;
@@ -1145,6 +1147,7 @@ acceptor_ack_welcome(struct paxos_header *hdr, msgpack_object *o)
     // Set the proposer correctly.
     if (acc->pa_paxid == hdr->ph_ballot.id) {
       pax.proposer = acc;
+      pax.proposer->pa_peer = source;
     }
   }
 

@@ -33,6 +33,16 @@ motmot_session()
 }
 
 /**
+ * motmot_watch - Watch a given channel for activity.
+ */
+int
+motmot_watch(GIOChannel *channel)
+{
+  paxos_peer_init(channel);
+  return 0;
+}
+
+/**
  * motmot_invite - Add user to chat.
  */
 int
