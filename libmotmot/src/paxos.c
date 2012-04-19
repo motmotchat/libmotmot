@@ -361,7 +361,7 @@ paxos_learn(struct paxos_instance *inst)
 
       // If we are the proposer, send the new acceptor its paxid.
       if (is_proposer()) {
-        paxos_welcome(acc);
+        proposer_welcome(acc);
       }
       break;
 
