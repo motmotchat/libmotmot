@@ -1315,7 +1315,7 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
   if (inst == NULL) {
     // We haven't seen this instance, so initialize a new one.
     inst = g_malloc0(sizeof(*inst));
-    memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
+    memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
     paxos_value_unpack(&inst->pi_val, o);
     inst->pi_votes = 1; // For acceptors, != 0 just means not committed.
 
