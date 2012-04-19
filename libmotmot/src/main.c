@@ -12,21 +12,20 @@
 #include <glib-unix.h>
 #include <msgpack.h>
 
+#include "motmot.h"
+
 #define SOCKDIR   "conn/"
 #define MAXCONNS  100
 
 #define err(cond, errstr)                           \
   if (cond) {                                       \
-    g_error("%s: %s", errstr, strerror(errno));  \
+    g_error("%s: %s", errstr, strerror(errno));     \
     exit(1);                                        \
   }
 
 GMainLoop *gmain;
 
-struct {
-  int pid;
-  GIOChannel *channel;
-} conns[MAXCONNS];
+int conns[MAXCONNS];
 
 /**
  * Create a local UNIX socket and wrap it in a GIOChannel.
@@ -79,58 +78,35 @@ create_socket_channel(int pid)
 }
 
 /**
- * Clean up the mess we have made. Currently, this just involves removing our
- * listening socket in SOCKDIR
+ * Wrapper around create_socket_channel.
+ */
+GIOChannel *
+create_socket_channel_motmot(const char *msg, size_t len)
+{
+  int pid = atoi(msg);
+  if (pid != 0) {
+    return create_socket_channel(pid);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * Clean up the mess we have made.  Currently, this just involves removing our
+ * listening socket in SOCKDIR.
  */
 int
 cleanup(void *data)
 {
-  // Something something avoid mallocing near signal handlers something
+  // Something something avoid mallocing near signal handlers something.
   static char sockname[12];
 
   sprintf(sockname, SOCKDIR "%06d", getpid());
   unlink(sockname);
 
-  // Let's get out of here
+  // Let's get out of here.
   g_main_loop_quit(gmain);
   return FALSE;
-}
-
-int
-socket_recv(GIOChannel *source, GIOCondition condition, void *data)
-{
-  char *buf;
-  unsigned long len;
-  msgpack_unpacked msg;
-  GError *gerr;
-  GIOStatus status;
-
-  // Read a line from the socket.
-  buf = g_malloc0(4096);
-  gerr = NULL;
-  status = g_io_channel_read_chars(source, buf, 4096, &len, &gerr);
-  if (status == G_IO_STATUS_ERROR) {
-    // TODO: error handling
-    g_warning("socket_recv: Could not read line from socket.\n");
-  } else if (status == G_IO_STATUS_EOF) {
-    g_message("socket_recv: Received disconnect.\n");
-    return FALSE;
-  }
-
-  // Print message to stdout.
-  msgpack_unpacked_init(&msg);
-  if (!msgpack_unpack_next(&msg, buf, len, NULL)) {
-    // TODO: error handling
-    g_critical("socket_recv: Could not unpack message.\n");
-  }
-  printf("RECEIVED: ");
-  msgpack_object_print(stdout, msg.data);
-
-  printf("\n");
-  fflush(stdout);
-
-  g_free(buf);
-  return TRUE;
 }
 
 int
@@ -166,7 +142,8 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
     // TODO: error handling
     g_error("socket_accept: Failed to allocate msgpack_unpacker.\n");
   }
-  g_io_add_watch(channel, G_IO_IN, socket_recv, pac);
+  // XXX: Paxosify this
+  // g_io_add_watch(channel, G_IO_IN, socket_recv, pac);
 
   g_free(saddr);
   return TRUE;
@@ -194,19 +171,15 @@ poll_conns(void *data)
 
     // Check whether we have already connected to the socket.
     found = false;
-    for (i = 0; conns[i].pid != 0; ++i) {
-      if (pid == conns[i].pid) {
+    for (i = 0; conns[i] != 0; ++i) {
+      if (pid == conns[i]) {
         found = true;
         break;
       }
     }
 
-    // Create a new socket channel for any new connections discovered.
     if (!found) {
-      conns[i].channel = create_socket_channel(pid);
-      if (conns[i].channel != NULL) {
-        conns[i].pid = pid;
-      }
+      // TODO: Connect.
     }
   }
 
@@ -217,61 +190,25 @@ poll_conns(void *data)
 int
 input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 {
-  int i, pid;
   char *msg;
-  unsigned long len, eol;
-  msgpack_sbuffer *buf;
-  msgpack_packer *pk;
+  unsigned long eol;
   GError *gerr;
   GIOStatus status;
 
-  // Read in a line and pack it.
+  // Read in a line.
   status = g_io_channel_read_line(channel, &msg, NULL, &eol, &gerr);
-  if (status == G_IO_STATUS_EOF) {
-    // XXX: if stdin is closed, we should just give up
-    return FALSE;
-  } else if (status != G_IO_STATUS_NORMAL) {
+  if (status != G_IO_STATUS_NORMAL) {
     g_error("Error reading from stdin.\n");
     return FALSE;
   }
 
-  // Kill the trailing newline
+  // Kill the trailing newline.
   msg[eol] = '\0';
 
-  buf = msgpack_sbuffer_new();
-  pk = msgpack_packer_new(buf, msgpack_sbuffer_write);
+  // Broadcast via motmot.
+  motmot_send(msg, eol + 1);
 
-  msgpack_pack_raw(pk, strlen(msg));
-  msgpack_pack_raw_body(pk, msg, strlen(msg));
-
-  // Broadcast message.
-  for (i = 0, pid = getpid(); conns[i].pid != 0; ++i) {
-    // Skip ourselves.
-    if (pid == conns[i].pid) {
-      continue;
-    }
-
-    // Send message over the wire.
-    gerr = NULL;
-    status = g_io_channel_write_chars(conns[i].channel, buf->data, buf->size,
-        &len, &gerr);
-    if (status == G_IO_STATUS_ERROR) {
-      // TODO: error handling
-      g_critical("input_loop: Could not write message to socket.\n");
-    }
-    gerr = NULL;
-    g_io_channel_flush(conns[i].channel, &gerr);
-    if (status == G_IO_STATUS_ERROR) {
-      // TODO: error handling
-      g_critical("input_loop: Could not flush message to socket.\n");
-    }
-  }
-
-  // Free all the things.
-  msgpack_packer_free(pk);
-  msgpack_sbuffer_free(buf);
   g_free(msg);
-
   return TRUE;
 }
 
@@ -287,7 +224,7 @@ main(int argc, char *argv[])
   channel = create_socket_channel(0);
   g_io_add_watch(channel, G_IO_IN, socket_accept, NULL);
 
-  // Let's try to clean up ourselves in the case someone kills us
+  // Let's try to clean up ourselves in the case someone kills us.
   g_unix_signal_add(SIGINT, cleanup, NULL);
   g_unix_signal_add(SIGTERM, cleanup, NULL);
 
@@ -296,6 +233,9 @@ main(int argc, char *argv[])
 
   // Add the input loop as an idle source.
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
+
+  // Initialize motmot.
+  motmot_init(create_socket_channel_motmot);
 
   g_main_loop_run(gmain);
 

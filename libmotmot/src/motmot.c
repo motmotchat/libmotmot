@@ -27,6 +27,15 @@ motmot_init(GIOChannel *(*connect)(const char *, size_t))
 }
 
 /**
+ * motmot_disconnect - Disconnect from a chat.
+ */
+int
+motmot_disconnect()
+{
+  return paxos_request(DEC_PART, NULL, 0);
+}
+
+/**
  * motmot_send - Queue the message for reliable ordered broadcast.
  */
 int
