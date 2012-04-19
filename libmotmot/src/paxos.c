@@ -1002,8 +1002,8 @@ proposer_welcome(struct paxos_acceptor *acc)
     paxos_instance_pack(&py, inst_it);
   }
 
-  // Broadcast the welcome.
-  paxos_broadcast(UNYAK(&py));
+  // Send the welcome.
+  paxos_send(acc, UNYAK(&py));
   paxos_payload_destroy(&py);
 
   return 0;
@@ -1407,9 +1407,10 @@ acceptor_hello(struct paxos_acceptor *acc)
   hdr.ph_opcode = OP_HELLO;
   hdr.ph_inum = pax.self_id;  // Overloaded with our acceptor ID.
 
-  // Pack and broadcast the hello.
+  // Pack and send the hello.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
+  paxos_send(acc, UNYAK(&py));
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 

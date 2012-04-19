@@ -231,6 +231,7 @@ int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
 
 /* Paxos message sending. */
 int paxos_broadcast(const char *, size_t);
+int paxos_send(struct paxos_acceptor *, const char *, size_t);
 int paxos_send_to_proposer(const char *, size_t);
 
 #endif /* __PAXOS_H__ */

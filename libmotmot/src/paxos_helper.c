@@ -213,6 +213,15 @@ paxos_broadcast(const char *buffer, size_t length)
 }
 
 /**
+ * Send a message to any acceptor.
+ */
+int
+paxos_send(struct paxos_acceptor *acc, const char *buffer, size_t length)
+{
+  return paxos_peer_send(acc->pa_peer, buffer, length);
+}
+
+/**
  * Send a message to the proposer
  */
 int
