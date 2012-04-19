@@ -154,7 +154,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       // This list is the result of iterative Paxos commits, and hence a
       // proposer receiving an OP_PREPARE qualifies as an inconsistent state
       // of the system.
-      g_critical("Proposer received OP_PREPARE.");
+      g_error("Proposer received OP_PREPARE.\n");
       break;
 
     case OP_PROMISE:
@@ -164,7 +164,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_DECREE:
       // XXX: If the decree is for a higher ballot number, we should probably
       // cry.
-      g_error("Bad opcode OP_DECREE recieved by proposer. Redirecting...");
+      g_error("Bad opcode OP_DECREE recieved by proposer. Redirecting...\n");
       paxos_redirect(source, hdr);
       break;
 
@@ -197,7 +197,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 
     case OP_TRUNCATE:
       // Holy fucking shit what is happening.
-      g_critical("Proposer received OP_TRUNCATE.");
+      g_error("Proposer received OP_TRUNCATE.\n");
       break;
   }
 
@@ -214,7 +214,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_PROMISE:
-      g_error("Bad opcode OP_PROMISE recieved by acceptor. Redirecting...");
+      g_error("Bad opcode OP_PROMISE recieved by acceptor. Redirecting...\n");
       paxos_redirect(source, hdr);
       break;
 
@@ -223,7 +223,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_ACCEPT:
-      g_error("Bad opcode OP_ACCEPT recieved by acceptor. Redirecting...");
+      g_error("Bad opcode OP_ACCEPT recieved by acceptor. Redirecting...\n");
       paxos_redirect(source, hdr);
       break;
 
