@@ -1321,6 +1321,9 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
 
     // Insert the new instance into the ilist.
     inst = instance_insert(&pax.ilist, inst);
+
+    // Accept the decree.
+    return acceptor_accept(hdr);
   } else {
     // We found an instance of the same number.  If the existing instance
     // is NOT a commit, and if the new instance has a higher ballot number,
@@ -1329,11 +1332,16 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
         ballot_compare(hdr->ph_ballot, inst->pi_hdr.ph_ballot) > 0) {
       memcpy(&inst->pi_hdr, hdr, sizeof(hdr));
       paxos_value_unpack(&inst->pi_val, o);
+
+      // Accept the decree.
+      return acceptor_accept(hdr);
     }
   }
 
-  // We've created a new instance struct as necessary, so accept.
-  return acceptor_accept(hdr);
+  // XXX: If we found a committed decree, probably inform the proposer?  If
+  // we just found an (uncommitted) decree with a higher ballot, we should
+  // check whether or not we accept by comparing values.
+  return 0;
 }
 
 /**
