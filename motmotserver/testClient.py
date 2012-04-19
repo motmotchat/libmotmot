@@ -21,6 +21,10 @@ class RemoteMethods:
     SERVER_SEND_STATUS_CHANGED=33
     PUSH_CLIENT_STATUS=20
     PUSH_FRIEND_ACCEPT=21
+    GET_ALL_STATUSES=7
+    ALL_STATUS_RESPONSE=65
+    SERVER_GET_STATUS=35
+    SERVER_GET_STATUS_RESP=66
 
 
 sendQ = queue.Queue()
@@ -35,13 +39,13 @@ class sendGreenlet(Greenlet):
     def _run(self):
         while True:
             msg = sendQ.get()
-            needId = [RemoteMethods.AUTHENTICATE_USER, RemoteMethods.REGISTER_FRIEND, RemoteMethods.UNREGISTER_FRIEND, RemoteMethods.GET_FRIEND_IP, RemoteMethods.REGISTER_STATUS, RemoteMethods.ACCEPT_FRIEND]
+            needId = [RemoteMethods.AUTHENTICATE_USER, RemoteMethods.REGISTER_FRIEND, RemoteMethods.UNREGISTER_FRIEND, RemoteMethods.GET_FRIEND_IP, RemoteMethods.REGISTER_STATUS, RemoteMethods.ACCEPT_FRIEND, RemoteMethods.GET_ALL_STATUSES]
             if msg[1] in needId:
                 self.msgIdCnt+=1
                 msg[2] = ['c', self.msgIdCnt]
             
             sVal = msgpack.packb(msg)
-             
+            print "Sending: "         
             print msg
             self.sock.sendall(sVal)
             #test = [1,2,['c',self.msgIdCnt],"test@bensing.com"]
@@ -56,13 +60,13 @@ class recvGreenlet(Greenlet):
     
     def _run(self):
         while True:
-            print "waiting for data..."
             rVal = self.sock.recv(4096)
             if not rVal:
                 print "connection gone"
                 break
 
             rVal = msgpack.unpackb(rVal)
+            print "Receiving: "
             print rVal
             respList = [RemoteMethods.PUSH_CLIENT_STATUS, RemoteMethods.PUSH_FRIEND_ACCEPT]
             if rVal[1] in respList:
@@ -82,11 +86,11 @@ if __name__ == '__main__':
     sendQ.put([1,1,'',"ej@bensing.com","12345"])
     sendQ.put([1,2,'',"test@bensing.com"])
     sendQ.put([1,5,'',2])
+    sendQ.put([1,7,''])
     recv = recvGreenlet(sock)
     recv.start()
     send = sendGreenlet(sock)
     send.start()
-    send.join()
     recv.join()
 
     """

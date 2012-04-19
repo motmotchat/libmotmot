@@ -3,6 +3,7 @@
 from gevent.server import *
 from gevent import Greenlet
 from gevent import socket
+from gevent import monkey
 import msgpack
 import sqlite3 as lite
 import sys
@@ -23,6 +24,10 @@ class RemoteMethods:
     SERVER_SEND_STATUS_CHANGED=33
     PUSH_CLIENT_STATUS=20
     PUSH_FRIEND_ACCEPT=21
+    GET_ALL_STATUSES=7
+    SERVER_GET_STATUS=35
+    SERVER_GET_STATUS_RESP=66
+    ALL_STATUS_RESPONSE=65
     
 
 class status:
@@ -165,7 +170,6 @@ def statusChanged(userName, status):
 
         for friend in rows:
             splt = friend[0].split('@')
-            print splt
             if splt[1] == DOMAIN_NAME:
                 if friend[0] in qList:
                     qList[friend[0]].put((userName, status))
@@ -220,6 +224,62 @@ def acceptFriend(acceptor, friend):
             raise RPCError
 
         sock.close()
+
+def getAllFriendStatuses(userName):
+
+    con = None
+    rList = []
+
+    try:
+        con = lite.connect('config.db')
+        cur = con.cursor()
+        
+        cur.execute("SELECT friend FROM friends WHERE userName=? AND accepted='true';", (userName,))
+
+        rows = cur.fetchall()
+        frByDom = {}
+        for friend in rows:
+            splt = friend[0].split('@')
+
+            if splt[1] == DOMAIN_NAME:
+                if friend[0] in qList:
+                    key = [key for key, value in authList.iteritems() if value[0] == friend[0]][0]
+                    rList.append(authList[key])
+            else:
+                if splt[1] in frByDom:
+                    frByDom[splt[1]].append(friend[0])
+                else:
+                    frByDom[splt[1]] = [].append(friend[0])
+        
+        for dom, friends in frByDom.iteritems():
+            address = (bSock.gethostbyname(dom), 8888)
+            sock = socket.socket()
+            sock.connect(address)
+
+            sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
+            rVal = sock.recv(4096)
+            rVal = msgpack.unpackb(rVal)
+            if rVal[1] != 61:
+                raise RPCError
+                
+            sock.sendall(msgpack.packb([1, RemoteMethods.SERVER_GET_STATUS, friends]))
+
+            rVal = sock.recv(4096)
+            rVal = msgpack.unpackb(rVal)
+            if rVal[1] != RemoteMethods.SERVER_GET_STATUS_RESP:
+                raise RPCError
+            else:
+                rList.extend(rVal[2])
+
+            sock.close()
+
+    except lite.Error, e:
+        print "sqlite error: %s" % e.args[0]
+    finally:
+        if con:
+            con.close()
+
+        return rList
 
 class ReaderGreenlet(Greenlet):
 
@@ -292,6 +352,9 @@ class ReaderGreenlet(Greenlet):
                                 qList[val[2]].put([1,RemoteMethods.PUSH_FRIEND_ACCEPT,-1,val[3], val[4]])
                             execute_query("UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;", (val[2],val[3]))
                             self.socket.sendall(msgpack.packb([1,60,"Successful"]))
+                        elif val[1] == RemoteMethods.GET_ALL_STATUSES:
+                            rStat = getAllFriendStatuses(authList[(self.ipAddr, self.port)][0])
+                            qList[authList[(self.ipAddr, self.port)][0]].put([1, RemoteMethods.ALL_STATUS_RESPONSE, val[2], rStat])
                         elif val[1] == 60:
                             temp = "possibly handle return calls here"
                         else:
@@ -341,5 +404,6 @@ def handleConnection(socket, address):
 
 if __name__ == '__main__':
     DOMAIN_NAME = sys.argv[1]
+    monkey.patch_all()
     server = StreamServer(('127.0.0.1',8888), handleConnection)
     server.serve_forever()
