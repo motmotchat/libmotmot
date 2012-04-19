@@ -1173,7 +1173,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   p = arr->via.array.ptr;
   pend = arr->via.array.ptr + arr->via.array.size;
 
-  // ...and populate our alist.
+  // ...and unpack our new alist.
   for (; p != pend; ++p) {
     acc = g_malloc0(sizeof(*acc));
     paxos_acceptor_unpack(acc, p);
@@ -1193,7 +1193,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   p = arr->via.array.ptr;
   pend = arr->via.array.ptr + arr->via.array.size;
 
-  // ...and populate our ilist.
+  // ...and unpack our new ilist.
   for (; p != pend; ++p) {
     inst = g_malloc0(sizeof(*inst));
     paxos_instance_unpack(inst, p);
