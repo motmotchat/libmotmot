@@ -431,12 +431,10 @@ get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
 }
 
 /**
- * Given a starting inum and an ilist, determine the inum which immediately
- * succeeds the last inum of the longest continuous prefix starting at the
- * starting value---i.e., the first hole.  We also return the nearest
- * instance to this hole which occurs no later than the holey instance.
- *
- * Note that uncommitted instances count as "missing".
+ * Starting at a given instance number, crawl along an ilist until we find
+ * a hole, i.e., an instance which has either not been recorded or not been
+ * committed.  We return its instance number, along with closest-numbered
+ * instance structure that has number <= the hole.
  */
 static paxid_t
 ilist_first_hole(struct paxos_instance **inst, struct instance_list *ilist,
