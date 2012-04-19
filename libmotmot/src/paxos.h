@@ -39,7 +39,9 @@ typedef enum paxos_opcode {
   OP_WELCOME,           // welcome the new acceptor into our proposership
   OP_HELLO,             // say hello to a fellow acceptor
   OP_SYNC,              // sync up ilists in preparation for a truncate
-  OP_TRUNCATE           // order acceptors to truncate their ilists
+  OP_TRUNCATE,          // order acceptors to truncate their ilists
+  OP_RETRIEVE,          // retrieve missing request data on commit
+  OP_RESEND             // resend request data
 } paxop_t;
 
 /* Paxos message header that is included with any message. */

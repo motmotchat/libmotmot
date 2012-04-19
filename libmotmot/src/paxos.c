@@ -23,6 +23,11 @@ struct paxos_state pax;
 
 // General Paxos functions
 int paxos_redirect(struct paxos_peer *, struct paxos_header *);
+int paxos_retrieve(struct paxos_instance *);
+int paxos_ack_retrieve(struct paxos_header *, msgpack_object *);
+int paxos_resend(struct paxos_acceptor *, struct paxos_header *,
+    struct paxos_request *);
+int paxos_ack_resend(struct paxos_header *, msgpack_object *);
 int paxos_learn(struct paxos_instance *);
 
 // Proposer operations
@@ -278,6 +283,14 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       // Holy fucking shit what is happening.
       g_error("Proposer received OP_TRUNCATE.\n");
       break;
+
+    case OP_RETRIEVE:
+      paxos_ack_retrieve(hdr, o);
+      break;
+
+    case OP_RESEND:
+      paxos_ack_resend(hdr, o);
+      break;
   }
 
   return TRUE;
@@ -332,6 +345,14 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 
     case OP_TRUNCATE:
       acceptor_ack_truncate(hdr, o);
+      break;
+
+    case OP_RETRIEVE:
+      paxos_ack_retrieve(hdr, o);
+      break;
+
+    case OP_RESEND:
+      paxos_ack_resend(hdr, o);
       break;
   }
 
@@ -438,6 +459,121 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
 }
 
 /**
+ * paxos_retrieve - Ask the originator of request data to give us the data
+ * again (or for the first time, if we never got it for whatever reason).
+ */
+int
+paxos_retrieve(struct paxos_instance *inst)
+{
+  struct paxos_header hdr;
+  struct paxos_acceptor *acc;
+  struct paxos_yak py;
+
+  // Initialize a header.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_RETRIEVE;
+  hdr.ph_inum = inst->pi_hdr.ph_inum; // Instance number of the request.
+
+  // Pack the retrieve.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &hdr);
+  paxos_payload_begin_array(&py, 2);
+  paxos_paxid_pack(&py, pax.self_id);
+  paxos_value_pack(&py, &inst->pi_val);
+
+  // Determine the request originator and send.
+  acc = acceptor_find(&pax.alist, inst->pi_val.pv_reqid.id);
+  paxos_send(acc, UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
+ * paxos_ack_retrieve - Acknowledge a retrieve; basically just wrap a
+ * resend.
+ */
+int paxos_ack_retrieve(struct paxos_header *hdr, msgpack_object *o)
+{
+  paxid_t paxid;
+  msgpack_object *p;
+  struct paxos_value val;
+  struct paxos_request *req;
+  struct paxos_acceptor *acc;
+
+  // Make sure the payload is well-formed.
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  assert(o->via.array.size == 2);
+  p = o->via.array.ptr;
+
+  // Unpack the retriever's ID and the value being retrieved.
+  paxos_paxid_unpack(&paxid, p++);
+  paxos_value_unpack(&val, p++);
+
+  // Retrieve the request.
+  assert(request_needs_cached(val.pv_dkind));
+  req = request_find(&pax.rlist, val.pv_reqid);
+
+  // Look up the acceptor.
+  acc = acceptor_find(&pax.alist, paxid);
+
+  // Resend it.
+  return paxos_resend(acc, hdr, req);
+}
+
+/**
+ * paxos_resend - Resend request data that some acceptor didn't have at
+ * commit time.
+ */
+int
+paxos_resend(struct paxos_acceptor *acc, struct paxos_header *hdr,
+    struct paxos_request *req)
+{
+  struct paxos_yak py;
+
+  // Just pack and send the resend.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, hdr);
+  paxos_request_pack(&py, req);
+  paxos_send(acc, UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
+ * paxos_ack_resend - Receive a resend of request data, and re-commit the
+ * instance to which the request belongs.
+ */
+int
+paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
+{
+  struct paxos_instance *inst;
+  struct paxos_request *req;
+
+  // Grab the instance for which we wanted the request.
+  inst = instance_find(&pax.ilist, hdr->ph_inum);
+
+  // See if the instance's associated request was received in the time since
+  // we sent our retrieve out.
+  req = request_find(&pax.rlist, inst->pi_val.pv_reqid);
+
+  if (req == NULL) {
+    // If not, allocate a request and unpack it.
+    req = g_malloc0(sizeof(*req));
+    paxos_request_unpack(req, o);
+
+    // Insert it to our request list.
+    request_insert(&pax.rlist, req);
+  }
+
+  // Actually commit, now that we have the associated request.
+  inst->pi_votes = 0;
+  return paxos_learn(inst);
+}
+
+/**
  * paxos_learn - Do something useful with the value of a commit.
  */
 int
@@ -449,6 +585,10 @@ paxos_learn(struct paxos_instance *inst)
   // Pull the request from the request queue if applicable.
   if (request_needs_cached(inst->pi_val.pv_dkind)) {
     req = request_find(&pax.rlist, inst->pi_val.pv_reqid);
+    if (req == NULL) {
+      // Send out a retrieve to the request originator and defer the commit.
+      return paxos_retrieve(inst);
+    }
   }
 
   // Act on the decree (e.g., display chat, record acceptor list changes).
@@ -735,6 +875,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
     } else if (it->pi_hdr.ph_inum > inst->pi_hdr.ph_inum) {
       // We found an instance with a higher number, so insert before it.
+      // XXX: We probably want to recommit.
       LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
     } else {
       // We found an instance of the same number.  If the existing instance
@@ -948,7 +1089,7 @@ proposer_commit(struct paxos_instance *inst)
 {
   struct paxos_yak py;
 
-  // Fix up the instance header.
+  // Modify the instance header.
   inst->pi_hdr.ph_opcode = OP_COMMIT;
 
   // Pack and broadcast the commit.
@@ -961,9 +1102,7 @@ proposer_commit(struct paxos_instance *inst)
   inst->pi_votes = 0;
 
   // Learn the value, i.e., act on the commit.
-  paxos_learn(inst);
-
-  return 0;
+  return paxos_learn(inst);
 }
 
 /**
@@ -1415,9 +1554,7 @@ acceptor_ack_commit(struct paxos_header *hdr)
   inst->pi_votes = 0;
 
   // Learn the value, i.e., act on the commit.
-  paxos_learn(inst);
-
-  return 0;
+  return paxos_learn(inst);
 }
 
 /**
