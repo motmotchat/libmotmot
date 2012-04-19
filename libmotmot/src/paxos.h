@@ -104,7 +104,7 @@ typedef enum decree_kind {
   DEC_PART,             // remove an acceptor
 } dkind_t;
 
-int is_request(dkind_t dkind);
+int request_needs_cached(dkind_t dkind);
 
 /* Alias request ID's as (from ID, local request number). */
 typedef ppair_t reqid_t;
@@ -114,6 +114,7 @@ int compare_reqid(reqid_t, reqid_t);
 struct paxos_value {
   dkind_t pv_dkind;   // decree kind
   reqid_t pv_reqid;   // totally ordered request ID
+  paxid_t pv_extra;   // we get one 32-bit data value (mostly for PART)
   /**
    * In order to reduce network traffic, requesters broadcast any requests
    * with additional data to all acceptors, associating with each a session-

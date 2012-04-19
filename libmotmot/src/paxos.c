@@ -94,10 +94,14 @@ paxos_init(GIOChannel *(*connect)(const char *, size_t))
 int
 paxos_request(dkind_t dkind, const char *msg, size_t len)
 {
+  int needs_cached;
   struct paxos_header hdr;
   struct paxos_request *req;
   struct paxos_instance *inst;
   struct paxos_yak py;
+
+  // Do we need to keep this request around?
+  needs_cached = request_needs_cached(dkind);
 
   // Initialize a header.  We overload ph_inum to the ID of the acceptor who
   // we believe to be the proposer.
@@ -111,26 +115,31 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   req->pr_val.pv_dkind = dkind;
   req->pr_val.pv_reqid.id = pax.self_id;
   req->pr_val.pv_reqid.gen = (++pax.req_id);  // Increment our req_id.
+  req->pr_val.pv_extra = 0; // Always 0 for requests.
   req->pr_size = len;
 
   if (msg != NULL) {
     memcpy(req->pr_data, msg, len);
   }
 
-  // Add it to the request queue.
-  request_insert(&pax.rlist, req);
+  // Add it to the request queue if needed.
+  if (needs_cached) {
+    request_insert(&pax.rlist, req);
+  }
 
-  // Pack the request payload.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &hdr);
-  paxos_request_pack(&py, req);
-
-  // Broadcast the request.
-  paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
-
-  // If we aren't the proposer, return.
   if (!is_proposer()) {
+    // Pack a request payload if we aren't the proposer.
+    paxos_payload_init(&py, 2);
+    paxos_header_pack(&py, &hdr);
+    paxos_request_pack(&py, req);
+
+    // Broadcast or send straight to the proposer, as needed.
+    if (needs_cached) {
+      paxos_broadcast(UNYAK(&py));
+    } else {
+      paxos_send_to_proposer(UNYAK(&py));
+    }
+    paxos_payload_destroy(&py);
     return 0;
   }
 
@@ -364,7 +373,7 @@ paxos_learn(struct paxos_instance *inst)
   struct paxos_acceptor *acc;
 
   // Pull the request from the request queue if applicable.
-  if (is_request(inst->pi_val.pv_dkind)) {
+  if (request_needs_cached(inst->pi_val.pv_dkind)) {
     req = request_find(&pax.rlist, inst->pi_val.pv_reqid);
   }
 
@@ -398,7 +407,14 @@ paxos_learn(struct paxos_instance *inst)
       break;
 
     case DEC_PART:
-      // TODO: Find the acceptor being removed (how?)
+      // The pv_extra field tells us who is PARTing (possibly a forced PART).
+      // If it is 0, it is a user request to self-PART.
+      if (inst->pi_val.pv_extra == 0) {
+        inst->pi_val.pv_extra = inst->pi_val.pv_reqid.id;
+      }
+
+      // Pull the acceptor from the alist.
+      acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
 
       // Cleanup.
       paxos_peer_destroy(acc->pa_peer);
@@ -708,10 +724,18 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   g_free(pax.prep);
   pax.prep = NULL;
 
-  // Kill any dropped acceptors we still have in our acceptor list.
+  // Forceably PART any dropped acceptors we still have in our acceptor list.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
     if (acc->pa_peer == NULL) {
-      // XXX: Do something here.
+      // Initialize a new instance.
+      inst = g_malloc0(sizeof(*inst));
+      inst->pi_val.pv_dkind = DEC_PART;
+      inst->pi_val.pv_reqid.id = pax.self_id;
+      inst->pi_val.pv_reqid.gen = pax.req_id;
+      inst->pi_val.pv_extra = acc->pa_paxid;
+
+      // Decree it.
+      proposer_decree(inst);
     }
   }
 
@@ -742,8 +766,10 @@ proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   req = g_malloc0(sizeof(*req));
   paxos_request_unpack(req, o);
 
-  // Add it to the request queue.
-  request_insert(&pax.rlist, req);
+  // Add it to the request queue if needed.
+  if (request_needs_cached(req->pr_val.pv_dkind)) {
+    request_insert(&pax.rlist, req);
+  }
 
   // Allocate an instance and copy in the value from the request.
   inst = g_malloc0(sizeof(*inst));
