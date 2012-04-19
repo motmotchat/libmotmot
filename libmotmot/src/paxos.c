@@ -1191,7 +1191,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   // Make sure the ilist is well-formed...
   assert(arr->type == MSGPACK_OBJECT_ARRAY);
   p = arr->via.array.ptr;
-  pend = arr->via.array.ptr + o->via.array.size;
+  pend = arr->via.array.ptr + arr->via.array.size;
 
   // ...and populate our ilist.
   for (; p != pend; ++p) {
