@@ -35,7 +35,7 @@ class sendGreenlet(Greenlet):
         Greenlet.__init__(self)
         self.sock = sock
         self.msgIdCnt = 0
-    
+
     def _run(self):
         while True:
             msg = sendQ.get()
@@ -43,9 +43,9 @@ class sendGreenlet(Greenlet):
             if msg[1] in needId:
                 self.msgIdCnt+=1
                 msg[2] = ['c', self.msgIdCnt]
-            
+
             sVal = msgpack.packb(msg)
-            print "Sending: "         
+            print "Sending: "
             print msg
             self.sock.sendall(sVal)
             #test = [1,2,['c',self.msgIdCnt],"test@bensing.com"]
@@ -53,11 +53,10 @@ class sendGreenlet(Greenlet):
 
 class recvGreenlet(Greenlet):
 
-    
     def __init__(self, sock):
         Greenlet.__init__(self)
         self.sock = sock
-    
+
     def _run(self):
         while True:
             rVal = self.sock.recv(4096)
@@ -78,9 +77,9 @@ class recvGreenlet(Greenlet):
 
 
 if __name__ == '__main__':
-    
+
     address = (bSock.gethostbyname('127.0.0.1'), 8888)
-    
+
     sock = socket.socket()
     sock.connect(address)
     sendQ.put([1,1,'',"ej@bensing.com","12345"])
@@ -100,7 +99,7 @@ if __name__ == '__main__':
 
     rVal = sock.recv(4096)
     print msgpack.unpackb(rVal)
-    
+
     test = [1,5,2]
 
     sock.sendall(msgpack.packb(test))

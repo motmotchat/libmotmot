@@ -29,7 +29,7 @@ class RemoteMethods:
     SERVER_GET_STATUS=35
     SERVER_GET_STATUS_RESP=66
     ALL_STATUS_RESPONSE=65
-    
+
 # this is an enum for the different statuses
 class status:
     ONLINE=1
@@ -80,7 +80,7 @@ def doAuth(userName, password, ipAddr, port):
 # authenticate a server connection. Essentially, take the domain of the server and do a DNS lookup on it. If that IP equals the IP that the connection is coming from, the connection is authenticated
 def doAuthServer(hostName, ipAddr, port):
     auth = False
-    
+
     #note: we are using the default socket package because gevent is fail and doesn't factor in /etc/hosts
     hostIp = bSock.gethostbyname(hostName)
     if hostIp == ipAddr:
@@ -96,7 +96,7 @@ def execute_query(q, params):
     try:
         con = lite.connect('config.db')
         cur = con.cursor()
-        
+
         cur.execute(q, params)
         rVal = cur.fetchone()
         con.commit()
@@ -114,10 +114,10 @@ def registerFriend(userName, friend, allowRemoteSend):
     #make sure the friend request doesn't already exist before inserting
     if cnt[0] == 0:
         execute_query("INSERT INTO friends (userName, friend, accepted) VALUES (?, ?, 'False');", (userName, friend))
-    
+
     # split the user name on @ to find the domain
     splt = friend.split("@")
-    # if the domain name of the user does not match this servers name, send a request to the other server. this request is executed syncronously 
+    # if the domain name of the user does not match this servers name, send a request to the other server. this request is executed syncronously
     if splt[1] != DOMAIN_NAME:
         # we re-use this function when register friends that come from another domain, this parameter ensure that we don't get in an infinite loop of messages
         if allowRemoteSend:
@@ -148,7 +148,7 @@ def registerFriend(userName, friend, allowRemoteSend):
 def unregisterFriend(userName, friend, allowRemoteSend):
 
     execute_query("DELETE FROM friends WHERE userName=? AND friend=?;", (userName, friend))
-    
+
     execute_query("DELETE FROM friends WHERE userName=? AND friend=?;", (friend, userName))
     splt = friend.split("@")
     if splt[1] != DOMAIN_NAME:
@@ -156,7 +156,7 @@ def unregisterFriend(userName, friend, allowRemoteSend):
             address = (bSock.gethostbyname(splt[1]), 8888)
             sock = socket.socket()
             sock.connect(address)
-            
+
 
             sock.sendall(msgpack.packb([1,30,DOMAIN_NAME]))
             rVal = sock.recv(4096)
@@ -199,7 +199,7 @@ def statusChanged(userName, status):
                 rVal = msgpack.unpackb(rVal)
                 if rVal[1] != 61:
                     raise RPCError
-                
+
                 sock.sendall(msgpack.packb([1, 33, friend[0], userName, status]))
                 rVal = sock.recv(4096)
                 rVal = msgpack.unpackb(rVal)
@@ -282,7 +282,7 @@ def getAllFriendStatuses(userName):
             rVal = msgpack.unpackb(rVal)
             if rVal[1] != 61:
                 raise RPCError
-                
+
             sock.sendall(msgpack.packb([1, RemoteMethods.SERVER_GET_STATUS, friends]))
 
             rVal = sock.recv(4096)
@@ -302,7 +302,7 @@ def getAllFriendStatuses(userName):
 
         return rList
 
-# this is the greenlet that reads all incoming requests 
+# this is the greenlet that reads all incoming requests
 class ReaderGreenlet(Greenlet):
 
     def __init__(self, socket, ipAddr, port, gl_writer):
@@ -348,7 +348,7 @@ class ReaderGreenlet(Greenlet):
                     else:
                         self.socket.sendall(msgpack.packb([1,92,"Permission Denied"]))
                 else:
-                    # if the opcode was not for authenication, check to see if the client has already authenicated 
+                    # if the opcode was not for authenication, check to see if the client has already authenicated
                     if (self.ipAddr, self.port) in authList:
                         #massive if/else statement to handle incoming requests.... could probably use some cleaning. Important note: Server to server requests are syncronous, while client -> server are async. I may change this at some point if I get time
                         if val[1] == RemoteMethods.REGISTER_FRIEND:
@@ -388,7 +388,7 @@ class ReaderGreenlet(Greenlet):
                             rStat = getAllFriendStatuses(authList[(self.ipAddr, self.port)][0])
                             qList[authList[(self.ipAddr, self.port)][0]].put([1, RemoteMethods.ALL_STATUS_RESPONSE, val[2], rStat])
                         elif val[1] == 60:
-                            temp = "possibly handle return calls here" #yah, so 60 is the OpCode for a successful message. so don't really need to do much here 
+                            temp = "possibly handle return calls here" #yah, so 60 is the OpCode for a successful message. so don't really need to do much here
                         else:
                             # OpCode not found
                             self.socket.sendall(msgpack.packb([1,99,"Method Not Found"]))
@@ -420,7 +420,7 @@ class writerGreenlet(Greenlet):
                 break
             # these are the methods that need a messageId
             needMsgId = [RemoteMethods.PUSH_CLIENT_STATUS,RemoteMethods.PUSH_FRIEND_ACCEPT]
-            # if the opCode is the list, incriment the identifier 
+            # if the opCode is the list, incriment the identifier
             if item[1] in needMsgId:
                 self.msgIdCnt+=1
                 item[2] = ['s',self.msgIdCnt]
@@ -437,7 +437,7 @@ class writerGreenlet(Greenlet):
 #handles new connections and starts the reading greenlet
 def handleConnection(socket, address):
     print "New Connection from {0}:{1}".format(address[0], address[1])
-    
+
     writer = writerGreenlet(socket, address[0], address[1])
     reader = ReaderGreenlet(socket, address[0], address[1], writer)
     reader.start()

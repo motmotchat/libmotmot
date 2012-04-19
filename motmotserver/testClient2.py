@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     sVal = msgpack.packb(test)
 
-    
+
 
     sock.sendall(sVal)
 
@@ -57,4 +57,4 @@ if __name__ == '__main__':
     rVal = msgpack.unpackb(sock2.recv(4096))
     print rVal
     """
-    
+
