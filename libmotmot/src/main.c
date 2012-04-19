@@ -175,11 +175,14 @@ main(int argc, char *argv[])
   channel = listen_unix(argv[1], strlen(argv[1]));
   g_io_add_watch(channel, G_IO_IN, socket_accept, NULL);
 
-  // Watch for input on stdin
+  // Watch for input on stdin.
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   // Initialize motmot.
   motmot_init(connect_unix, print_chat, print_join, print_part);
+
+  // Start a new chat.
+  motmot_session();
 
   for (i = 2; i < argc; i++) {
     motmot_invite(argv[i], strlen(argv[i]));
