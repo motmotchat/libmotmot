@@ -20,7 +20,7 @@ static LIST_HEAD(, motmot_callback_info) callback_list;
  * motmot_init - Initialize libmotmot.
  */
 void
-motmot_init(GIOChannel *(*connect)(char *, size_t))
+motmot_init(GIOChannel *(*connect)(const char *, size_t))
 {
   LIST_INIT(&callback_list);
   paxos_init(connect);

@@ -6,6 +6,7 @@
 #define __MOTMOT_H__
 
 #include <stddef.h>
+#include <glib.h>
 
 typedef int (*motmot_callback)(const char *, size_t, void *);
 
@@ -14,7 +15,7 @@ typedef int (*motmot_callback)(const char *, size_t, void *);
  *
  * This function must be called before using any of the functions below
  */
-void motmot_init();
+void motmot_init(GIOChannel *(*)(const char *, size_t));
 
 /**
  * motmot_send - Queue the message for reliable ordered broadcast

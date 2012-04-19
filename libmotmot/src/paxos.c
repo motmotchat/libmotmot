@@ -63,7 +63,7 @@ int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
  * Most of our state is worthless until we are welcomed to the system.
  */
 void
-paxos_init(GIOChannel *(*connect)(char *, size_t))
+paxos_init(GIOChannel *(*connect)(const char *, size_t))
 {
   pax.self_id = 0;
   pax.req_id = 0;

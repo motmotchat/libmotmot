@@ -197,7 +197,8 @@ struct paxos_state {
   struct instance_list ilist;         // list of all instances
   struct request_list rlist;          // queued up requests waiting for commit
 
-  GIOChannel *(*connect)(char *, size_t); // callback for initiating connections
+  GIOChannel *(*connect)(const char *, size_t);
+                                      // callback for initiating connections
 };
 
 extern struct paxos_state pax;
@@ -207,7 +208,7 @@ inline paxid_t next_instance();
 #define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
 
 /* Paxos protocol. */
-void paxos_init(GIOChannel *(*)(char *, size_t));
+void paxos_init(GIOChannel *(*)(const char *, size_t));
 void paxos_drop_connection(struct paxos_peer *);
 int paxos_request(dkind_t, const char *, size_t len);
 
