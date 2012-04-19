@@ -219,7 +219,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_WELCOME:
-      // TODO: Be welcomed.
+      acceptor_ack_welcome(hdr, o);
       break;
   }
 
