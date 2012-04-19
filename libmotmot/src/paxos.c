@@ -914,7 +914,7 @@ proposer_ack_accept(struct paxos_peer *source, struct paxos_header *hdr)
   struct paxos_instance *inst;
 
   // If the accept is for some other ballot, send a redirect.
-  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+  if (ballot_compare(pax.ballot, hdr->ph_ballot)) {
     return paxos_redirect(source, hdr);
   }
 
