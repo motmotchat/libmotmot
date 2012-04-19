@@ -140,6 +140,24 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 }
 
 int
+print_chat(const char *buf, size_t len) {
+  printf("CHAT: %.*s", (int)len, buf);
+  return 0;
+}
+
+int
+print_join(const char *buf, size_t len) {
+  printf("JOIN: %.*s", (int)len, buf);
+  return 0;
+}
+
+int
+print_part(const char *buf, size_t len) {
+  printf("PART: %.*s", (int)len, buf);
+  return 0;
+}
+
+int
 main(int argc, char *argv[])
 {
   int i;
@@ -161,7 +179,7 @@ main(int argc, char *argv[])
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   // Initialize motmot.
-  motmot_init(connect_unix, NULL, NULL, NULL);
+  motmot_init(connect_unix, print_chat, print_join, print_part);
 
   for (i = 2; i < argc; i++) {
     channel = connect_unix(argv[i], strlen(argv[i]));
