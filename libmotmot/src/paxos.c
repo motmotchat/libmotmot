@@ -184,19 +184,24 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
     request_insert(&pax.rlist, req);
   }
 
-  if (!is_proposer()) {
-    // Pack a request payload if we aren't the proposer.
+  if (!is_proposer() || needs_cached) {
+    // We need to send iff either we are not the proposer or the request
+    // has nontrivial data.
     paxos_payload_init(&py, 2);
     paxos_header_pack(&py, &hdr);
     paxos_request_pack(&py, req);
 
-    // Broadcast or send straight to the proposer, as needed.
-    if (needs_cached) {
-      paxos_broadcast(UNYAK(&py));
-    } else {
+    if (!needs_cached) {
       paxos_send_to_proposer(UNYAK(&py));
+    } else {
+      paxos_broadcast(UNYAK(&py));
     }
+
     paxos_payload_destroy(&py);
+  }
+
+  // We're done if we're not the proposer.
+  if (!is_proposer()) {
     return 0;
   }
 
