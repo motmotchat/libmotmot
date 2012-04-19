@@ -217,6 +217,7 @@ inline paxid_t next_instance();
 
 /* Paxos protocol. */
 void paxos_init(connect_t, struct learn_table *);
+void paxos_start(void);
 void paxos_drop_connection(struct paxos_peer *);
 int paxos_request(dkind_t, const char *, size_t len);
 

@@ -23,6 +23,11 @@
 void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part);
 
 /**
+ * motmot_session - Start a new motmot chat.
+ */
+void motmot_session(void);
+
+/**
  * motmot_invite - Add user to chat.
  *
  * @param handle    String containing a handle recognized by the client's
