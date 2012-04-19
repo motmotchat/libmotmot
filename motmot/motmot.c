@@ -50,16 +50,22 @@
 #include <msgpack.h>
 
 // MOTMOT presentation thingy
-#define ROOM_ID "Atwood's Dungeon"
+#define ROOM_ID "Jeff's Room"
 #define CHAT_ID 1
 
+// Nop!
+
+#define _
+#define N_
+
 #define DISPLAY_VERSION "1"
+#define MOTMOT_WEBSITE "https://github.com/zenazn/motmot"
 
 /* If you're using this as the basis of a prpl that will be distributed
  * separately from libpurple, remove the internal.h include below and replace
  * it with code to include your own config.h or similar.  If you're going to
  * provide for translation, you'll also need to setup the gettext macros. */
- #include "internal.h"
+#include "internal.h"
 
 #include "account.h"
 #include "accountopt.h"
@@ -79,7 +85,7 @@
 static void motmot_rec_stuff(const char *stuff, size_t s, void *ptr);
 static void motmot_send_stuff(const char *msg, const char *username);
 
-#define NULLPRPL_ID "prpl-null"
+#define NULLPRPL_ID "prpl-motmot"
 static PurplePlugin *_null_protocol = NULL;
 
 #define NULL_STATUS_ONLINE   "online"
@@ -1269,12 +1275,12 @@ static PurplePluginInfo info =
   NULL,                                                    /* dependencies */
   PURPLE_PRIORITY_DEFAULT,                                 /* priority */
   NULLPRPL_ID,                                             /* id */
-  "Null - Testing Plugin",                                 /* name */
+  "MOTMOT!",                                 /* name */
   DISPLAY_VERSION,                                         /* version */
   N_("Null Protocol Plugin"),                              /* summary */
   N_("Null Protocol Plugin"),                              /* description */
   NULL,                                                    /* author */
-  PURPLE_WEBSITE,                                          /* homepage */
+  MOTMOT_WEBSITE,                                          /* homepage */
   NULL,                                                    /* load */
   NULL,                                                    /* unload */
   nullprpl_destroy,                                        /* destroy */
