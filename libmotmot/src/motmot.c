@@ -20,10 +20,17 @@ static LIST_HEAD(, motmot_callback_info) callback_list;
  * motmot_init - Initialize libmotmot.
  */
 void
-motmot_init(GIOChannel *(*connect)(const char *, size_t))
+motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part)
 {
+  struct learn_table learn;
+
   LIST_INIT(&callback_list);
-  paxos_init(connect);
+
+  learn.chat = chat;
+  learn.join = join;
+  learn.part = part;
+
+  paxos_init(connect, &learn);
 }
 
 /**

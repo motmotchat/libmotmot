@@ -235,7 +235,7 @@ main(int argc, char *argv[])
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   // Initialize motmot.
-  motmot_init(create_socket_channel_motmot);
+  motmot_init(create_socket_channel_motmot, NULL, NULL, NULL);
 
   g_main_loop_run(gmain);
 

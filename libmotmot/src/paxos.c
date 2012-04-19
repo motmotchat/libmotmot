@@ -63,7 +63,7 @@ int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
  * Most of our state is worthless until we are welcomed to the system.
  */
 void
-paxos_init(GIOChannel *(*connect)(const char *, size_t))
+paxos_init(connect_t connect, struct learn_table *learn)
 {
   pax.self_id = 0;
   pax.req_id = 0;
@@ -81,6 +81,9 @@ paxos_init(GIOChannel *(*connect)(const char *, size_t))
   LIST_INIT(&pax.rlist);
 
   pax.connect = connect;
+  pax.learn.chat = learn->chat;
+  pax.learn.join = learn->join;
+  pax.learn.part = learn->part;
 }
 
 /**
@@ -383,9 +386,8 @@ paxos_learn(struct paxos_instance *inst)
       break;
 
     case DEC_CHAT:
-      break;
-
-    case DEC_RENEW:
+      // Invoke client learning callback.
+      pax.learn.chat(req->pr_data, req->pr_size);
       break;
 
     case DEC_JOIN:
@@ -404,6 +406,9 @@ paxos_learn(struct paxos_instance *inst)
       if (is_proposer()) {
         proposer_welcome(acc);
       }
+
+      // Invoke client learning callback.
+      pax.learn.join(req->pr_data, req->pr_size);
       break;
 
     case DEC_PART:
@@ -421,6 +426,11 @@ paxos_learn(struct paxos_instance *inst)
       LIST_REMOVE(&pax.alist, acc, pa_le);
       g_free(acc);
 
+      // Invoke client learning callback.
+      pax.learn.part(req->pr_data, req->pr_size);
+      break;
+
+    default:
       break;
   }
 

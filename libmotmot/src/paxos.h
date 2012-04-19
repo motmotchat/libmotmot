@@ -5,7 +5,6 @@
 #define __PAXOS_H__
 
 #include "list.h"
-#include "motmot.h"
 #include "paxos_io.h"
 
 #include <stdint.h>
@@ -97,11 +96,11 @@ struct paxos_header {
 
 /* Kinds of decrees. */
 typedef enum decree_kind {
-  DEC_NULL = 0,         // null value
-  DEC_CHAT,             // chat message
-  DEC_RENEW,            // proposer lease renewal
-  DEC_JOIN,             // add an acceptor
-  DEC_PART,             // remove an acceptor
+  DEC_NULL = 0,       // null value
+  DEC_CHAT,           // chat message
+  DEC_JOIN,           // add an acceptor
+  DEC_PART,           // remove an acceptor
+  DEC_RENEW           // proposer lease renewal
 } dkind_t;
 
 int request_needs_cached(dkind_t dkind);
@@ -174,12 +173,20 @@ struct paxos_prep {
 
 /* Sync state used by proposers during sync. */
 struct paxos_sync {
-  unsigned ps_total;                  // number of acceptors syncing
-  unsigned ps_nacks;                  // number of sync acks
-  unsigned ps_skips;                  // number of times we skipped starting
-                                      //   a new sync
-  paxid_t ps_hole;                    // inum of the first hole among all
-                                      //   acceptors
+  unsigned ps_total;      // number of acceptors syncing
+  unsigned ps_nacks;      // number of sync acks
+  unsigned ps_skips;      // number of times we skipped starting a new sync
+  paxid_t ps_hole;        // inum of the first hole among all acceptors
+};
+
+/* Client callbacks. */
+typedef GIOChannel *(*connect_t)(const char *, size_t);
+typedef int (*learn_t)(const char *, size_t);
+
+struct learn_table {
+  learn_t chat;
+  learn_t join;
+  learn_t part;
 };
 
 /* Local state. */
@@ -198,8 +205,8 @@ struct paxos_state {
   struct instance_list ilist;         // list of all instances
   struct request_list rlist;          // queued up requests waiting for commit
 
-  GIOChannel *(*connect)(const char *, size_t);
-                                      // callback for initiating connections
+  connect_t connect;                  // callback for initiating connections
+  struct learn_table learn;           // callbacks for paxos_learn
 };
 
 extern struct paxos_state pax;
@@ -209,7 +216,7 @@ inline paxid_t next_instance();
 #define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
 
 /* Paxos protocol. */
-void paxos_init(GIOChannel *(*)(const char *, size_t));
+void paxos_init(connect_t, struct learn_table *);
 void paxos_drop_connection(struct paxos_peer *);
 int paxos_request(dkind_t, const char *, size_t len);
 

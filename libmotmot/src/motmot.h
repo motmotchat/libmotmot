@@ -8,14 +8,21 @@
 #include <stddef.h>
 #include <glib.h>
 
+#include "paxos.h"
+
 typedef int (*motmot_callback)(const char *, size_t, void *);
 
 /**
  * motmot_init - Initialize libmotmot
  *
  * This function must be called before using any of the functions below
+ *
+ * @param connect   Client callback for setting up connections
+ * @param chat      Client callback invoked when a chat is received
+ * @param join      Client callback invoked when a user joins the chat
+ * @param part      Client callback invoked when a user parts the chat
  */
-void motmot_init(GIOChannel *(*)(const char *, size_t));
+void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part);
 
 /**
  * motmot_send - Queue the message for reliable ordered broadcast
