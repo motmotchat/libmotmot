@@ -36,7 +36,8 @@ typedef enum paxos_opcode {
   OP_COMMIT,            // commit a decree (Success)
   OP_REQUEST,           // request a decree from the proposer
   OP_REDIRECT,          // suggests the true identity of the proposer
-  OP_WELCOME,           // says hello to a new participant
+  OP_WELCOME,           // welcome the new acceptor into our proposership
+  OP_HELLO,             // say hello to a fellow acceptor
   OP_SYNC,              // sync up ilists in preparation for a truncate
   OP_TRUNCATE           // order acceptors to truncate their ilists
 } paxop_t;
@@ -68,7 +69,11 @@ struct paxos_header {
    * - OP_WELCOME: Sends the new acceptor's assigned paxid (which is, in fact,
    *   the instance number of its JOIN).
    *
-   * - OP_SYNC: Sends the proposer-use-only ID of the sync, which is echoed.
+   * - OP_HELLO: Sends the acceptor our own paxid (the proposer uses OP_WELCOME
+   *   which contains the proposer's ID in the ballot).
+   *
+   * - OP_SYNC, OP_TRUNCATE: Sends the proposer-use-only ID of the sync, which
+   *   is echoed for OP_SYNC responses.
    *
    * We start counting instances at 1 and use 0 as a sentinel value.
    */

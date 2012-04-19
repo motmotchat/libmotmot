@@ -47,8 +47,10 @@ int acceptor_ack_decree(struct paxos_peer *, struct paxos_header *,
     msgpack_object *);
 int acceptor_accept(struct paxos_header *);
 int acceptor_ack_commit(struct paxos_header *);
-int acceptor_ack_request(struct paxos_peer *,struct paxos_header *,
+int acceptor_ack_request(struct paxos_peer *, struct paxos_header *,
     msgpack_object *);
+int acceptor_hello(struct paxos_acceptor *);
+int acceptor_ack_hello(struct paxos_peer *, struct paxos_header *);
 int acceptor_ack_sync(struct paxos_header *);
 int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
 
@@ -255,6 +257,13 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       // Ignore.
       break;
 
+    case OP_HELLO:
+      // This shouldn't be possible; all the acceptors who would say hello to
+      // us are higher-ranked than us when we join the protocol, and if we are
+      // the proposer, they have all dropped.
+      g_error("Proposer received OP_HELLO.\n");
+      break;
+
     case OP_SYNC:
       proposer_ack_sync(hdr, o);
       break;
@@ -305,6 +314,10 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 
     case OP_WELCOME:
       acceptor_ack_welcome(source, hdr, o);
+      break;
+
+    case OP_HELLO:
+      acceptor_ack_hello(source, hdr);
       break;
 
     case OP_SYNC:
@@ -457,6 +470,8 @@ paxos_learn(struct paxos_instance *inst)
       // If we are the proposer, send the new acceptor its paxid.
       if (is_proposer()) {
         proposer_welcome(acc);
+      } else {
+        acceptor_hello(acc);
       }
 
       // Invoke client learning callback.
@@ -1378,6 +1393,30 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
 }
 
 /**
+ * acceptor_hello - Let a new proposer know our identity.
+ */
+int
+acceptor_hello(struct paxos_acceptor *acc)
+{
+  struct paxos_header hdr;
+  struct paxos_yak py;
+
+  // Initialize the header.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_HELLO;
+  hdr.ph_inum = pax.self_id;  // Overloaded with our acceptor ID.
+
+  // Pack and broadcast the hello.
+  paxos_payload_init(&py, 1);
+  paxos_header_pack(&py, &hdr);
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
  * acceptor_ack_sync - Respond to the sync request of a proposer.
  *
  * We respond by sending our the first hole in our instance list.
@@ -1410,6 +1449,29 @@ acceptor_ack_truncate(struct paxos_header *hdr, msgpack_object *o)
 
   // Do the truncate (< pax.istart).
   ilist_truncate_prefix(&pax.ilist, pax.istart);
+
+  return 0;
+}
+
+/**
+ * acceptor_ack_hello - Record the identity of a fellow acceptor.
+ */
+int
+acceptor_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
+{
+  struct paxos_acceptor *acc;
+
+  // Find the acceptor with the OP_HELLO's from ID.
+  acc = acceptor_find(&pax.alist, hdr->ph_inum);
+
+  if (acc == NULL) {
+    // XXX: This might be possible if a JOIN was decreed just before we were
+    // added, and the commit of that JOIN occurred before we were welcomed
+    // by the proposer.
+  }
+
+  // Associate the peer to the acceptor.
+  acc->pa_peer = source;
 
   return 0;
 }
