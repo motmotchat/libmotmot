@@ -887,6 +887,11 @@ proposer_decree(struct paxos_instance *inst)
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
+  // Do we constitute a majority ourselves?  If so, commit!
+  if (inst->pi_votes >= MAJORITY) {
+    return proposer_commit(inst);
+  }
+
   return 0;
 }
 
