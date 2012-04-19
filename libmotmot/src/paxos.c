@@ -443,7 +443,7 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
 int
 paxos_learn(struct paxos_instance *inst)
 {
-  struct paxos_request *req;
+  struct paxos_request *req = NULL;
   struct paxos_acceptor *acc;
 
   // Pull the request from the request queue if applicable.
@@ -505,6 +505,12 @@ paxos_learn(struct paxos_instance *inst)
 
     default:
       break;
+  }
+
+  // We only learn the request once, at commit time, so free it.
+  if (req != NULL) {
+    g_free(req->pr_data);
+    g_free(req);
   }
 
   return 0;
