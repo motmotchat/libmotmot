@@ -1439,8 +1439,30 @@ acceptor_hello(struct paxos_acceptor *acc)
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
   paxos_send(acc, UNYAK(&py));
-  paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
+ * acceptor_ack_hello - Record the identity of a fellow acceptor.
+ */
+int
+acceptor_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
+{
+  struct paxos_acceptor *acc;
+
+  // Find the acceptor with the OP_HELLO's from ID.
+  acc = acceptor_find(&pax.alist, hdr->ph_inum);
+
+  if (acc == NULL) {
+    // XXX: This might be possible if a JOIN was decreed just before we were
+    // added, and the commit of that JOIN occurred before we were welcomed
+    // by the proposer.
+  }
+
+  // Associate the peer to the acceptor.
+  acc->pa_peer = source;
 
   return 0;
 }
@@ -1478,29 +1500,6 @@ acceptor_ack_truncate(struct paxos_header *hdr, msgpack_object *o)
 
   // Do the truncate (< pax.istart).
   ilist_truncate_prefix(&pax.ilist, pax.istart);
-
-  return 0;
-}
-
-/**
- * acceptor_ack_hello - Record the identity of a fellow acceptor.
- */
-int
-acceptor_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
-{
-  struct paxos_acceptor *acc;
-
-  // Find the acceptor with the OP_HELLO's from ID.
-  acc = acceptor_find(&pax.alist, hdr->ph_inum);
-
-  if (acc == NULL) {
-    // XXX: This might be possible if a JOIN was decreed just before we were
-    // added, and the commit of that JOIN occurred before we were welcomed
-    // by the proposer.
-  }
-
-  // Associate the peer to the acceptor.
-  acc->pa_peer = source;
 
   return 0;
 }
