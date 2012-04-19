@@ -494,6 +494,27 @@ ilist_first_hole(struct paxos_instance **inst, struct instance_list *ilist,
   return 0;
 }
 
+/**
+ * Truncate an ilist up to (but not including) a given inum.
+ */
+static void
+ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
+{
+  struct paxos_instance *it, *prev;
+
+  prev = NULL;
+  LIST_FOREACH(it, ilist, pi_le) {
+    if (prev != NULL) {
+      LIST_REMOVE(ilist, prev, pi_le);
+      g_free(prev);
+    }
+    if (it->pi_hdr.ph_inum >= inum) {
+      break;
+    }
+    prev = it;
+  }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -975,7 +996,8 @@ proposer_truncate(struct paxos_header *hdr)
   assert(pax.sync->ps_hole <= pax.istart);
   pax.istart = pax.sync->ps_hole;
 
-  // XXX: Do the truncate (< pax.istart).
+  // Do the truncate (< pax.istart).
+  ilist_truncate_prefix(&pax.ilist, pax.istart);
 
   // Pack and broadcast a truncate command.
   paxos_payload_init(&py, 2);
@@ -1289,7 +1311,8 @@ acceptor_ack_truncate(struct paxos_header *hdr, msgpack_object *o)
   // Unpack the new istart.
   paxos_paxid_unpack(&pax.istart, o);
 
-  // XXX: Do the truncate (< pax.istart).
+  // Do the truncate (< pax.istart).
+  ilist_truncate_prefix(&pax.ilist, pax.istart);
 
   return 0;
 }
