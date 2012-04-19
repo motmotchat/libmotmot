@@ -150,6 +150,10 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   struct paxos_instance *inst;
   struct paxos_yak py;
 
+  if (pax.self_id == 0) {
+    return -1;
+  }
+
   // Do we need to keep this request around?
   needs_cached = request_needs_cached(dkind);
 
