@@ -18,7 +18,7 @@
 int
 is_proposer()
 {
-  return pax.self_id == pax.proposer->pa_paxid;
+  return pax.proposer != NULL && pax.self_id == pax.proposer->pa_paxid;
 }
 
 /*
