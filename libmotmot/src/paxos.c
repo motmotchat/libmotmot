@@ -509,6 +509,7 @@ paxos_learn(struct paxos_instance *inst)
 
   // We only learn the request once, at commit time, so free it.
   if (req != NULL) {
+    LIST_REMOVE(&pax.rlist, req, pr_le);
     g_free(req->pr_data);
     g_free(req);
   }
