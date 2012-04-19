@@ -87,6 +87,53 @@ paxos_init(connect_t connect, struct learn_table *learn)
 }
 
 /**
+ * paxos_start - Start up the Paxos protocol with ourselves as the proposer.
+ *
+ * Currently we only support one universal execution of the protocol, so
+ * everybody had better be in agreement about the fact that we get to start
+ * it up.
+ */
+void
+paxos_start()
+{
+  struct paxos_acceptor *acc;
+  struct paxos_instance *inst;
+
+  // Give ourselves ID 1.
+  pax.self_id = 1;
+
+  // Prepare a new ballot.  Hey, we accept the prepare!  Hoorah.
+  pax.ballot.id = 1;
+  pax.ballot.gen = 1;
+
+  // Initialize an initial commit.
+  inst = g_malloc(sizeof(*inst));
+
+  inst->pi_hdr.ph_ballot.id = pax.ballot.id;
+  inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
+  inst->pi_hdr.ph_opcode = OP_DECREE;
+  inst->pi_hdr.ph_inum = 1;
+
+  inst->pi_votes = 0;
+
+  inst->pi_val.pv_dkind = DEC_JOIN;
+  inst->pi_val.pv_reqid.id = pax.self_id;
+  inst->pi_val.pv_reqid.gen = pax.req_id;
+
+  // Add it to our ilist to mark our JOIN.
+  LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
+
+  // Add ourselves to the acceptor list.
+  acc = g_malloc(sizeof(*acc));
+  acc->pa_paxid = pax.self_id;
+  acc->pa_peer = NULL;
+  LIST_INSERT_HEAD(&pax.alist, acc, pa_le);
+
+  // Set ourselves as the proposer.
+  pax.proposer = acc;
+}
+
+/**
  * paxos_request - Broadcast an out-of-protocol message to all acceptors,
  * asking that they cache the message and requesting that the proposer
  * propose it as a decree.
@@ -153,53 +200,6 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
 
   // Send a decree.
   return proposer_decree(inst);
-}
-
-/**
- * paxos_start - Start up the Paxos protocol with ourselves as the proposer.
- *
- * Currently we only support one universal execution of the protocol, so
- * everybody had better be in agreement about the fact that we get to start
- * it up.
- */
-void
-paxos_start()
-{
-  struct paxos_acceptor *acc;
-  struct paxos_instance *inst;
-
-  // Give ourselves ID 1.
-  pax.self_id = 1;
-
-  // Prepare a new ballot.  Hey, we accept the prepare!  Hoorah.
-  pax.ballot.id = 1;
-  pax.ballot.gen = 1;
-
-  // Initialize an initial commit.
-  inst = g_malloc(sizeof(*inst));
-
-  inst->pi_hdr.ph_ballot.id = pax.ballot.id;
-  inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
-  inst->pi_hdr.ph_opcode = OP_DECREE;
-  inst->pi_hdr.ph_inum = 1;
-
-  inst->pi_votes = 0;
-
-  inst->pi_val.pv_dkind = DEC_JOIN;
-  inst->pi_val.pv_reqid.id = pax.self_id;
-  inst->pi_val.pv_reqid.gen = pax.req_id;
-
-  // Add it to our ilist to mark our JOIN.
-  LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
-
-  // Add ourselves to the acceptor list.
-  acc = g_malloc(sizeof(*acc));
-  acc->pa_paxid = pax.self_id;
-  acc->pa_peer = NULL;
-  LIST_INSERT_HEAD(&pax.alist, acc, pa_le);
-
-  // Set ourselves as the proposer.
-  pax.proposer = acc;
 }
 
 static int
