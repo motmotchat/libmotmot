@@ -65,7 +65,7 @@
  * separately from libpurple, remove the internal.h include below and replace
  * it with code to include your own config.h or similar.  If you're going to
  * provide for translation, you'll also need to setup the gettext macros. */
-#include "internal.h"
+//#include "internal.h"
 
 #include "account.h"
 #include "accountopt.h"
@@ -425,7 +425,7 @@ static void nullprpl_login(PurpleAccount *acct)
 // from
 // chat id
 // message
-
+/*
 static void motmot_send_stuff(const char *msg, const char *username){
     msgpack_sbuffer *buffer = msgpack_sbuffer_new();
     msgpack_packer* pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
@@ -475,7 +475,7 @@ static void motmot_rec_stuff(const char *stuff, size_t s, void *ptr){
 
     unpacked_msg = ((obj.via).raw).ptr;
 }
-
+*/
 
 static void nullprpl_close(PurpleConnection *gc)
 {
