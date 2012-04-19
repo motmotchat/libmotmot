@@ -1165,7 +1165,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   assert(arr->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   pax.istart = arr->via.u64;
 
-  arr++
+  arr++;
 
   // Make sure the alist is well-formed...
   assert(arr->type == MSGPACK_OBJECT_ARRAY);

@@ -159,7 +159,7 @@ request_needs_cached(dkind_t dkind)
   name##_insert(struct name##_list *head, struct paxos_##name *elt)   \
   {                                                                   \
     int cmp;                                                          \
-    struct paxos_##name *it;                                            \
+    struct paxos_##name *it;                                          \
                                                                       \
     LIST_FOREACH_REV(it, head, le_field) {                            \
       cmp = compare(elt->id_field, it->id_field);                     \
