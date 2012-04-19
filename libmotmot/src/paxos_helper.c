@@ -84,9 +84,9 @@ reqid_compare(reqid_t x, reqid_t y)
  * Convenience function for denoting which dkinds are requests.
  */
 int
-is_request(dkind_t dkind)
+request_needs_cached(dkind_t dkind)
 {
-  return (dkind == DEC_CHAT || dkind == DEC_JOIN || dkind == DEC_PART);
+  return (dkind == DEC_CHAT || dkind == DEC_JOIN);
 }
 
 
