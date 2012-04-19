@@ -92,7 +92,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
   // then something has gone terribly wrong and we should abort.
   msgpack_unpacked_init(&result);
   while (msgpack_unpacker_next(&peer->pp_unpacker, &result)) {
-    if (paxos_dispatch(peer, &result.data)) {
+    if (paxos_dispatch(peer, &result.data) == FALSE) {
       g_warning("paxos_read_peer: Dispatch failed.\n");
 
       // Clean up after ourselves.
