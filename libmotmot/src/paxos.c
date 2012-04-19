@@ -197,6 +197,9 @@ paxos_start()
   acc->pa_paxid = pax.self_id;
   acc->pa_peer = NULL;
   LIST_INSERT_HEAD(&pax.alist, acc, pa_le);
+
+  // Set ourselves as the proposer.
+  pax.proposer = acc;
 }
 
 static int
