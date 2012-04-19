@@ -19,7 +19,7 @@ struct paxos_peer {
                                   // TODO: make this something more efficient
 };
 
-void paxos_peer_init(GIOChannel *);
+struct paxos_peer *paxos_peer_init(GIOChannel *);
 void paxos_peer_destroy(struct paxos_peer *);
 int paxos_peer_send(struct paxos_peer *, const char *, size_t);
 

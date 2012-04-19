@@ -15,7 +15,7 @@ int paxos_peer_write(GIOChannel *, GIOCondition, void *);
 /**
  * paxos_peer_init - Set up peer read/write buffering.
  */
-void
+struct paxos_peer *
 paxos_peer_init(GIOChannel *channel)
 {
   struct paxos_peer *peer;
@@ -29,6 +29,8 @@ paxos_peer_init(GIOChannel *channel)
 
   // Set up the write listener.
   peer->pp_write = g_io_add_watch(channel, G_IO_OUT, paxos_peer_write, peer);
+
+  return peer;
 }
 
 void

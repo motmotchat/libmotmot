@@ -63,7 +63,7 @@ int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
  * Most of our state is worthless until we are welcomed to the system.
  */
 void
-paxos_init()
+paxos_init(GIOChannel *(*connect)(char *, size_t))
 {
   pax.self_id = 0;
   pax.req_id = 0;
@@ -79,6 +79,8 @@ paxos_init()
   LIST_INIT(&pax.alist);
   LIST_INIT(&pax.ilist);
   LIST_INIT(&pax.rlist);
+
+  pax.connect = connect;
 }
 
 /**
@@ -382,9 +384,9 @@ paxos_learn(struct paxos_instance *inst)
       // of the JOIN.
       acc = g_malloc0(sizeof(*acc));
       acc->pa_paxid = inst->pi_hdr.ph_inum;
-      acc->pa_peer = NULL;
 
-      // TODO: Initialize a paxos_peer via a callback.
+      // Initialize a paxos_peer via a callback.
+      acc->pa_peer = paxos_peer_init(pax.connect(req->pr_data, req->pr_size));
 
       // Append to our list.
       acceptor_insert(&pax.alist, acc);
@@ -398,11 +400,11 @@ paxos_learn(struct paxos_instance *inst)
     case DEC_PART:
       // TODO: Find the acceptor being removed (how?)
 
-      // TODO: Destroy the paxos_peer via a callback.
-
       // Cleanup.
+      paxos_peer_destroy(acc->pa_peer);
       LIST_REMOVE(&pax.alist, acc, pa_le);
       g_free(acc);
+
       break;
   }
 
