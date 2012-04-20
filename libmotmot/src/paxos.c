@@ -338,6 +338,9 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
 
 /**
  * paxos_learn - Do something useful with the value of a commit.
+ *
+ * Note that we cannot free up the instance or any request associated with
+ * it until a sync.
  */
 int
 paxos_learn(struct paxos_instance *inst)
@@ -405,13 +408,6 @@ paxos_learn(struct paxos_instance *inst)
       // Invoke client learning callback.
       pax.learn.part(req->pr_data, req->pr_size);
       break;
-  }
-
-  // We only learn the request once, at commit time, so free it.
-  if (req != NULL) {
-    LIST_REMOVE(&pax.rlist, req, pr_le);
-    g_free(req->pr_data);
-    g_free(req);
   }
 
   return 0;

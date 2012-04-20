@@ -56,7 +56,7 @@ proposer_welcome(struct paxos_acceptor *acc)
   paxos_header_pack(&py, &hdr);
 
   // Start off the info payload with the istart.
-  paxos_payload_begin_array(&py, 4);  // XXX: Back to 3.
+  paxos_payload_begin_array(&py, 3);
   paxos_paxid_pack(&py, pax.istart);
 
   // Pack the entire alist.  Hopefully we don't have too many un-parted
@@ -70,13 +70,6 @@ proposer_welcome(struct paxos_acceptor *acc)
   paxos_payload_begin_array(&py, LIST_COUNT(&pax.ilist));
   LIST_FOREACH(inst_it, &pax.ilist, pi_le) {
     paxos_instance_pack(&py, inst_it);
-  }
-
-  // XXX: Do this better.
-  struct paxos_request *req_it;
-  paxos_payload_begin_array(&py, LIST_COUNT(&pax.rlist));
-  LIST_FOREACH(req_it, &pax.rlist, pr_le) {
-    paxos_request_pack(&py, req_it);
   }
 
   // Send the welcome.
@@ -108,7 +101,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 
   // Make sure the payload is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
-  assert(o->via.array.size == 4); // XXX: Back to 3.
+  assert(o->via.array.size == 3);
   arr = o->via.array.ptr;
 
   // Unpack the istart.
@@ -147,19 +140,6 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     inst = g_malloc0(sizeof(*inst));
     paxos_instance_unpack(inst, p);
     LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
-  }
-
-  arr ++;
-
-  // XXX: Get rid of this.
-  struct paxos_request *req;
-  assert(arr->type == MSGPACK_OBJECT_ARRAY);
-  p = arr->via.array.ptr;
-  pend = arr->via.array.ptr + arr->via.array.size;
-  for (; p != pend; ++p) {
-    req = g_malloc0(sizeof(*req));
-    paxos_request_unpack(req, p);
-    request_insert(&pax.rlist, req);
   }
 
   return 0;
