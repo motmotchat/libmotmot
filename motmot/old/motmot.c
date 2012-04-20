@@ -44,22 +44,22 @@
 #include <string.h>
 #include <time.h>
 
+#include <msgpack.h>
+#include <unistd.h>
+#include <errno.h>
+
 #include <glib.h>
 
-#include <ctype.h>
-#include <msgpack.h>
-
-// MOTMOT presentation thingy
-#define ROOM_ID "Atwood's Dungeon"
+/*
+ * testing shit 
+ */
+/*
 #define CHAT_ID 1
-
-#define DISPLAY_VERSION "1"
-
-/* If you're using this as the basis of a prpl that will be distributed
- * separately from libpurple, remove the internal.h include below and replace
- * it with code to include your own config.h or similar.  If you're going to
- * provide for translation, you'll also need to setup the gettext macros. */
- #include "internal.h"
+#define ROOM "Atwood's Dungeon"
+*/
+// Nop!
+#define _
+#define N_
 
 #include "account.h"
 #include "accountopt.h"
@@ -76,8 +76,8 @@
 #include "util.h"
 #include "version.h"
 
-static void motmot_rec_stuff(const char *stuff, size_t s, void *ptr);
-static void motmot_send_stuff(const char *msg, const char *username);
+#include "motmot.h"
+#define SERVER_VERSION 1
 
 #define NULLPRPL_ID "prpl-null"
 static PurplePlugin *_null_protocol = NULL;
@@ -100,7 +100,6 @@ typedef struct {
  * stores offline messages that haven't been delivered yet. maps username
  * (char *) to GList * of GOfflineMessages. initialized in nullprpl_init.
  */
-
 GHashTable* goffline_messages = NULL;
 
 typedef struct {
@@ -110,9 +109,134 @@ typedef struct {
   PurpleMessageFlags flags;
 } GOfflineMessage;
 
+
+/*
+ * MOTMOT CODE!
+ */
+typedef enum{
+  INT,
+  RAW,
+  CHAR,
+} dtype;
+
+typedef struct{
+  dtype d;
+  int n;
+  const void *data;
+} motmot_data;
+void motmot_server_write(motmot_data *data, int n, PurpleConnection *gc);
+
+static void motmot_login_cb(gpointer data, gint source, const gchar *error_message);
+
+char *motmot_host = "127.0.0.1";
+int motmot_port = 8888;
+
+#define MM_SERVER_BUFF 512
+
+// reads in code, dispatches
+/*
+static void motmot_server_input_cb(gpointer data, gint source, PurpleInputCondition cond)
+{
+	PurpleConnection *gc = data;
+	motmot_conn *mm = gc->proto_data;
+	int len;
+
+    char buff[MM_SERVER_BUFF];
+
+	len = read(mm->write_fd, buff, MM_SERVER_BUFF);
+	if (len < 0 && errno == EAGAIN) {
+		return;
+	} else if (len < 0) {
+		gchar *tmp = g_strdup_printf(_("Lost connection with server: %s"),
+				g_strerror(errno));
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+		g_free(tmp);
+		return;
+	} else if (len == 0) {
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+			_("Server closed the connection"));
+		return;
+	}
+}
+*/
+// writes data to specified file descriptor. returns a number
+void motmot_server_write(motmot_data *data, int n, PurpleConnection *gc){
+  int i;
+  motmot_data d;
+  int len;
+  int fd = ((motmot_conn *) (gc -> proto_data)) -> write_fd;
+
+  msgpack_sbuffer* buffer = msgpack_sbuffer_new();
+  msgpack_packer* pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
+
+  msgpack_pack_array(pk, n);
+
+
+  for(i = 0; i < n; i++){
+    d = data[i];
+    if(d.d == RAW){
+      msgpack_pack_raw(pk, d.n);
+      msgpack_pack_raw_body(pk, d.data, d.n);
+    }
+    else if(d.d == INT){
+      msgpack_pack_int(pk, *((int *) (d.data)));
+    }
+    else if(d.d == CHAR){
+      msgpack_pack_uint8(pk, *((char *) (d.data)));
+    }
+  }
+
+  len = write(fd, buffer -> data, buffer -> size);
+	if (len < 0 && errno == EAGAIN) {
+		return;
+	} else if (len < 0) {
+		gchar *tmp = g_strdup_printf(_("Lost connection with server: %s"),
+				g_strerror(errno));
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+		g_free(tmp);
+		return;
+	} else if (len == 0) {
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+			_("Server closed the connection"));
+		return;
+	}
+}
+
+/*
+ * chat protocol is a message pack array of
+ *
+ * opcdode: int 
+ * from: string
+ * chat_id: 
+ * message: string
+ * 
+ * will be extended
+ */
+
+typedef void(*ChatFunc)(PurpleConvChat *from, PurpleConvChat *to,
+                        int id, const char *room, gpointer userdata);
+static void foreach_gc_in_chat(ChatFunc fn, PurpleConnection *from,
+                               int id, gpointer userdata);
+static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
+                                 int id, const char *room, gpointer userdata);
+void motmot_rec_message(char *data, size_t size){
+    /*
+    msgpack_sbuffer *buffer;
+    buffer -> data = data;
+    buffer -> size = size;
+    */
+    return;
+}
+
+
 /*
  * helpers
  */
+
 static PurpleConnection *get_nullprpl_gc(const char *username) {
   PurpleAccount *acct = purple_accounts_find(username, NULLPRPL_ID);
   if (acct && purple_account_is_connected(acct))
@@ -137,8 +261,6 @@ static void foreach_nullprpl_gc(GcFunc fn, PurpleConnection *from,
 }
 
 
-typedef void(*ChatFunc)(PurpleConvChat *from, PurpleConvChat *to,
-                        int id, const char *room, gpointer userdata);
 
 typedef struct {
   ChatFunc fn;
@@ -371,8 +493,10 @@ static GHashTable *nullprpl_chat_info_defaults(PurpleConnection *gc,
 
 static void nullprpl_login(PurpleAccount *acct)
 {
+  motmot_conn *mm;
   PurpleConnection *gc = purple_account_get_connection(acct);
   GList *offline_messages;
+
 
   purple_debug_info("nullprpl", "logging in %s\n", acct->username);
 
@@ -380,10 +504,6 @@ static void nullprpl_login(PurpleAccount *acct)
                                     0,   /* which connection step this is */
                                     2);  /* total number of steps */
 
-  purple_connection_update_progress(gc, _("Connected"),
-                                    1,   /* which connection step this is */
-                                    2);  /* total number of steps */
-  purple_connection_set_state(gc, PURPLE_CONNECTED);
 
   /* tell purple about everyone on our buddy list who's connected */
   foreach_nullprpl_gc(discover_status, gc, NULL);
@@ -411,64 +531,94 @@ static void nullprpl_login(PurpleAccount *acct)
   g_list_free(offline_messages);
   g_hash_table_remove(goffline_messages, &acct->username);
 
-  // TESTING CODE
-  serv_got_joined_chat(gc, CHAT_ID, ROOM_ID);
+  /* MOTMOT */
+  // connect to the discovery server
+
+  mm = g_new0(motmot_conn, 1);
+
+  gc -> proto_data = mm;
+  mm -> write_fd = -1;
+  mm -> act = acct;
+
+
+
+  if (purple_proxy_connect(gc, acct, motmot_host,
+       motmot_port,
+       motmot_login_cb, gc) == NULL)
+  {
+    purple_connection_error_reason (gc,
+      PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+      _("Unable to connect"));
+    return;
+  }
+  
+  purple_connection_set_state(gc, PURPLE_CONNECTED);
+
+  purple_connection_update_progress(gc, _("Connected"),
+                                    1,   /* which connection step this is */
+                                    2);  /* total number of steps */
+
+  // serv_got_joined_chat(gc, CHAT_ID, ROOM);
 }
 
-// silly stuff
-// from
-// chat id
-// message
+static void motmot_login_cb(gpointer data, gint source, const gchar *error_message)
+{
+  motmot_data tmp[6];
+  int op = 1;
+  int id = 0;
+  char type = 'c';
+  const char *use;
+  const char *pass;
+  int version = SERVER_VERSION;
 
-static void motmot_send_stuff(const char *msg, const char *username){
-    msgpack_sbuffer *buffer = msgpack_sbuffer_new();
-    msgpack_packer* pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
+	PurpleConnection *gc = data;
+	motmot_conn *mm = gc->proto_data;
+	if (source < 0) {
+		gchar *tmp = g_strdup_printf(_("Unable to connect: %s"),
+			error_message);
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+		g_free(tmp);
+		return;
+	}
 
-    msgpack_pack_array(pk, 3);
+	mm->write_fd = source;
 
-    msgpack_pack_raw(pk, strlen(username) + 1);
-    msgpack_pack_raw_body(pk, username, strlen(username) + 1);
+  use = purple_account_get_username(mm -> act);
+  pass = purple_account_get_password(mm -> act);
+  if(!pass){
+    pass = "axe";
+  }
 
-    msgpack_pack_int(pk, CHAT_ID);
+  tmp[0].n = sizeof(int);
+  tmp[0].data = &version;
+  tmp[0].d = INT;
 
-    msgpack_pack_raw(pk, strlen(msg+1));
-    msgpack_pack_raw_body(pk, msg, strlen(msg) + 1);
+  tmp[1].n = sizeof(int);
+  tmp[1].data = &op;
+  tmp[1].d = INT;
 
-    //motmot_send(buffer -> data, buffer -> size);
+  tmp[2].n = sizeof(char);
+  tmp[2].data = &type;
+  tmp[2].d = CHAR;
 
-    msgpack_sbuffer_free(buffer);
-    msgpack_packer_free(pk);
+  tmp[3].n = sizeof(int);
+  tmp[3].data = &id;
+  tmp[3].d = INT;
+
+  tmp[4].n = strlen(use);
+  tmp[4].data = use;
+  tmp[4].d = RAW;
+
+  tmp[5].n = strlen(pass);
+  tmp[5].data = pass;
+  tmp[5].d = RAW;
+
+  motmot_server_write(tmp, 6, gc);
 }
 
 
-static void motmot_rec_stuff(const char *stuff, size_t s, void *ptr){
-    const char *from;
-    int id;
-    msgpack_object obj;
-    const char *unpacked_msg;
 
-    msgpack_unpacked msg;
-    msgpack_unpacked_init(&msg);
-
-    msgpack_unpack_next(&msg, stuff, s, NULL); 
-
-    obj = msg.data;
-
-    from = ((obj.via).raw).ptr; 
-
-    msgpack_unpack_next(&msg, stuff, s, NULL); 
-
-    obj = msg.data;
-
-    id = (obj.via).i64;
-
-
-    msgpack_unpack_next(&msg, stuff, s, NULL); 
-
-    obj = msg.data;
-
-    unpacked_msg = ((obj.via).raw).ptr;
-}
 
 
 static void nullprpl_close(PurpleConnection *gc)
@@ -480,9 +630,6 @@ static void nullprpl_close(PurpleConnection *gc)
 static int nullprpl_send_im(PurpleConnection *gc, const char *who,
                             const char *message, PurpleMessageFlags flags)
 {
-  int i;
-  char *message2;
-
   const char *from_username = gc->account->username;
   PurpleMessageFlags receive_flags = ((flags & ~PURPLE_MESSAGE_SEND)
                                       | PURPLE_MESSAGE_RECV);
@@ -507,18 +654,7 @@ static int nullprpl_send_im(PurpleConnection *gc, const char *who,
   /* is the recipient online? */
   to = get_nullprpl_gc(who);
   if (to) {  /* yes, send */
-    message2 = malloc((strlen(message) + 1) * sizeof(char));
-    for(i=0;;i++){
-        if(message[i] == '\0'){
-            break;
-        }
-        message2[i] = message[i];
-    }
-    message2[i] = '\0';
-
-    serv_got_im(to, from_username, message2, receive_flags, time(NULL));
-
-    free(message2);
+    serv_got_im(to, from_username, message, receive_flags, time(NULL));
 
   } else {  /* nope, store as an offline message */
     GOfflineMessage *offline_message;
@@ -935,11 +1071,6 @@ static int nullprpl_chat_send(PurpleConnection *gc, int id, const char *message,
 
     /* send message to everyone in the chat room */
     foreach_gc_in_chat(receive_chat_message, gc, id, (gpointer)message);
-    
-    // TESTING THINGS
-    if(id == CHAT_ID){
-        // motmot_send_stuff(msg, username);
-    }
     return 0;
   } else {
     purple_debug_info("nullprpl",
@@ -1274,7 +1405,7 @@ static PurplePluginInfo info =
   N_("Null Protocol Plugin"),                              /* summary */
   N_("Null Protocol Plugin"),                              /* description */
   NULL,                                                    /* author */
-  PURPLE_WEBSITE,                                          /* homepage */
+  MOTMOT_WEBSITE,                                          /* homepage */
   NULL,                                                    /* load */
   NULL,                                                    /* unload */
   nullprpl_destroy,                                        /* destroy */
@@ -1289,8 +1420,3 @@ static PurplePluginInfo info =
 };
 
 PURPLE_INIT_PLUGIN(null, nullprpl_init, info);
-
-
-
-
-
