@@ -92,6 +92,8 @@ paxos_start()
   acc = g_malloc(sizeof(*acc));
   acc->pa_paxid = pax.self_id;
   acc->pa_peer = NULL;
+  acc->pa_size = 0;
+  acc->pa_data = NULL;
   LIST_INSERT_HEAD(&pax.alist, acc, pa_le);
 
   // Set ourselves as the proposer.
@@ -358,6 +360,10 @@ paxos_learn(struct paxos_instance *inst)
       // Initialize a paxos_peer via a callback.
       acc->pa_peer = paxos_peer_init(pax.connect(req->pr_data, req->pr_size));
 
+      // Copy over the identity information.
+      acc->pa_size = req->pr_size;
+      acc->pa_data = g_memdup(req->pr_data, req->pr_size);
+
       // Append to our list.
       acceptor_insert(&pax.alist, acc);
 
@@ -390,7 +396,7 @@ paxos_learn(struct paxos_instance *inst)
       g_free(acc);
 
       // Invoke client learning callback.
-      pax.learn.part(req->pr_data, req->pr_size);
+      pax.learn.part(acc->pa_data, acc->pa_size);
       break;
   }
 

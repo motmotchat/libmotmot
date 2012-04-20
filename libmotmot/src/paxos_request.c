@@ -55,9 +55,7 @@ paxos_request(dkind_t dkind, const char *msg, size_t len)
   req->pr_val.pv_extra = 0; // Always 0 for requests.
 
   req->pr_size = len;
-  if (msg != NULL) {
-    req->pr_data = g_memdup(msg, len);
-  }
+  req->pr_data = g_memdup(msg, len);
 
   // Add it to the request queue if needed.
   if (needs_cached) {

@@ -154,6 +154,8 @@ struct paxos_acceptor {
                                       //   the agent's JOIN decree
   struct paxos_peer *pa_peer;         // agent's connection information; NULL if
                                       //   we think it's dead
+  size_t pa_size;                     // size of identity data
+  char *pa_data;                      // join-time identifying data
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
 };
 LIST_HEAD(acceptor_list, paxos_acceptor);

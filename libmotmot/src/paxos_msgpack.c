@@ -77,7 +77,7 @@ paxos_header_pack(struct paxos_yak *py, struct paxos_header *hdr)
 void
 paxos_header_unpack(struct paxos_header *hdr, msgpack_object *o)
 {
-  struct msgpack_object *p;
+  msgpack_object *p;
 
   // Make sure the input is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
@@ -107,7 +107,7 @@ paxos_value_pack(struct paxos_yak *py, struct paxos_value *val)
 void
 paxos_value_unpack(struct paxos_value *val, msgpack_object *o)
 {
-  struct msgpack_object *p;
+  msgpack_object *p;
 
   // Make sure the input is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
@@ -136,7 +136,7 @@ paxos_request_pack(struct paxos_yak *py, struct paxos_request *req)
 void
 paxos_request_unpack(struct paxos_request *req, msgpack_object *o)
 {
-  struct msgpack_object *p;
+  msgpack_object *p;
 
   // Make sure the input is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
@@ -149,24 +149,35 @@ paxos_request_unpack(struct paxos_request *req, msgpack_object *o)
   // Unpack the raw data.
   assert(p->type == MSGPACK_OBJECT_RAW);
   req->pr_size = p->via.raw.size;
-
-  if (req->pr_size > 0) {
-    req->pr_data = g_memdup(p->via.raw.ptr, p->via.raw.size);
-  }
+  req->pr_data = g_memdup(p->via.raw.ptr, p->via.raw.size);
 }
 
 void
 paxos_acceptor_pack(struct paxos_yak *py, struct paxos_acceptor *acc)
 {
+  msgpack_pack_array(py->pk, 2);
   msgpack_pack_paxid(py->pk, acc->pa_paxid);
+  msgpack_pack_raw(py->pk, acc->pa_size);
+  msgpack_pack_raw_body(py->pk, acc->pa_data, acc->pa_size);
 }
 
 void
 paxos_acceptor_unpack(struct paxos_acceptor *acc, msgpack_object *o)
 {
-  assert(o->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  acc->pa_paxid = o->via.u64;
+  msgpack_object *p;
+
+  // Make sure the input is well-formed.
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  assert(o->via.array.size == 2);
+
+  p = o->via.array.ptr;
+
   acc->pa_peer = NULL;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  acc->pa_paxid = (p++)->via.u64;
+  assert(p->type == MSGPACK_OBJECT_RAW);
+  acc->pa_size = p->via.raw.size;
+  acc->pa_data = g_memdup(p->via.raw.ptr, p->via.raw.size);
 }
 
 void
@@ -181,7 +192,7 @@ paxos_instance_pack(struct paxos_yak *py, struct paxos_instance *inst)
 void
 paxos_instance_unpack(struct paxos_instance *inst, msgpack_object *o)
 {
-  struct msgpack_object *p;
+  msgpack_object *p;
 
   // Make sure the input is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
