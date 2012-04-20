@@ -257,11 +257,11 @@ paxos_drop_connection(struct paxos_peer *source)
   // Connection dropped; mark the acceptor as dead.
   LIST_FOREACH(it, &pax.alist, pa_le) {
     if (it->pa_peer == source) {
+      paxos_peer_destroy(it->pa_peer);
       it->pa_peer = NULL;
       break;
     }
   }
-  paxos_peer_destroy(source);
 
   // Oh noes!  Did we lose the proposer?
   if (it->pa_paxid == pax.proposer->pa_paxid) {

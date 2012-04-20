@@ -9,8 +9,7 @@
 #include <glib.h>
 #include <msgpack.h>
 
-/* General Paxos functions. */
-int paxos_redirect(struct paxos_peer *, struct paxos_header *);
+/* Learner operations. */
 int paxos_learn(struct paxos_instance *);
 
 /* Proposer operations. */
@@ -45,6 +44,11 @@ int paxos_ack_retrieve(struct paxos_header *, msgpack_object *);
 int paxos_resend(struct paxos_acceptor *, struct paxos_header *,
     struct paxos_request *);
 int paxos_ack_resend(struct paxos_header *, msgpack_object *);
+
+/* Redirect protocol. */
+int paxos_redirect(struct paxos_peer *, struct paxos_header *);
+int proposer_ack_redirect(struct paxos_header *, msgpack_object *);
+int acceptor_ack_redirect(struct paxos_header *, msgpack_object *);
 
 /* Log sync protocol. */
 int proposer_sync(void);

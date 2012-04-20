@@ -94,9 +94,15 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
   // If the promise is for some other ballot, just ignore it.  Acceptors
   // should only be sending a promise to us in response to a prepare from
-  // us.  If we sent a redirect, by the time the acceptor got it, our
-  // newer prepare would have arrived.
+  // us.  There is no reason to redirect because our prepare should arrive
+  // before any message we send now.
   if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+    return 0;
+  }
+
+  // If we're not preparing (e.g., we cancelled our prepare upon receiving
+  // a redirect), just return.
+  if (pax.prep == NULL) {
     return 0;
   }
 
