@@ -146,7 +146,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 }
 
 /**
- * acceptor_ptmy - Acknowledge another acceptor's greeting.
+ * acceptor_ptmy - Acknowledge a proposer's welcome.
  */
 int
 acceptor_ptmy(struct paxos_acceptor *acc)
@@ -215,8 +215,8 @@ acceptor_ack_greet(struct paxos_header *hdr)
 {
   struct paxos_acceptor *acc;
 
-  // Don't greet ourselves.
-  if (hdr->ph_inum == pax.self_id) {
+  // Don't greet anyone older than us.
+  if (hdr->ph_inum <= pax.self_id) {
     return 0;
   }
 
@@ -256,21 +256,6 @@ acceptor_hello(struct paxos_acceptor *acc)
  */
 int
 acceptor_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
-{
-  struct paxos_acceptor *acc;
-
-  // Associate the peer to the corresponding acceptor.
-  acc = acceptor_find(&pax.alist, hdr->ph_inum);
-  acc->pa_peer = source;
-
-  return 0;
-}
-
-/**
- * acceptor_ack_ptmy - Record the identity of the new acceptor.
- */
-int
-acceptor_ack_ptmy(struct paxos_peer *source, struct paxos_header *hdr)
 {
   struct paxos_acceptor *acc;
 

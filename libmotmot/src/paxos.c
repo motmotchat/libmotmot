@@ -258,7 +258,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       acceptor_ack_hello(source, hdr);
       break;
     case OP_PTMY:
-      acceptor_ack_ptmy(source, hdr);
+      // Ignore.
       break;
 
     case OP_REDIRECT:
