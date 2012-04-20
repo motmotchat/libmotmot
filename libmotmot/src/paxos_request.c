@@ -239,6 +239,9 @@ paxos_resend(struct paxos_acceptor *acc, struct paxos_header *hdr,
 {
   struct paxos_yak py;
 
+  // Modify the header.
+  hdr->ph_opcode = OP_RESEND;
+
   // Just pack and send the resend.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
