@@ -7,5 +7,6 @@
 #define DISPLAY_VERSION "0.1"
 
 typedef struct _mm_conn{
+    PurpleAccount *act;
     int write_fd;
 } motmot_conn;

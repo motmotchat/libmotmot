@@ -1,11 +1,11 @@
 DEPDIR = .deps/
-INSTALLDIR = /usr/local/lib/purple-2
+INSTALLDIR = /home/jeff/262proj/build/lib/purple-2/
 
 CC = gcc
 CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0 purple`
 LDFLAGS = `pkg-config --libs glib-2.0 purple` -rpath $(INSTALLDIR)
 
-LIBTOOL = glibtool --tag=CC
+LIBTOOL = libtool --tag=CC
 
 SRC = $(wildcard *.c)
 

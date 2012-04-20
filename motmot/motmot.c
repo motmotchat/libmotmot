@@ -45,8 +45,17 @@
 #include <time.h>
 
 #include <msgpack.h>
+#include <unistd.h>
+#include <errno.h>
 
 #include <glib.h>
+
+/*
+ * testing shit 
+ */
+
+#define CHAT_ID 1
+#define ROOM "Atwood's Dungeon"
 
 // Nop!
 #define _
@@ -113,7 +122,7 @@ typedef enum{
 typedef struct{
   dtype d;
   int n;
-  void *data;
+  const void *data;
 } motmot_data;
 void motmot_server_write(motmot_data *data, int n, PurpleConnection *gc);
 
@@ -125,13 +134,14 @@ int motmot_port = 8888;
 #define MM_SERVER_BUFF 512
 
 // reads in code, dispatches
+/*
 static void motmot_server_input_cb(gpointer data, gint source, PurpleInputCondition cond)
 {
 	PurpleConnection *gc = data;
 	motmot_conn *mm = gc->proto_data;
 	int len;
 
-  char buff[MM_SERVER_BUFF];
+    char buff[MM_SERVER_BUFF];
 
 	len = read(mm->write_fd, buff, MM_SERVER_BUFF);
 	if (len < 0 && errno == EAGAIN) {
@@ -149,9 +159,8 @@ static void motmot_server_input_cb(gpointer data, gint source, PurpleInputCondit
 			_("Server closed the connection"));
 		return;
 	}
-
 }
-
+*/
 // writes data to specified file descriptor. returns a number
 void motmot_server_write(motmot_data *data, int n, PurpleConnection *gc){
   int i;
@@ -198,6 +207,33 @@ void motmot_server_write(motmot_data *data, int n, PurpleConnection *gc){
 }
 
 /*
+ * chat protocol is a message pack array of
+ *
+ * opcdode: int 
+ * from: string
+ * chat_id: 
+ * message: string
+ * 
+ * will be extended
+ */
+
+typedef void(*ChatFunc)(PurpleConvChat *from, PurpleConvChat *to,
+                        int id, const char *room, gpointer userdata);
+static void foreach_gc_in_chat(ChatFunc fn, PurpleConnection *from,
+                               int id, gpointer userdata);
+static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
+                                 int id, const char *room, gpointer userdata);
+void motmot_rec_message(char *data, size_t size){
+    /*
+    msgpack_sbuffer *buffer;
+    buffer -> data = data;
+    buffer -> size = size;
+    */
+    return;
+}
+
+
+/*
  * helpers
  */
 
@@ -225,8 +261,6 @@ static void foreach_nullprpl_gc(GcFunc fn, PurpleConnection *from,
 }
 
 
-typedef void(*ChatFunc)(PurpleConvChat *from, PurpleConvChat *to,
-                        int id, const char *room, gpointer userdata);
 
 typedef struct {
   ChatFunc fn;
@@ -522,6 +556,7 @@ static void nullprpl_login(PurpleAccount *acct)
                                     1,   /* which connection step this is */
                                     2);  /* total number of steps */
 
+    serv_got_joined_chat(gc, CHAT_ID, ROOM);
 }
 
 static void motmot_login_cb(gpointer data, gint source, const gchar *error_message)
