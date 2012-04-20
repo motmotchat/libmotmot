@@ -195,8 +195,8 @@ struct paxos_sync {
 };
 
 /* Client callbacks. */
-typedef GIOChannel *(*connect_t)(const char *, size_t);
-typedef int (*learn_t)(const char *, size_t);
+typedef GIOChannel *(*connect_t)(const void *, size_t);
+typedef int (*learn_t)(const void *, size_t);
 
 struct learn_table {
   learn_t chat;
