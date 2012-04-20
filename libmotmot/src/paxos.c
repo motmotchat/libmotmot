@@ -293,34 +293,6 @@ paxos_drop_connection(struct paxos_peer *source)
 }
 
 /**
- * paxos_redirect - Tell the sender of the message that we're not their
- * guy.  Tell them who their guy is.
- */
-int
-paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
-{
-  struct paxos_header hdr;
-  struct paxos_yak py;
-
-  // Initialize a header.
-  hdr.ph_ballot.id = pax.ballot.id;
-  hdr.ph_ballot.gen = pax.ballot.gen;
-  hdr.ph_opcode = OP_REDIRECT;
-  hdr.ph_inum = 0;  // Not used.
-
-  // Pack a payload, which includes the weird header we were sent.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &hdr);
-  paxos_header_pack(&py, recv_hdr);
-
-  // Send the payload.
-  paxos_peer_send(source, UNYAK(&py));
-  paxos_payload_destroy(&py);
-
-  return 0;
-}
-
-/**
  * paxos_learn - Do something useful with the value of a commit.
  *
  * Note that we cannot free up the instance or any request associated with

@@ -45,7 +45,7 @@ typedef enum paxos_opcode {
   /* Protocol utilities. */
   OP_REDIRECT,          // suggests the true identity of the proposer
   OP_SYNC,              // sync up ilists in preparation for a truncate
-  OP_TRUNCATE,         // order acceptors to truncate their ilists
+  OP_TRUNCATE,          // order acceptors to truncate their ilists
 } paxop_t;
 
 /* Paxos message header that is included with any message. */
@@ -113,7 +113,7 @@ struct paxos_header {
  *     the paxos_value referencing the request.
  * - OP_RESEND: The paxos_request object being resent.
  *
- * - OP_REDIRECT: None.
+ * - OP_REDIRECT: The header of the message that resulted in our redirecting.
  * - OP_SYNC: None.
  * - OP_SYNCREPLY: The "hole" instance number requested for the sync.
  * - OP_TRUNCATE: The new starting point of the instance log.
@@ -127,7 +127,7 @@ typedef enum decree_kind {
   DEC_NULL = 0,       // null value
   DEC_CHAT,           // chat message
   DEC_JOIN,           // add an acceptor
-  DEC_PART,          // remove an acceptor
+  DEC_PART,           // remove an acceptor
 } dkind_t;
 
 /* Alias request ID's as (from ID, local request number). */
