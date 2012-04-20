@@ -28,7 +28,6 @@ acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
 {
   // If the ballot being prepared for is <= our most recent ballot, or if
   // the preparer is not who we believe the proposer to be, redirect.
-  // XXX: Should we make ballot_compare so that lower IDs are "larger"?
   if (ballot_compare(hdr->ph_ballot, pax.ballot) <= 0 ||
       pax.proposer->pa_peer != source) {
     return paxos_redirect(source, hdr);

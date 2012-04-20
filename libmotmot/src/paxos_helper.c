@@ -72,6 +72,10 @@ paxid_compare(paxid_t x, paxid_t y)
 
 /**
  * Compare two paxid pairs.
+ *
+ * The first coordinate is subordinate to the second.  The second compares
+ * normally (x.gen < y.gen ==> -1) but the first compares inversely (x.id
+ * < y.id ==> 1)
  */
 int
 ppair_compare(ppair_t x, ppair_t y)
@@ -85,9 +89,9 @@ ppair_compare(ppair_t x, ppair_t y)
 
   /* x.gen == y.gen */
   if (x.id < y.id) {
-    return -1;
-  } else if (x.id > y.id) {
     return 1;
+  } else if (x.id > y.id) {
+    return -1;
   } else /* x.id == y.id */  {
     return 0;
   }

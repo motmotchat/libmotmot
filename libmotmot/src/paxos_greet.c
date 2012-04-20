@@ -195,7 +195,6 @@ proposer_greet(struct paxos_header *hdr, struct paxos_acceptor *acc)
 
   // Modify the header.
   hdr->ph_opcode = OP_GREET;
-  hdr->ph_inum = acc->pa_paxid; // ID of the new acceptor.
 
   // Pack and broadcast the greet command.
   paxos_payload_init(&py, 1);
