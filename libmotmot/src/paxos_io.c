@@ -29,10 +29,7 @@ paxos_peer_init(GIOChannel *channel)
 
   // Set up the read listener.
   msgpack_unpacker_init(&peer->pp_unpacker, MPBUFSIZE);
-  peer->pp_read = g_io_add_watch(channel, G_IO_IN, paxos_peer_read, peer);
-
-  // Set up the write listener.
-  peer->pp_write = g_io_add_watch(channel, G_IO_OUT, paxos_peer_write, peer);
+  g_io_add_watch(channel, G_IO_IN, paxos_peer_read, peer);
 
   return peer;
 }
@@ -47,8 +44,7 @@ paxos_peer_destroy(struct paxos_peer *peer)
   msgpack_unpacker_destroy(&peer->pp_unpacker);
 
   // Get rid of our event listeners.
-  g_source_remove(peer->pp_read);
-  g_source_remove(peer->pp_write);
+  while (g_source_remove_by_user_data(peer));
 
   // Flush and destroy the GIOChannel.
   status = g_io_channel_shutdown(peer->pp_channel, TRUE, &error);
@@ -141,6 +137,9 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
   if (bytes_written == peer->pp_write_buffer.length) {
     peer->pp_write_buffer.length = 0;
     peer->pp_write_buffer.data = NULL;
+    // XXX: this is kind of hax
+    while (g_source_remove_by_user_data(peer));
+    g_io_add_watch(peer->pp_channel, G_IO_IN, paxos_peer_read, peer);
   } else {
     peer->pp_write_buffer.length -= bytes_written;
     new_data = g_malloc(peer->pp_write_buffer.length);
@@ -168,6 +167,12 @@ paxos_peer_send(struct paxos_peer *peer, const char *buffer, size_t length)
 
   if (length == 0) {
     return 0;
+  }
+
+  if (peer->pp_write_buffer.data == NULL) {
+    // This means we weren't interested in the buffer, so we should add a
+    // watch now to catch write events
+    g_io_add_watch(peer->pp_channel, G_IO_OUT, paxos_peer_write, peer);
   }
 
   // XXX: Gross.

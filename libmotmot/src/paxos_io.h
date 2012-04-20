@@ -10,7 +10,6 @@
 // Clients of paxos_io.h should treat this struct as opaque.
 struct paxos_peer {
   GIOChannel *pp_channel;         // channel to the peer
-  int pp_read, pp_write;          // GLib event source IDs
   msgpack_unpacker pp_unpacker;   // unpacker (and its associated read buffer)
   struct {
     char *data;
