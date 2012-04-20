@@ -1,5 +1,5 @@
 /**
- * paxos.c - Implementation of the Paxos consensus protocol.
+ * paxos.c - Paxos protocol functions that live near the interface.
  */
 #include "paxos.h"
 #include "paxos_helper.h"
@@ -14,12 +14,6 @@
 
 // Local protocol state
 struct paxos_state pax;
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
-//  Paxos protocol interface
-//
 
 /**
  * paxos_init - Initialize local Paxos state.
@@ -248,12 +242,6 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
   g_free(hdr);
   return retval;
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
-//  General Paxos protocol functions
-//
 
 /**
  * paxos_drop_connection - Account for a lost connection.
