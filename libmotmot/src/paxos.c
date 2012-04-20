@@ -187,11 +187,17 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_WELCOME:
       // Ignore.
       break;
+    case OP_GREET:
+      // Ignore.
+      break;
     case OP_HELLO:
       // This shouldn't be possible; all the acceptors who would say hello to
       // us are higher-ranked than us when we join the protocol, and if we are
       // the proposer, they have all dropped.
       g_error("Proposer received OP_HELLO.\n");
+      break;
+    case OP_PTMY:
+      proposer_ack_ptmy(hdr);
       break;
 
     case OP_REDIRECT:
@@ -245,8 +251,14 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_WELCOME:
       acceptor_ack_welcome(source, hdr, o);
       break;
+    case OP_GREET:
+      acceptor_ack_greet(hdr);
+      break;
     case OP_HELLO:
       acceptor_ack_hello(source, hdr);
+      break;
+    case OP_PTMY:
+      acceptor_ack_ptmy(source, hdr);
       break;
 
     case OP_REDIRECT:
@@ -378,8 +390,6 @@ paxos_learn(struct paxos_instance *inst)
       // If we are the proposer, send the new acceptor its paxid.
       if (is_proposer()) {
         proposer_welcome(acc);
-      } else {
-        acceptor_hello(acc);
       }
 
       // Invoke client learning callback.

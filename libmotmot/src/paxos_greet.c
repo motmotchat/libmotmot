@@ -142,11 +142,93 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
   }
 
+  return acceptor_ptmy(pax.proposer);
+}
+
+/**
+ * acceptor_ptmy - Acknowledge another acceptor's greeting.
+ */
+int
+acceptor_ptmy(struct paxos_acceptor *acc)
+{
+  struct paxos_header hdr;
+  struct paxos_yak py;
+
+  // Initialize a header.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_PTMY;
+  hdr.ph_inum = pax.self_id;  // Our ID.
+
+  // Pack it and send it back to our greeter.
+  paxos_payload_init(&py, 1);
+  paxos_header_pack(&py, &hdr);
+  paxos_send(acc, UNYAK(&py));
+  paxos_payload_destroy(&py);
+
   return 0;
 }
 
 /**
- * acceptor_hello - Let a new proposer know our identity.
+ * proposer_ack_ptmy - Acknowledge a new acceptor's response to your welcome.
+ */
+int
+proposer_ack_ptmy(struct paxos_header *hdr)
+{
+  struct paxos_acceptor *acc;
+
+  // Grab our acceptor from the list.
+  acc = acceptor_find(&pax.alist, hdr->ph_inum);
+
+  // Tell everyone to greet.
+  return proposer_greet(hdr, acc);
+}
+
+/**
+ * proposer_greet - Issue an order to all acceptors to say hello to a newly
+ * added acceptor.
+ */
+int
+proposer_greet(struct paxos_header *hdr, struct paxos_acceptor *acc)
+{
+  struct paxos_yak py;
+
+  // Modify the header.
+  hdr->ph_opcode = OP_GREET;
+  hdr->ph_inum = acc->pa_paxid; // ID of the new acceptor.
+
+  // Pack and broadcast the greet command.
+  paxos_payload_init(&py, 1);
+  paxos_header_pack(&py, hdr);
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
+ * acceptor_ack_greet - Act on a proposer's command to say hello to a newly
+ * added acceptor.
+ */
+int
+acceptor_ack_greet(struct paxos_header *hdr)
+{
+  struct paxos_acceptor *acc;
+
+  // Don't greet ourselves.
+  if (hdr->ph_inum == pax.self_id) {
+    return 0;
+  }
+
+  // Grab our acceptor from the list.
+  acc = acceptor_find(&pax.alist, hdr->ph_inum);
+
+  // Say hello to our new acceptor.
+  return acceptor_hello(acc);
+}
+
+/**
+ * acceptor_hello - Let a new acceptor know our identity.
  */
 int
 acceptor_hello(struct paxos_acceptor *acc)
@@ -177,16 +259,23 @@ acceptor_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
 {
   struct paxos_acceptor *acc;
 
-  // Find the acceptor with the source's ID.
+  // Associate the peer to the corresponding acceptor.
   acc = acceptor_find(&pax.alist, hdr->ph_inum);
+  acc->pa_peer = source;
 
-  if (acc == NULL) {
-    // XXX: This might be possible if a JOIN was decreed just before we were
-    // added, and the commit of that JOIN occurred before we were welcomed
-    // by the proposer.
-  }
+  return 0;
+}
 
-  // Associate the peer to the acceptor.
+/**
+ * acceptor_ack_ptmy - Record the identity of the new acceptor.
+ */
+int
+acceptor_ack_ptmy(struct paxos_peer *source, struct paxos_header *hdr)
+{
+  struct paxos_acceptor *acc;
+
+  // Associate the peer to the corresponding acceptor.
+  acc = acceptor_find(&pax.alist, hdr->ph_inum);
   acc->pa_peer = source;
 
   return 0;

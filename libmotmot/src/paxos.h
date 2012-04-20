@@ -35,7 +35,9 @@ typedef enum paxos_opcode {
 
   /* Participant initiation. */
   OP_WELCOME,           // welcome the new acceptor into our proposership
+  OP_GREET,             // tell all the acceptors to say hello
   OP_HELLO,             // say hello to a fellow acceptor
+  OP_PTMY,              // acknowledge a hello or welcome
 
   /* Out-of-band decree requests. */
   OP_REQUEST,           // request a decree from the proposer
@@ -69,8 +71,9 @@ struct paxos_header {
    * - OP_WELCOME: The new acceptor's assigned paxid (which is, in fact, the
    *   instance number of its JOIN).
    *
-   * - OP_HELLO: The ID of the acceptor saying hello.  The proposer delivers
-   *   its ID via the paxos_header in the OP_WELCOME.
+   * - OP_GREET: The paxid of the new acceptor.
+   *
+   * - OP_HELLO, OP_PTMY: The ID of the greeter.
    *
    * - OP_REQUEST: The paxid of the acceptor who we think is the proposer who
    *   will send our request.  This allows us to send a redirect appropriately.
@@ -106,7 +109,9 @@ struct paxos_header {
  * - OP_WELCOME: An array consisting of the starting instance number (which
  *   respects truncation), the alist, and the ilist of the proposer, used
  *   to initialize the newcomer.
+ * - OP_GREET: None.
  * - OP_HELLO: None.
+ * - OP_PTMY: None.
  *
  * - OP_REQUEST: The paxos_request object.
  * - OP_RETRIEVE: A msgpack array containing the ID of the retriever and
