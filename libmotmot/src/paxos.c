@@ -111,22 +111,18 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       // of the system.
       g_error("Proposer received OP_PREPARE.\n");
       break;
-
     case OP_PROMISE:
       proposer_ack_promise(hdr, o);
       break;
-
     case OP_DECREE:
       // XXX: If the decree is for a higher ballot number, we should probably
       // cry.
       g_error("Bad opcode OP_DECREE recieved by proposer. Redirecting...\n");
       paxos_redirect(source, hdr);
       break;
-
     case OP_ACCEPT:
       proposer_ack_accept(source, hdr);
       break;
-
     case OP_COMMIT:
       // TODO: Commit and relinquish presidency if the ballot is higher,
       // otherwise check if we have a decree of the given instance.  If
@@ -137,15 +133,16 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REQUEST:
       proposer_ack_request(source, hdr, o);
       break;
-
-    case OP_REDIRECT:
-      // TODO: Decide what to do.
+    case OP_RETRIEVE:
+      paxos_ack_retrieve(hdr, o);
+      break;
+    case OP_RESEND:
+      paxos_ack_resend(hdr, o);
       break;
 
     case OP_WELCOME:
       // Ignore.
       break;
-
     case OP_HELLO:
       // This shouldn't be possible; all the acceptors who would say hello to
       // us are higher-ranked than us when we join the protocol, and if we are
@@ -153,21 +150,15 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       g_error("Proposer received OP_HELLO.\n");
       break;
 
+    case OP_REDIRECT:
+      // TODO: Decide what to do.
+      break;
     case OP_SYNC:
       proposer_ack_sync(hdr, o);
       break;
-
     case OP_TRUNCATE:
       // Holy fucking shit what is happening.
       g_error("Proposer received OP_TRUNCATE.\n");
-      break;
-
-    case OP_RETRIEVE:
-      paxos_ack_retrieve(hdr, o);
-      break;
-
-    case OP_RESEND:
-      paxos_ack_resend(hdr, o);
       break;
   }
 
@@ -182,21 +173,17 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_PREPARE:
       acceptor_ack_prepare(source, hdr);
       break;
-
     case OP_PROMISE:
       g_error("Bad opcode OP_PROMISE recieved by acceptor. Redirecting...\n");
       paxos_redirect(source, hdr);
       break;
-
     case OP_DECREE:
       acceptor_ack_decree(source, hdr, o);
       break;
-
     case OP_ACCEPT:
       g_error("Bad opcode OP_ACCEPT recieved by acceptor. Redirecting...\n");
       paxos_redirect(source, hdr);
       break;
-
     case OP_COMMIT:
       acceptor_ack_commit(hdr, o);
       break;
@@ -204,33 +191,28 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REQUEST:
       acceptor_ack_request(source, hdr, o);
       break;
-
-    case OP_REDIRECT:
-      // TODO: Think Real Hard (tm)
+    case OP_RETRIEVE:
+      paxos_ack_retrieve(hdr, o);
+      break;
+    case OP_RESEND:
+      paxos_ack_resend(hdr, o);
       break;
 
     case OP_WELCOME:
       acceptor_ack_welcome(source, hdr, o);
       break;
-
     case OP_HELLO:
       acceptor_ack_hello(source, hdr);
       break;
 
+    case OP_REDIRECT:
+      // TODO: Think Real Hard (tm)
+      break;
     case OP_SYNC:
       acceptor_ack_sync(hdr);
       break;
-
     case OP_TRUNCATE:
       acceptor_ack_truncate(hdr, o);
-      break;
-
-    case OP_RETRIEVE:
-      paxos_ack_retrieve(hdr, o);
-      break;
-
-    case OP_RESEND:
-      paxos_ack_resend(hdr, o);
       break;
   }
 

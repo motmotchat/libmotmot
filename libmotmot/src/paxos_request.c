@@ -215,8 +215,8 @@ int paxos_ack_retrieve(struct paxos_header *hdr, msgpack_object *o)
   p = o->via.array.ptr;
 
   // Unpack the retriever's ID and the value being retrieved.
-  paxos_paxid_unpack(&paxid, p++);
-  paxos_value_unpack(&val, p++);
+  paxos_paxid_unpack(&paxid, p);
+  paxos_value_unpack(&val, p + 1);
 
   // Retrieve the request.
   assert(request_needs_cached(val.pv_dkind));
