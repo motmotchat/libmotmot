@@ -25,10 +25,10 @@ void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part);
 /**
  * motmot_session - Start a new motmot chat.
  *
- * @param name      Identifying name of the chat initiator
- * @param size      Length of the name string
+ * @param desc      Identifying descriptor of the chat initiator
+ * @param size      Size of the descriptor object
  */
-void motmot_session(const char *name, size_t size);
+void motmot_session(const void *desc, size_t size);
 
 /**
  * motmot_watch - Watch a given channel for activity.
@@ -41,12 +41,12 @@ int motmot_watch(GIOChannel *channel);
 /**
  * motmot_invite - Add user to chat.
  *
- * @param handle    String containing a handle recognized by the client's
+ * @param handle    Object containing a handle recognized by the client's
  *                  connect callback
  * @param len       Length of the string
  * @returns         0 on success, nonzero on error
  */
-int motmot_invite(char *handle, size_t len);
+int motmot_invite(const void *handle, size_t len);
 
 /**
  * motmot_disconnect - Disconnect from a chat.

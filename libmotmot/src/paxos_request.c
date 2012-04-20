@@ -24,7 +24,7 @@
  * string).
  */
 int
-paxos_request(dkind_t dkind, const char *msg, size_t len)
+paxos_request(dkind_t dkind, const void *msg, size_t len)
 {
   int needs_cached;
   struct paxos_header hdr;

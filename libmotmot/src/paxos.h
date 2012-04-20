@@ -155,7 +155,7 @@ struct paxos_acceptor {
   struct paxos_peer *pa_peer;         // agent's connection information; NULL if
                                       //   we think it's dead
   size_t pa_size;                     // size of identity data
-  char *pa_name;                      // join-time client-supplied identifying data
+  void *pa_desc;                      // join-time client-supplied descriptor
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
 };
 LIST_HEAD(acceptor_list, paxos_acceptor);
@@ -230,9 +230,9 @@ extern struct paxos_state pax;
 
 /* Paxos protocol interface. */
 void paxos_init(connect_t, struct learn_table *);
-void paxos_start(const char *, size_t);
+void paxos_start(const void *, size_t);
 void paxos_drop_connection(struct paxos_peer *);
-int paxos_request(dkind_t, const char *, size_t len);
+int paxos_request(dkind_t, const void *, size_t len);
 int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
 
 #endif /* __PAXOS_H__ */

@@ -58,7 +58,7 @@ paxos_init(connect_t connect, struct learn_table *learn)
  * it up.
  */
 void
-paxos_start(const char *name, size_t size)
+paxos_start(const void *desc, size_t size)
 {
   struct paxos_acceptor *acc;
   struct paxos_instance *inst;
@@ -67,7 +67,7 @@ paxos_start(const char *name, size_t size)
   pax.self_id = 1;
 
   // Prepare a new ballot.  Hey, we accept the prepare!  Hoorah.
-  pax.ballot.id = 1;
+  pax.ballot.id = pax.self_id;
   pax.ballot.gen = 1;
 
   // Initialize an initial commit.
@@ -93,7 +93,7 @@ paxos_start(const char *name, size_t size)
   acc->pa_paxid = pax.self_id;
   acc->pa_peer = NULL;
   acc->pa_size = size;
-  acc->pa_name = g_memdup(name, size);
+  acc->pa_desc = g_memdup(desc, size);
   LIST_INSERT_HEAD(&pax.alist, acc, pa_le);
 
   // Set ourselves as the proposer.
@@ -362,7 +362,7 @@ paxos_learn(struct paxos_instance *inst)
 
       // Copy over the identity information.
       acc->pa_size = req->pr_size;
-      acc->pa_name = g_memdup(req->pr_data, req->pr_size);
+      acc->pa_desc = g_memdup(req->pr_data, req->pr_size);
 
       // Append to our list.
       acceptor_insert(&pax.alist, acc);
@@ -396,7 +396,7 @@ paxos_learn(struct paxos_instance *inst)
       g_free(acc);
 
       // Invoke client learning callback.
-      pax.learn.part(acc->pa_name, acc->pa_size);
+      pax.learn.part(acc->pa_desc, acc->pa_size);
       break;
   }
 
