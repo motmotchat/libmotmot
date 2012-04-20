@@ -149,7 +149,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // Free the scratch instance.
-  g_free(inst);
+  instance_destroy(inst);
 
   // Acknowledge the prep.
   pax.prep->pp_nacks++;

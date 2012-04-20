@@ -109,48 +109,34 @@ paxos_end()
   LIST_FOREACH(acc_it, &pax.alist, pa_le) {
     if (acc_prev != NULL) {
       LIST_REMOVE(&pax.alist, acc_prev, pa_le);
-      if (acc_prev->pa_peer != NULL) {
-        paxos_peer_destroy(acc_prev->pa_peer);
-      }
-      if (acc_prev->pa_desc != NULL) {
-        g_free(acc_prev->pa_desc);
-      }
-      g_free(acc_prev);
+      acceptor_destroy(acc_prev);
     }
     acc_prev = acc_it;
   }
   LIST_REMOVE(&pax.alist, acc_prev, pa_le);
-  if (acc_prev->pa_peer != NULL) {
-    paxos_peer_destroy(acc_prev->pa_peer);
-  }
-  g_free(acc_prev);
+  acceptor_destroy(acc_prev);
 
   inst_prev = NULL;
   LIST_FOREACH(inst_it, &pax.ilist, pi_le) {
     if (inst_prev != NULL) {
       LIST_REMOVE(&pax.ilist, inst_prev, pi_le);
-      g_free(inst_prev);
+      instance_destroy(inst_prev);
     }
     inst_prev = inst_it;
   }
   LIST_REMOVE(&pax.ilist, inst_prev, pi_le);
-  g_free(inst_prev);
+  instance_destroy(inst_prev);
 
   req_prev = NULL;
   LIST_FOREACH(req_it, &pax.rcache, pr_le) {
     if (req_prev != NULL) {
       LIST_REMOVE(&pax.rcache, req_prev, pr_le);
-      if (req_prev->pr_data != NULL) {
-        g_free(req_prev->pr_data);
-      }
-      g_free(req_prev);
+      request_destroy(req_prev);
     }
+    req_prev = req_it;
   }
   LIST_REMOVE(&pax.rcache, req_prev, pr_le);
-  if (req_prev->pr_data != NULL) {
-    g_free(req_prev->pr_data);
-  }
-  g_free(req_prev);
+  request_destroy(req_prev);
 
   // Set everything to zero just in case.
   paxos_init(pax.connect, &pax.learn);
@@ -415,9 +401,8 @@ paxos_learn(struct paxos_instance *inst)
 
       if (acc->pa_paxid != pax.self_id) {
         // Just clean up the acceptor.
-        paxos_peer_destroy(acc->pa_peer);
         LIST_REMOVE(&pax.alist, acc, pa_le);
-        g_free(acc);
+        acceptor_destroy(acc);
       } else {
         // We are leaving the protocol, so wipe all our state clean.
         paxos_end();

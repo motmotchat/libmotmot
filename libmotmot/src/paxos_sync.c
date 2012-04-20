@@ -122,12 +122,10 @@ ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
   LIST_FOREACH(it, ilist, pi_le) {
     if (prev != NULL) {
       req = request_find(&pax.rcache, prev->pi_val.pv_reqid);
-      if (req != NULL) {
-        g_free(req->pr_data);
-        g_free(req);
-      }
+      LIST_REMOVE(&pax.rcache, req, pr_le);
+      request_destroy(req);
       LIST_REMOVE(ilist, prev, pi_le);
-      g_free(prev);
+      instance_destroy(prev);
     }
     if (it->pi_hdr.ph_inum >= inum) {
       break;
@@ -137,12 +135,10 @@ ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
 
   if (it == (void *)ilist) {
     req = request_find(&pax.rcache, prev->pi_val.pv_reqid);
-    if (req != NULL) {
-      g_free(req->pr_data);
-      g_free(req);
-    }
+    LIST_REMOVE(&pax.rcache, req, pr_le);
+    request_destroy(req);
     LIST_REMOVE(ilist, prev, pi_le);
-    g_free(prev);
+    instance_destroy(prev);
   }
 }
 

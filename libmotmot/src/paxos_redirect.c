@@ -89,9 +89,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
     // XXX: Is setting the ballot safe?
     pax.ballot.id = hdr->ph_ballot.id;
     pax.ballot.gen = hdr->ph_ballot.gen;
-    if (pax.prep != NULL) {
-      g_free(pax.prep);
-    }
+    g_free(pax.prep);
   }
 
   return 0;

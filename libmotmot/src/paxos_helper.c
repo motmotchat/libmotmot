@@ -92,6 +92,37 @@ reqid_compare(reqid_t x, reqid_t y)
 
 ///////////////////////////////////////////////////////////////////////////
 //
+//  Struct destructors.
+//
+
+void
+acceptor_destroy(struct paxos_acceptor *acc)
+{
+  if (acc != NULL) {
+    paxos_peer_destroy(acc->pa_peer);
+    g_free(acc->pa_desc);
+  }
+  g_free(acc);
+}
+
+void
+instance_destroy(struct paxos_instance *inst)
+{
+  g_free(inst);
+}
+
+void
+request_destroy(struct paxos_request *req)
+{
+  if (req != NULL) {
+    g_free(req->pr_data);
+  }
+  g_free(req);
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//
 //  List operations.
 //
 
@@ -301,7 +332,7 @@ paxos_send(struct paxos_acceptor *acc, const char *buffer, size_t length)
 }
 
 /**
- * Send a message to the proposer
+ * Send a message to the proposer.
  */
 int
 paxos_send_to_proposer(const char *buffer, size_t length)

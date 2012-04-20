@@ -43,6 +43,10 @@ paxos_peer_destroy(struct paxos_peer *peer)
   GIOStatus status;
   GError *error;
 
+  if (peer == NULL) {
+    return;
+  }
+
   // Clean up the msgpack read buffer / unpacker.
   msgpack_unpacker_destroy(&peer->pp_unpacker);
 
