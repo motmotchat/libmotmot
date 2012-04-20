@@ -36,6 +36,7 @@ paxos_init(connect_t connect, struct learn_table *learn)
 
   LIST_INIT(&pax.alist);
   LIST_INIT(&pax.ilist);
+  LIST_INIT(&pax.idefer);
   LIST_INIT(&pax.rcache);
 
   pax.connect = connect;
@@ -133,7 +134,7 @@ paxos_end()
     inst_prev = inst_it;
   }
   LIST_REMOVE(&pax.ilist, inst_prev, pi_le);
-  g_free(acc_prev);
+  g_free(inst_prev);
 
   req_prev = NULL;
   LIST_FOREACH(req_it, &pax.rcache, pr_le) {
@@ -145,6 +146,11 @@ paxos_end()
       g_free(req_prev);
     }
   }
+  LIST_REMOVE(&pax.rcache, req_prev, pr_le);
+  if (req_prev->pr_data != NULL) {
+    g_free(req_prev->pr_data);
+  }
+  g_free(req_prev);
 
   // Set everything to zero just in case.
   paxos_init(pax.connect, &pax.learn);
