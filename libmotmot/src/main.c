@@ -60,18 +60,18 @@ open_socket(const char *handle, size_t len, bool listening)
 }
 
 GIOChannel *
-listen_unix(const char *handle, size_t len)
+listen_unix(const void *handle, size_t len)
 {
-  return open_socket(handle, len, true);
+  return open_socket((char *)handle, len, true);
 }
 
 /**
  * Wrapper around create_socket_channel.
  */
 GIOChannel *
-connect_unix(const char *handle, size_t len)
+connect_unix(const void *handle, size_t len)
 {
-  return open_socket(handle, len, false);
+  return open_socket((char *)handle, len, false);
 }
 
 int
@@ -146,20 +146,20 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 }
 
 int
-print_chat(const char *buf, size_t len) {
-  printf("CHAT: %.*s\n", (int)len, buf);
+print_chat(const void *buf, size_t len) {
+  printf("CHAT: %.*s\n", (int)len, (char *)buf);
   return 0;
 }
 
 int
-print_join(const char *buf, size_t len) {
-  printf("JOIN: %.*s\n", (int)len, buf);
+print_join(const void *buf, size_t len) {
+  printf("JOIN: %.*s\n", (int)len, (char *)buf);
   return 0;
 }
 
 int
-print_part(const char *buf, size_t len) {
-  printf("PART: %.*s\n", (int)len, buf);
+print_part(const void *buf, size_t len) {
+  printf("PART: %.*s\n", (int)len, (char *)buf);
   return 0;
 }
 
