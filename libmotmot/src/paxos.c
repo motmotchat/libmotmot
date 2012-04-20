@@ -383,7 +383,9 @@ paxos_learn(struct paxos_instance *inst)
       acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
 
       // Cleanup.
-      paxos_peer_destroy(acc->pa_peer);
+      if (acc->pa_paxid != pax.self_id) {
+        paxos_peer_destroy(acc->pa_peer);
+      }
       LIST_REMOVE(&pax.alist, acc, pa_le);
       g_free(acc);
 
