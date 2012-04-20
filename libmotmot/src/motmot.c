@@ -27,9 +27,9 @@ motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part)
  * motmot_session - Start a new motmot chat.
  */
 void
-motmot_session()
+motmot_session(const char *name, size_t size)
 {
-  paxos_start();
+  paxos_start(name, size);
 }
 
 /**

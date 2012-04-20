@@ -158,7 +158,7 @@ paxos_acceptor_pack(struct paxos_yak *py, struct paxos_acceptor *acc)
   msgpack_pack_array(py->pk, 2);
   msgpack_pack_paxid(py->pk, acc->pa_paxid);
   msgpack_pack_raw(py->pk, acc->pa_size);
-  msgpack_pack_raw_body(py->pk, acc->pa_data, acc->pa_size);
+  msgpack_pack_raw_body(py->pk, acc->pa_name, acc->pa_size);
 }
 
 void
@@ -177,7 +177,7 @@ paxos_acceptor_unpack(struct paxos_acceptor *acc, msgpack_object *o)
   acc->pa_paxid = (p++)->via.u64;
   assert(p->type == MSGPACK_OBJECT_RAW);
   acc->pa_size = p->via.raw.size;
-  acc->pa_data = g_memdup(p->via.raw.ptr, p->via.raw.size);
+  acc->pa_name = g_memdup(p->via.raw.ptr, p->via.raw.size);
 }
 
 void

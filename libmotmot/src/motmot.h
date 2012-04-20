@@ -24,8 +24,11 @@ void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part);
 
 /**
  * motmot_session - Start a new motmot chat.
+ *
+ * @param name      Identifying name of the chat initiator
+ * @param size      Length of the name string
  */
-void motmot_session(void);
+void motmot_session(const char *name, size_t size);
 
 /**
  * motmot_watch - Watch a given channel for activity.
