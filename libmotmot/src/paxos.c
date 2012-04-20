@@ -42,7 +42,7 @@ paxos_init(connect_t connect, struct learn_table *learn)
 
   LIST_INIT(&pax.alist);
   LIST_INIT(&pax.ilist);
-  LIST_INIT(&pax.rlist);
+  LIST_INIT(&pax.rcache);
 
   pax.connect = connect;
   pax.learn.chat = learn->chat;
@@ -332,9 +332,9 @@ paxos_learn(struct paxos_instance *inst)
   struct paxos_request *req = NULL;
   struct paxos_acceptor *acc;
 
-  // Pull the request from the request queue if applicable.
+  // Pull the request from the request cache if applicable.
   if (request_needs_cached(inst->pi_val.pv_dkind)) {
-    req = request_find(&pax.rlist, inst->pi_val.pv_reqid);
+    req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
     if (req == NULL) {
       // Send out a retrieve to the request originator and defer the commit.
       return paxos_retrieve(inst);

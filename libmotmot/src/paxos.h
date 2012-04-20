@@ -218,7 +218,7 @@ struct paxos_state {
 
   struct acceptor_list alist;         // list of all Paxos participants
   struct instance_list ilist;         // list of all instances
-  struct request_list rlist;          // queued up requests waiting for commit
+  struct request_list rcache;         // cached requests waiting for commit
 
   connect_t connect;                  // callback for initiating connections
   struct learn_table learn;           // callbacks for paxos_learn

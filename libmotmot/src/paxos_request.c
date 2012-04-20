@@ -57,9 +57,9 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
   req->pr_size = len;
   req->pr_data = g_memdup(msg, len);
 
-  // Add it to the request queue if needed.
+  // Add it to the request cache if needed.
   if (needs_cached) {
-    request_insert(&pax.rlist, req);
+    request_insert(&pax.rcache, req);
   }
 
   if (!is_proposer() || needs_cached) {
@@ -119,9 +119,9 @@ proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   req = g_malloc0(sizeof(*req));
   paxos_request_unpack(req, o);
 
-  // Add it to the request queue if needed.
+  // Add it to the request cache if needed.
   if (request_needs_cached(req->pr_val.pv_dkind)) {
-    request_insert(&pax.rlist, req);
+    request_insert(&pax.rcache, req);
   }
 
   // Allocate an instance and copy in the value from the request.
@@ -153,8 +153,8 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   req = g_malloc0(sizeof(*req));
   paxos_request_unpack(req, o);
 
-  // Add it to the request queue.
-  request_insert(&pax.rlist, req);
+  // Add it to the request cache.
+  request_insert(&pax.rcache, req);
 
   return 0;
 }
@@ -218,7 +218,7 @@ int paxos_ack_retrieve(struct paxos_header *hdr, msgpack_object *o)
 
   // Retrieve the request.
   assert(request_needs_cached(val.pv_dkind));
-  req = request_find(&pax.rlist, val.pv_reqid);
+  req = request_find(&pax.rcache, val.pv_reqid);
 
   // Look up the acceptor.
   acc = acceptor_find(&pax.alist, paxid);
@@ -265,15 +265,15 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
 
   // See if the instance's associated request was received in the time since
   // we sent our retrieve out.
-  req = request_find(&pax.rlist, inst->pi_val.pv_reqid);
+  req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
 
   if (req == NULL) {
     // If not, allocate a request and unpack it.
     req = g_malloc0(sizeof(*req));
     paxos_request_unpack(req, o);
 
-    // Insert it to our request list.
-    request_insert(&pax.rlist, req);
+    // Insert it to our request cache.
+    request_insert(&pax.rcache, req);
   }
 
   // Actually commit, now that we have the associated request.
