@@ -207,9 +207,10 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   g_free(pax.prep);
   pax.prep = NULL;
 
-  // Forceably PART any dropped acceptors we still have in our acceptor list.
+  // Forceably PART any dropped acceptors we have in our acceptor list, making
+  // sure to skip ourselves since we have no pa_peer.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
-    if (acc->pa_peer == NULL) {
+    if (acc->pa_peer == NULL && acc->pa_paxid != pax.self_id) {
       // Initialize a new instance.
       inst = g_malloc0(sizeof(*inst));
       inst->pi_val.pv_dkind = DEC_PART;
@@ -220,6 +221,16 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       // Decree it.
       proposer_decree(inst);
     }
+  }
+
+  // Decree ALL the deferred things!
+  inst = NULL;
+  LIST_FOREACH(it, &pax.idefer, pi_le) {
+    if (inst != NULL) {
+      LIST_REMOVE(&pax.idefer, inst, pi_le);
+      proposer_decree(inst);
+    }
+    inst = it;
   }
 
   return 0;

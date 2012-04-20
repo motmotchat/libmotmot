@@ -89,8 +89,13 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
   inst = g_malloc0(sizeof(*inst));
   memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
 
-  // Send a decree.
-  return proposer_decree(inst);
+  // Send if a decree if we're not preparing; if we are, defer it.
+  if (pax.prep != NULL) {
+    LIST_INSERT_TAIL(&pax.idefer, inst, pi_le);
+    return 0;
+  } else {
+    return proposer_decree(inst);
+  }
 }
 
 /**
