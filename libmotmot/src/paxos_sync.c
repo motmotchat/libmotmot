@@ -109,15 +109,23 @@ proposer_ack_sync(struct paxos_header *hdr, msgpack_object *o)
 
 /**
  * Truncate an ilist up to (but not including) a given inum.
+ *
+ * We also free all associated requests.
  */
 static void
 ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
 {
   struct paxos_instance *it, *prev;
+  struct paxos_request *req;
 
   prev = NULL;
   LIST_FOREACH(it, ilist, pi_le) {
     if (prev != NULL) {
+      req = request_find(&pax.rcache, prev->pi_val.pv_reqid);
+      if (req != NULL) {
+        g_free(req->pr_data);
+        g_free(req);
+      }
       LIST_REMOVE(ilist, prev, pi_le);
       g_free(prev);
     }
@@ -125,6 +133,16 @@ ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
       break;
     }
     prev = it;
+  }
+
+  if (it == (void *)ilist) {
+    req = request_find(&pax.rcache, prev->pi_val.pv_reqid);
+    if (req != NULL) {
+      g_free(req->pr_data);
+      g_free(req);
+    }
+    LIST_REMOVE(ilist, prev, pi_le);
+    g_free(prev);
   }
 }
 
