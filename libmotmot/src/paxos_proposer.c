@@ -36,12 +36,13 @@ proposer_prepare()
   struct paxos_header hdr;
   struct paxos_yak py;
 
-  // If we were already preparing, get rid of that prepare.
-  // XXX: I don't think this is possible.
-  if (pax.prep != NULL) {
-    g_free(pax.prep);
-    pax.prep = NULL;
-  }
+  // It should not be possible for us to already be in a prepare when we
+  // start a prepare.  A prepare ends either by (1) ending successfully,
+  // (2) ending unsuccessfully because the other acceptors convince us that
+  // we are not the proposer, or (3) failing because we crash.  In the first
+  // two cases, we free the prepare before ending it, and in the last case
+  // it doesn't matter, obviously.
+  assert(pax.prep == NULL);
 
   // Start a new ballot.
   pax.ballot.id = pax.self_id;
@@ -229,8 +230,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
  *
  * This function should be called with a paxos_instance struct that has a
  * well-defined value; however, the remaining fields will be rewritten.
- * If the instance was on a prepare list, it should be removed before
- * getting passed here.
  */
 int
 proposer_decree(struct paxos_instance *inst)
@@ -275,10 +274,10 @@ proposer_ack_accept(struct paxos_peer *source, struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
 
-  // If the accept is for some other ballot, send a redirect.
-  if (ballot_compare(pax.ballot, hdr->ph_ballot)) {
-    return paxos_redirect(source, hdr);
-  }
+  // We never change the ballot after our initial prepare, and in particular,
+  // the ballot cannot refer to some earlier ballot also prepared by us.
+  // Thus, it should not be possible for the ballot not to match.
+  assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
 
   // Find the decree of the correct instance and increment the vote count.
   inst = instance_find(&pax.ilist, hdr->ph_inum);

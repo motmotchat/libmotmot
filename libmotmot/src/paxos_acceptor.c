@@ -16,19 +16,19 @@
  * acceptor_ack_prepare - Prepare for a new proposer.
  *
  * First, we check to see if we think that there's someone else who's more
- * eligible to be president.  If there exists such a person, redirect this
+ * eligible to be proposer.  If there exists such a person, redirect this
  * candidate to that person.
  *
  * If we think that this person would be a good proposer, prepare for their
- * presidency by sending them a list of our pending accepts from all
- * previous ballots.
+ * presidency by sending them a list of our accepts for all instance
+ * numbers we have seen.
  */
 int
 acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
 {
-  // Only promise if we think the preparer is the proposer and if the new
-  // ballot number is greater than the existing one.
-  if (ballot_compare(hdr->ph_ballot, pax.ballot) > 0 ||
+  // If the ballot being prepared for is <= our most recent ballot, or if
+  // the preparer is not who we believe the proposer to be, redirect.
+  if (ballot_compare(hdr->ph_ballot, pax.ballot) <= 0 ||
       pax.proposer->pa_peer != source) {
     return paxos_redirect(source, hdr);
   }
@@ -40,8 +40,9 @@ acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
  * acceptor_promise - Promise fealty to our new overlord.
  *
  * Send the proposer a promise to accept their decrees in perpetuity.  We
- * also send them a list of all of the accepts we made in previous ballots.
- * We pack entire instances and send them over the wire for convenience.
+ * also send them a list of all of the accepts we have for those instances
+ * which the new proposer doesn't know about.  We pack entire instances
+ * and send them over the wire for convenience.
  */
 int
 acceptor_promise(struct paxos_header *hdr)
@@ -72,8 +73,7 @@ acceptor_promise(struct paxos_header *hdr)
   // Start the payload of promises.
   paxos_payload_begin_array(&py, count);
 
-  // Pack all the instances starting at the lowest-numbered instance
-  // requested.
+  // Pack all the instances starting at the lowest-numbered instance requested.
   for (; it != (void *)&pax.ilist; it = LIST_NEXT(it, pi_le)) {
     paxos_instance_pack(&py, it);
   }
@@ -88,10 +88,7 @@ acceptor_promise(struct paxos_header *hdr)
 /**
  * acceptor_ack_decree - Accept a value for a Paxos instance.
  *
- * Move to commit the given value for the given Paxos instance.  After this
- * step, we consider the value accepted and will only accept this particular
- * value going forward.  We do not consider the decree "learned," however,
- * so we don't release it to the outside world just yet.
+ * Move to commit the given value for the given Paxos instance.
  */
 int
 acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
@@ -137,9 +134,6 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     }
   }
 
-  // XXX: If we found a committed decree, probably inform the proposer?  If
-  // we just found an (uncommitted) decree with a higher ballot, we should
-  // check whether or not we accept by comparing values.
   return 0;
 }
 
@@ -165,7 +159,7 @@ acceptor_accept(struct paxos_header *hdr)
 
 
 /**
- * acceptor_ack_commit - Commit ("learn") a value.
+ * acceptor_ack_commit - Commit a value.
  *
  * Commit this value as a permanent learned value, and notify listeners of the
  * value payload.
