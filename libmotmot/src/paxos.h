@@ -15,33 +15,37 @@
 /* Paxos ID type. */
 typedef uint32_t  paxid_t;
 
-/* Totally ordered ID of a ballot. */
+/* Totally ordered pair of paxid's. */
 typedef struct paxid_pair {
   paxid_t id;           // ID of participant
   paxid_t gen;          // generation number of some sort
 } ppair_t;
 
-int ppair_compare(ppair_t, ppair_t);
-
 /* Alias ballots as (proposer ID, ballot number). */
 typedef ppair_t ballot_t;
-int ballot_compare(ballot_t, ballot_t);
 
 /* Paxos message types. */
 typedef enum paxos_opcode {
-  OP_PREPARE = 0,       // declare new proposership (NextBallot)
-  OP_PROMISE,           // promise to ignore earlier proposers (LastVote)
+  /* Standard protocol operations. */
+  OP_PREPARE = 0,       // declare new ballot (NextBallot)
+  OP_PROMISE,           // promise to ignore earlier ballots (LastVote)
   OP_DECREE,            // propose a decree (BeginBallot)
   OP_ACCEPT,            // accept a decree (Voted)
   OP_COMMIT,            // commit a decree (Success)
-  OP_REQUEST,           // request a decree from the proposer
-  OP_REDIRECT,          // suggests the true identity of the proposer
+
+  /* Participant initiation. */
   OP_WELCOME,           // welcome the new acceptor into our proposership
   OP_HELLO,             // say hello to a fellow acceptor
+
+  /* Out-of-band decree requests. */
+  OP_REQUEST,           // request a decree from the proposer
+  OP_RETRIEVE,          // retrieve missing request data for commit
+  OP_RESEND,            // resend request data
+
+  /* Protocol utilities. */
+  OP_REDIRECT,          // suggests the true identity of the proposer
   OP_SYNC,              // sync up ilists in preparation for a truncate
-  OP_TRUNCATE,          // order acceptors to truncate their ilists
-  OP_RETRIEVE,          // retrieve missing request data on commit
-  OP_RESEND             // resend request data
+  OP_TRUNCATE,         // order acceptors to truncate their ilists
 } paxop_t;
 
 /* Paxos message header that is included with any message. */
@@ -57,48 +61,65 @@ struct paxos_header {
    *   most recent value they accepted for each Paxos instance they participated
    *   in, starting with ph_inum.
    *
-   * - OP_PROMISE: The index of the first vote returned (as specified in
-   *   the prepare message).
+   * - OP_PROMISE: The index of the first vote returned (echoed from the
+   *   prepare message).
    *
    * - OP_DECREE, OP_ACCEPT, OP_COMMIT: The instance number of the decree.
    *
+   * - OP_WELCOME: The new acceptor's assigned paxid (which is, in fact, the
+   *   instance number of its JOIN).
+   *
+   * - OP_HELLO: The ID of the acceptor saying hello.  The proposer delivers
+   *   its ID via the paxos_header in the OP_WELCOME.
+   *
    * - OP_REQUEST: The paxid of the acceptor who we think is the proposer who
    *   will send our request.  This allows us to send a redirect appropriately.
-   *   This overload is a little gross but requests are out-of-protocol anyway.
    *
-   * - OP_REDIRECT: Not used.
+   * - OP_RETRIEVE, OP_RESEND: The instance number associated with the
+   *   desired request.
    *
-   * - OP_WELCOME: Sends the new acceptor's assigned paxid (which is, in fact,
-   *   the instance number of its JOIN).
+   * - OP_REDIRECT: The ID of the proposer we are redirecting to.
    *
-   * - OP_HELLO: Sends the acceptor our own paxid (the proposer uses OP_WELCOME
-   *   which contains the proposer's ID in the ballot).
+   * - OP_SYNC, OP_TRUNCATE: The ID of the sync as determined by the proposer;
+   *   this is used only by the proposer and is simply echoed across all
+   *   messages in the sync operation.
    *
-   * - OP_SYNC, OP_TRUNCATE: Sends the proposer-use-only ID of the sync, which
-   *   is echoed for OP_SYNC responses.
-   *
-   * We start counting instances at 1 and use 0 as a sentinel value.
+   * Note that ALL of our ID's start counting at 1; 0 is always a sentinel
+   * value.
    */
 };
 
 /**
- * We describe the particular message formats for each Paxos message type:
+ * We describe the wire protocol for our Paxos system
  *
- * - OP_PREPARE: Nothing needed but the header.
- * - OP_PROMISE: We use the following array directly from the msgpack
- *   buffer:
+ * Each message sent between two Paxos participants is a msgpack array of
+ * either one or two elements.  The first, included in all messages, whether
+ * in- or out-of-band, is a paxos_header.  The second is optional and
+ * depends on the message opcode (which is found in the header):
  *
- *   struct paxos_promise {
- *     struct paoxs_hdr hdr   // We use only the ballot.
- *     struct paxos_value val;
- *   } votes[];
+ * - OP_PREPARE: None.
+ * - OP_PROMISE: A variable-length array of packed paxos_instance objects.
+ * - OP_DECREE: The paxos_value of the decree.
+ * - OP_ACCEPT: None.
+ * - OP_COMMIT: The paxos_value of the decree.
  *
- * - OP_DECREE: Decrees are headers plus values.
- * - OP_ACCEPT: Acceptances are headers.
- * - OP_COMMIT: Commits are just headers.
- * - OP_REQUEST: Requests are headers plus values.
- * - OP_REDIRECT: Redirects are two headers: the first one is the one with the
- *   corrected ballot, and the second is the original header.
+ * - OP_WELCOME: An array consisting of the starting instance number (which
+ *   respects truncation), the alist, and the ilist of the proposer, used
+ *   to initialize the newcomer.
+ * - OP_HELLO: None.
+ *
+ * - OP_REQUEST: The paxos_request object.
+ * - OP_RETRIEVE: A msgpack array containing the ID of the retriever and
+ *     the paxos_value referencing the request.
+ * - OP_RESEND: The paxos_request object being resent.
+ *
+ * - OP_REDIRECT: None.
+ * - OP_SYNC: None.
+ * - OP_SYNCREPLY: The "hole" instance number requested for the sync.
+ * - OP_TRUNCATE: The new starting point of the instance log.
+ *
+ * The message formats of the various Paxos structures can be found in
+ * paxos_msgpack.c.
  */
 
 /* Kinds of decrees. */
@@ -106,15 +127,11 @@ typedef enum decree_kind {
   DEC_NULL = 0,       // null value
   DEC_CHAT,           // chat message
   DEC_JOIN,           // add an acceptor
-  DEC_PART,           // remove an acceptor
-  DEC_RENEW           // proposer lease renewal
+  DEC_PART,          // remove an acceptor
 } dkind_t;
-
-int request_needs_cached(dkind_t dkind);
 
 /* Alias request ID's as (from ID, local request number). */
 typedef ppair_t reqid_t;
-int compare_reqid(reqid_t, reqid_t);
 
 /* Decree value type. */
 struct paxos_value {
@@ -123,11 +140,11 @@ struct paxos_value {
   paxid_t pv_extra;   // we get one 32-bit data value (mostly for PART)
   /**
    * In order to reduce network traffic, requesters broadcast any requests
-   * with additional data to all acceptors, associating with each a session-
-   * unique ID (the combination of the requester's acceptor ID with an
-   * incrementing requester-local request number).  Any data they pass along
-   * is queued up by the acceptors.  The proposer then makes decrees and
-   * orders commits with reference to the request's unique ID.
+   * carrying nontrivial data to all acceptors, associating with each a
+   * session-unique ID (the combination of the requester's acceptor ID with
+   * an incrementing requester-local request number).  Any data they pass
+   * along is cached by the acceptors.  The proposer then makes decrees and
+   * orders commits with values taking the form of this request ID.
    */
 };
 
@@ -141,7 +158,7 @@ struct paxos_acceptor {
 };
 LIST_HEAD(acceptor_list, paxos_acceptor);
 
-/* Representation of a Paxos instance. */
+/* An instance of the "synod" algorithm. */
 struct paxos_instance {
   struct paxos_header pi_hdr;         // Paxos header identifying the instance
   unsigned pi_votes;                  // number of accepts -OR- 0 if committed
@@ -150,7 +167,7 @@ struct paxos_instance {
 };
 LIST_HEAD(instance_list, paxos_instance);
 
-/* Request containing (usually chat) data, pending proposer commit. */
+/* Request containing data, pending proposer commit. */
 struct paxos_request {
   struct paxos_value pr_val;          // request ID and kind
   size_t pr_size;                     // size of data
@@ -159,23 +176,12 @@ struct paxos_request {
 };
 LIST_HEAD(request_list, paxos_request);
 
-/* List helpers. */
-struct paxos_acceptor *acceptor_find(struct acceptor_list *, paxid_t);
-struct paxos_acceptor *acceptor_insert(struct acceptor_list *,
-    struct paxos_acceptor *);
-struct paxos_instance *instance_find(struct instance_list *, paxid_t);
-struct paxos_instance *instance_insert(struct instance_list *,
-    struct paxos_instance *);
-struct paxos_request *request_find(struct request_list *, reqid_t);
-struct paxos_request *request_insert(struct request_list *,
-    struct paxos_request *);
-
 /* Preparation state used by new proposers. */
 struct paxos_prep {
   unsigned pp_nacks;                  // number of prepare acks
   paxid_t pp_hole;                    // instance number of the first hole
   struct paxos_instance *pp_first;    // closest instance to the first hole
-                                      //   with instance number <= pp_inum
+                                      //   with instance number <= pp_hole
 };
 
 /* Sync state used by proposers during sync. */
@@ -217,23 +223,14 @@ struct paxos_state {
 };
 
 extern struct paxos_state pax;
-inline int is_proposer();
-inline paxid_t next_instance();
 
 #define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
 
-/* Paxos protocol. */
+/* Paxos protocol interface. */
 void paxos_init(connect_t, struct learn_table *);
 void paxos_start(void);
 void paxos_drop_connection(struct paxos_peer *);
 int paxos_request(dkind_t, const char *, size_t len);
-
-/* Utility functions. */
 int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
-
-/* Paxos message sending. */
-int paxos_broadcast(const char *, size_t);
-int paxos_send(struct paxos_acceptor *, const char *, size_t);
-int paxos_send_to_proposer(const char *, size_t);
 
 #endif /* __PAXOS_H__ */

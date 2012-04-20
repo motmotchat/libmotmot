@@ -12,7 +12,7 @@
 //  Paxos state helpers
 //
 
-/*
+/**
  * Check if we think we are the proposer.
  */
 int
@@ -21,7 +21,7 @@ is_proposer()
   return pax.proposer != NULL && pax.self_id == pax.proposer->pa_paxid;
 }
 
-/*
+/**
  * Gets the next free instance number.
  */
 paxid_t
@@ -30,7 +30,16 @@ next_instance()
   return LIST_EMPTY(&pax.ilist) ? 1 : LIST_LAST(&pax.ilist)->pi_hdr.ph_inum + 1;
 }
 
-/*
+/**
+ * Convenience function for denoting which dkinds are requests.
+ */
+int
+request_needs_cached(dkind_t dkind)
+{
+  return (dkind == DEC_CHAT || dkind == DEC_JOIN);
+}
+
+/**
  * Compare two paxid's.
  */
 int
@@ -45,7 +54,7 @@ paxid_compare(paxid_t x, paxid_t y)
   }
 }
 
-/*
+/**
  * Compare two paxid pairs.
  */
 int
@@ -80,19 +89,10 @@ reqid_compare(reqid_t x, reqid_t y)
   return ppair_compare(x, y);
 }
 
-/*
- * Convenience function for denoting which dkinds are requests.
- */
-int
-request_needs_cached(dkind_t dkind)
-{
-  return (dkind == DEC_CHAT || dkind == DEC_JOIN);
-}
-
 
 ///////////////////////////////////////////////////////////////////////////
 //
-//  Specific list operations.
+//  List operations.
 //
 
 #define XLIST_FIND_IMPL(name, id_t, le_field, id_field, compare)      \
@@ -183,10 +183,89 @@ XLIST_INSERT_REV_IMPL(acceptor, pa_le, pa_paxid, paxid_compare);
 XLIST_INSERT_REV_IMPL(instance, pi_le, pi_hdr.ph_inum, paxid_compare);
 XLIST_INSERT_REV_IMPL(request, pr_le, pr_val.pv_reqid, reqid_compare);
 
+/**
+ * Helper routine to obtain the instance on ilist with the closest instance
+ * number >= inum.  We are passed in an iterator to simulate a continuation.
+ */
+struct paxos_instance *
+get_instance_lub(struct paxos_instance *it, struct instance_list *ilist,
+    paxid_t inum)
+{
+  for (; it != (void *)ilist; it = LIST_NEXT(it, pi_le)) {
+    if (inum <= it->pi_hdr.ph_inum) {
+      break;
+    }
+  }
+
+  return it;
+}
+
+/**
+ * Starting at a given instance number, crawl along an ilist until we find
+ * a hole, i.e., an instance which has either not been recorded or not been
+ * committed.  We return its instance number, along with closest-numbered
+ * instance structure that has number <= the hole.
+ */
+paxid_t
+ilist_first_hole(struct paxos_instance **inst, struct instance_list *ilist,
+    paxid_t start)
+{
+  paxid_t inum;
+  struct paxos_instance *it;
+
+  // Obtain the first instance with inum >= start.
+  it = get_instance_lub(LIST_FIRST(ilist), ilist, start);
+
+  // If its inum != start, then start itself represents a hole.
+  if (it->pi_hdr.ph_inum != start) {
+    *inst = LIST_PREV(it, pi_le);
+    if (*inst == (void *)ilist) {
+      *inst = NULL;
+    }
+    return start;
+  }
+
+  // If the start instance is uncommitted, it's the hole we want.
+  if (it->pi_votes != 0) {
+    *inst = it;
+    return start;
+  }
+
+  // We let inum lag one list entry behind the iterator in our loop to
+  // detect holes; we use *inst to detect success.
+  inum = start - 1;
+  *inst = NULL;
+
+  // Identify our first uncommitted or unrecorded instance.
+  LIST_FOREACH(it, ilist, pi_le) {
+    if (it->pi_hdr.ph_inum != inum + 1) {
+      // We know there exists a previous element because start corresponded
+      // to some existing instance.
+      *inst = LIST_PREV(it, pi_le);
+      return inum + 1;
+    }
+    if (it->pi_votes != 0) {
+      // We found an uncommitted instance, so return it.
+      *inst = it;
+      return it->pi_hdr.ph_inum;
+    }
+    inum = it->pi_hdr.ph_inum;
+  }
+
+  // Default to the next unused instance.
+  if (*inst == NULL) {
+    *inst = LIST_LAST(ilist);
+    return LIST_LAST(ilist)->pi_hdr.ph_inum + 1;
+  }
+
+  // Impossible.
+  return 0;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////
 //
-//  Acceptor list operations
+//  Message delivery wrappers
 //
 
 /**

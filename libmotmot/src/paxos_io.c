@@ -34,6 +34,9 @@ paxos_peer_init(GIOChannel *channel)
   return peer;
 }
 
+/**
+ * paxos_peer_destroy - Free up a peer.
+ */
 void
 paxos_peer_destroy(struct paxos_peer *peer)
 {
