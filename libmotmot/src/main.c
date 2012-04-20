@@ -110,7 +110,7 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
 int
 input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 {
-  char *msg;
+  char *msg, *tmp;
   unsigned long eol;
   GError *gerr;
   GIOStatus status;
@@ -125,8 +125,21 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
   // Kill the trailing newline.
   msg[eol] = '\0';
 
-  // Broadcast via motmot.
-  motmot_send(msg, eol + 1);
+  // Do rudimentary command line parsing.
+  if (g_str_has_prefix(msg, "/invite ")) {
+    // \invite socket - Handle inviting others
+    tmp = msg + 7;
+    while (*++tmp == ' '); // Move past all the spaces.
+    motmot_invite(tmp, strlen(tmp));
+  } else if (g_str_has_prefix(msg, "/part")) {
+    // \part - Only do it if it's followed by a space or EOF
+    if (msg[6] == '\0' || msg[6] == ' ') {
+      motmot_disconnect();
+    }
+  } else {
+    // Broadcast via motmot.
+    motmot_send(msg, eol + 1);
+  }
 
   g_free(msg);
   return TRUE;
