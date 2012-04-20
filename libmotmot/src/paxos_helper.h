@@ -11,8 +11,9 @@
 
 /* Convenience functions. */
 inline int is_proposer();
+inline void reset_proposer();
 inline paxid_t next_instance();
-int request_needs_cached(dkind_t dkind);
+inline int request_needs_cached(dkind_t dkind);
 
 /* Paxid pair comparison functions. */
 int ppair_compare(ppair_t, ppair_t);

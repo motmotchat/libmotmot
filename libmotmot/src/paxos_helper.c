@@ -22,6 +22,22 @@ is_proposer()
 }
 
 /**
+ * Realias the proposer after an update to the acceptor list.
+ */
+void
+reset_proposer()
+{
+  struct paxos_acceptor *it;
+
+  LIST_FOREACH(it, &pax.alist, pa_le) {
+    if (it->pa_paxid == pax.self_id || it->pa_peer != NULL) {
+      pax.proposer = it;
+      break;
+    }
+  }
+}
+
+/**
  * Gets the next free instance number.
  */
 paxid_t

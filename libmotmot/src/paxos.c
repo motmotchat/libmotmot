@@ -300,7 +300,11 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 void
 paxos_drop_connection(struct paxos_peer *source)
 {
+  int was_proposer;
   struct paxos_acceptor *it;
+
+  // Are we the proposer right now?
+  was_proposer = is_proposer();
 
   // Connection dropped; mark the acceptor as dead.
   LIST_FOREACH(it, &pax.alist, pa_le) {
@@ -314,15 +318,10 @@ paxos_drop_connection(struct paxos_peer *source)
   // Oh noes!  Did we lose the proposer?
   if (it->pa_paxid == pax.proposer->pa_paxid) {
     // Let's mark the new one.
-    LIST_FOREACH(it, &pax.alist, pa_le) {
-      if (it->pa_paxid == pax.self_id || it->pa_peer != NULL) {
-        pax.proposer = it;
-        break;
-      }
-    }
+    reset_proposer();
 
     // If we're the new proposer, send a prepare.
-    if (is_proposer()) {
+    if (!was_proposer && is_proposer()) {
       proposer_prepare();
     }
   }
@@ -337,6 +336,7 @@ paxos_drop_connection(struct paxos_peer *source)
 int
 paxos_learn(struct paxos_instance *inst)
 {
+  int was_proposer;
   struct paxos_request *req = NULL;
   struct paxos_acceptor *acc;
 
@@ -387,11 +387,14 @@ paxos_learn(struct paxos_instance *inst)
       break;
 
     case DEC_PART:
-      // The pv_extra field tells us who is PARTing (possibly a forced PART).
-      // If it is 0, it is a user request to self-PART.
+      // The pv_extra field tells us who is parting (possibly a forced part).
+      // If it is 0, it is a user request to self-part.
       if (inst->pi_val.pv_extra == 0) {
         inst->pi_val.pv_extra = inst->pi_val.pv_reqid.id;
       }
+
+      // Are we the proposer right now?
+      was_proposer = is_proposer();
 
       // Pull the acceptor from the alist.
       acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
@@ -406,6 +409,12 @@ paxos_learn(struct paxos_instance *inst)
       } else {
         // We are leaving the protocol, so wipe all our state clean.
         paxos_end();
+      }
+
+      // Prepare if we became the proposer as a result of the part.
+      reset_proposer();
+      if (!was_proposer && is_proposer()) {
+        proposer_prepare();
       }
 
       break;
