@@ -94,6 +94,62 @@ paxos_start(const void *desc, size_t size)
   pax.proposer = acc;
 }
 
+/**
+ * paxos_end - End our participancy in a Paxos protocol.
+ */
+void
+paxos_end()
+{
+  struct paxos_acceptor *acc_it, *acc_prev;
+  struct paxos_instance *inst_it, *inst_prev;
+  struct paxos_request *req_it, *req_prev;
+
+  acc_prev = NULL;
+  LIST_FOREACH(acc_it, &pax.alist, pa_le) {
+    if (acc_prev != NULL) {
+      LIST_REMOVE(&pax.alist, acc_prev, pa_le);
+      if (acc_prev->pa_peer != NULL) {
+        paxos_peer_destroy(acc_prev->pa_peer);
+      }
+      if (acc_prev->pa_desc != NULL) {
+        g_free(acc_prev->pa_desc);
+      }
+      g_free(acc_prev);
+    }
+    acc_prev = acc_it;
+  }
+  LIST_REMOVE(&pax.alist, acc_prev, pa_le);
+  if (acc_prev->pa_peer != NULL) {
+    paxos_peer_destroy(acc_prev->pa_peer);
+  }
+  g_free(acc_prev);
+
+  inst_prev = NULL;
+  LIST_FOREACH(inst_it, &pax.ilist, pi_le) {
+    if (inst_prev != NULL) {
+      LIST_REMOVE(&pax.ilist, inst_prev, pi_le);
+      g_free(inst_prev);
+    }
+    inst_prev = inst_it;
+  }
+  LIST_REMOVE(&pax.ilist, inst_prev, pi_le);
+  g_free(acc_prev);
+
+  req_prev = NULL;
+  LIST_FOREACH(req_it, &pax.rcache, pr_le) {
+    if (req_prev != NULL) {
+      LIST_REMOVE(&pax.rcache, req_prev, pr_le);
+      if (req_prev->pr_data != NULL) {
+        g_free(req_prev->pr_data);
+      }
+      g_free(req_prev);
+    }
+  }
+
+  // Set everything to zero just in case.
+  paxos_init(pax.connect, &pax.learn);
+}
+
 static int
 proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
@@ -348,15 +404,19 @@ paxos_learn(struct paxos_instance *inst)
       // Pull the acceptor from the alist.
       acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
 
-      // Cleanup.
-      if (acc->pa_paxid != pax.self_id) {
-        paxos_peer_destroy(acc->pa_peer);
-      }
-      LIST_REMOVE(&pax.alist, acc, pa_le);
-      g_free(acc);
-
       // Invoke client learning callback.
       pax.learn.part(acc->pa_desc, acc->pa_size);
+
+      if (acc->pa_paxid != pax.self_id) {
+        // Just clean up the acceptor.
+        paxos_peer_destroy(acc->pa_peer);
+        LIST_REMOVE(&pax.alist, acc, pa_le);
+        g_free(acc);
+      } else {
+        // We are leaving the protocol, so wipe all our state clean.
+        paxos_end();
+      }
+
       break;
   }
 

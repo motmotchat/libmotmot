@@ -11,6 +11,7 @@
 
 /* Learner operations. */
 int paxos_learn(struct paxos_instance *);
+void paxos_end(void);
 
 /* Proposer operations. */
 int proposer_prepare(void);
