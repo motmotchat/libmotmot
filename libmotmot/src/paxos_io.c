@@ -69,12 +69,15 @@ paxos_peer_destroy(struct paxos_peer *peer)
 int
 paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
 {
-  struct paxos_peer *peer = (struct paxos_peer *)data;
+  struct paxos_peer *peer;
   msgpack_unpacked result;
   size_t bytes_read;
+  int retval = TRUE;
 
   GIOStatus status;
   GError *error = NULL;
+
+  peer = (struct paxos_peer *)data;
 
   // Reserve enough space in the msgpack_unpacker buffer for a read.
   msgpack_unpacker_reserve_buffer(&peer->pp_unpacker, MPBUFSIZE);
@@ -86,9 +89,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
 
   if (status == G_IO_STATUS_ERROR) {
     g_warning("paxos_peer_read: Read from socket failed.\n");
-  } else if (status == G_IO_STATUS_EOF) {
-    paxos_drop_connection(peer);
-    return FALSE;
+    // XXX: ...shouldn't we return or something?
   }
 
   // Inform the msgpack_unpacker how much of the buffer we actually consumed.
@@ -99,17 +100,20 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
   // then something has gone terribly wrong and we should abort.
   msgpack_unpacked_init(&result);
   while (msgpack_unpacker_next(&peer->pp_unpacker, &result)) {
-    if (paxos_dispatch(peer, &result.data) == FALSE) {
+    if (paxos_dispatch(peer, &result.data) != 0) {
       g_warning("paxos_read_peer: Dispatch failed.\n");
-
-      // Clean up after ourselves.
-      msgpack_unpacked_destroy(&result);
-      return FALSE;
+      retval = FALSE;
+      break;
     }
   }
 
+  if (status == G_IO_STATUS_EOF) {
+    paxos_drop_connection(peer);
+    retval = FALSE;
+  }
+
   msgpack_unpacked_destroy(&result);
-  return TRUE;
+  return retval;
 }
 
 /**

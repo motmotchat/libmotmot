@@ -186,7 +186,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
   }
 
-  return TRUE;
+  return 0;
 }
 
 static int
@@ -246,7 +246,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
   }
 
-  return TRUE;
+  return 0;
 }
 
 /**
