@@ -288,6 +288,5 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // Actually commit, now that we have the associated request.
-  inst->pi_votes = 0;
   return paxos_learn(inst);
 }

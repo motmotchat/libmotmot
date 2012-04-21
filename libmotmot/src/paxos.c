@@ -351,12 +351,16 @@ paxos_learn(struct paxos_instance *inst)
   // Pull the request from the request cache if applicable.
   if (request_needs_cached(inst->pi_val.pv_dkind)) {
     req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
+
+    // If we can't find a request and need one, send out a retrieve to the
+    // request originator and defer the commit.
     if (req == NULL) {
-      // Send out a retrieve to the request originator and defer the commit.
-      inst->pi_votes = 1;
       return paxos_retrieve(inst);
     }
   }
+
+  // Mark the commit.
+  inst->pi_votes = 0;
 
   // Act on the decree (e.g., display chat, record acceptor list changes).
   switch (inst->pi_val.pv_dkind) {

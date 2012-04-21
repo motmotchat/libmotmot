@@ -329,9 +329,6 @@ proposer_commit(struct paxos_instance *inst)
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  // Mark the instance committed.
-  inst->pi_votes = 0;
-
-  // Learn the value, i.e., act on the commit.
+  // Commit and learn the value ourselves.
   return paxos_learn(inst);
 }
