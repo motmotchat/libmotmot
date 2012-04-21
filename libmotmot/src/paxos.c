@@ -331,6 +331,7 @@ paxos_learn(struct paxos_instance *inst)
     req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
     if (req == NULL) {
       // Send out a retrieve to the request originator and defer the commit.
+      inst->pi_votes = 1;
       return paxos_retrieve(inst);
     }
   }
