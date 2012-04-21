@@ -222,7 +222,17 @@ acceptor_ack_greet(struct paxos_header *hdr)
   // Grab our acceptor from the list.
   acc = acceptor_find(&pax.alist, hdr->ph_inum);
 
-  // Say hello to our new acceptor.
+  // If we have not yet committed and learned a join for the new acceptor,
+  // we defer the hello.  We insert a properly identified acceptor object
+  // in the acceptor list to signal this deferral to the join protocol.
+  if (acc == NULL) {
+    acc = g_malloc0(sizeof(*acc));
+    acc->pa_paxid = hdr->ph_inum;
+    acceptor_insert(&pax.alist, acc);
+    return 0;
+  }
+
+  // If the join has occurred, say hello to our new acceptor.
   return acceptor_hello(acc);
 }
 

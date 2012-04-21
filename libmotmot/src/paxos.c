@@ -322,7 +322,7 @@ paxos_drop_connection(struct paxos_peer *source)
 int
 paxos_learn(struct paxos_instance *inst)
 {
-  int was_proposer;
+  int was_proposer, deferred;
   struct paxos_request *req = NULL;
   struct paxos_acceptor *acc;
 
@@ -346,10 +346,20 @@ paxos_learn(struct paxos_instance *inst)
       break;
 
     case DEC_JOIN:
-      // Initialize a new acceptor struct.  Its paxid is the instance number
-      // of the JOIN.
-      acc = g_malloc0(sizeof(*acc));
-      acc->pa_paxid = inst->pi_hdr.ph_inum;
+      // Finding an existing acceptor object with the new acceptor's ID means
+      // that we received a greet order from the proposer for this join before
+      // we actually committed it.  In this case, we do not reinitialize and
+      // send out the deferred hello.
+      acc = acceptor_find(&pax.alist, inst->pi_hdr.ph_inum);
+      deferred = (acc != NULL);
+
+      // If we don't find anything, initialize a new acceptor struct.  Its
+      // paxid is the instance number of the join.
+      if (!deferred) {
+        acc = g_malloc0(sizeof(*acc));
+        acc->pa_paxid = inst->pi_hdr.ph_inum;
+        acceptor_insert(&pax.alist, acc);
+      }
 
       // Initialize a paxos_peer via a callback.
       acc->pa_peer = paxos_peer_init(pax.connect(req->pr_data, req->pr_size));
@@ -358,12 +368,14 @@ paxos_learn(struct paxos_instance *inst)
       acc->pa_size = req->pr_size;
       acc->pa_desc = g_memdup(req->pr_data, req->pr_size);
 
-      // Append to our list.
-      acceptor_insert(&pax.alist, acc);
-
       // If we are the proposer, send the new acceptor its paxid.
       if (is_proposer()) {
         proposer_welcome(acc);
+      }
+
+      // Send the deferred hello if necessary.
+      if (deferred) {
+        acceptor_hello(acc);
       }
 
       // Invoke client learning callback.
