@@ -28,7 +28,10 @@ paxos_init(connect_t connect, struct learn_table *learn)
   pax.proposer = NULL;
   pax.ballot.id = 0;
   pax.ballot.gen = 0;
+
   pax.ibase = 0;
+  pax.ihole = 0;
+  pax.istart = NULL;
 
   pax.prep = NULL;
   pax.sync = NULL;
@@ -82,6 +85,8 @@ paxos_start(const void *desc, size_t size)
   // Add it to our ilist to mark our JOIN.
   LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
   pax.ibase = 1;
+  pax.ihole = 2;
+  pax.istart = inst;
 
   // Add ourselves to the acceptor list.
   acc = g_malloc(sizeof(*acc));
@@ -101,44 +106,13 @@ paxos_start(const void *desc, size_t size)
 void
 paxos_end()
 {
-  struct paxos_acceptor *acc_it, *acc_prev;
-  struct paxos_instance *inst_it, *inst_prev;
-  struct paxos_request *req_it, *req_prev;
+  // Wipe all our lists.
+  acceptor_list_destroy(&pax.alist);
+  instance_list_destroy(&pax.ilist);
+  instance_list_destroy(&pax.idefer);
+  request_list_destroy(&pax.rcache);
 
-  acc_prev = NULL;
-  LIST_FOREACH(acc_it, &pax.alist, pa_le) {
-    if (acc_prev != NULL) {
-      LIST_REMOVE(&pax.alist, acc_prev, pa_le);
-      acceptor_destroy(acc_prev);
-    }
-    acc_prev = acc_it;
-  }
-  LIST_REMOVE(&pax.alist, acc_prev, pa_le);
-  acceptor_destroy(acc_prev);
-
-  inst_prev = NULL;
-  LIST_FOREACH(inst_it, &pax.ilist, pi_le) {
-    if (inst_prev != NULL) {
-      LIST_REMOVE(&pax.ilist, inst_prev, pi_le);
-      instance_destroy(inst_prev);
-    }
-    inst_prev = inst_it;
-  }
-  LIST_REMOVE(&pax.ilist, inst_prev, pi_le);
-  instance_destroy(inst_prev);
-
-  req_prev = NULL;
-  LIST_FOREACH(req_it, &pax.rcache, pr_le) {
-    if (req_prev != NULL) {
-      LIST_REMOVE(&pax.rcache, req_prev, pr_le);
-      request_destroy(req_prev);
-    }
-    req_prev = req_it;
-  }
-  LIST_REMOVE(&pax.rcache, req_prev, pr_le);
-  request_destroy(req_prev);
-
-  // Set everything to zero just in case.
+  // Reinitialize our state.
   paxos_init(pax.connect, &pax.learn);
 }
 

@@ -226,6 +226,27 @@ request_destroy(struct paxos_request *req)
     return elt;                                                       \
   }
 
+#define XLIST_DESTROY_IMPL(name, le_field, destroy)                   \
+  void                                                                \
+  name##_list_destroy(struct name##_list *head)                       \
+  {                                                                   \
+    struct paxos_##name *it, *prev;                                   \
+                                                                      \
+    prev = NULL;                                                      \
+    LIST_FOREACH(it, head, le_field) {                                \
+      if (prev != NULL) {                                             \
+        LIST_REMOVE(head, prev, le_field);                            \
+        destroy(prev);                                                \
+      }                                                               \
+      prev = it;                                                      \
+    }                                                                 \
+                                                                      \
+    if (prev != NULL) {                                               \
+      LIST_REMOVE(head, prev, le_field);                              \
+      destroy(prev);                                                  \
+    }                                                                 \
+  }
+
 XLIST_FIND_IMPL(acceptor, paxid_t, pa_le, pa_paxid, paxid_compare);
 XLIST_FIND_REV_IMPL(instance, paxid_t, pi_le, pi_hdr.ph_inum, paxid_compare);
 XLIST_FIND_IMPL(request, reqid_t, pr_le, pr_val.pv_reqid, reqid_compare);
@@ -233,6 +254,10 @@ XLIST_FIND_IMPL(request, reqid_t, pr_le, pr_val.pv_reqid, reqid_compare);
 XLIST_INSERT_REV_IMPL(acceptor, pa_le, pa_paxid, paxid_compare);
 XLIST_INSERT_REV_IMPL(instance, pi_le, pi_hdr.ph_inum, paxid_compare);
 XLIST_INSERT_REV_IMPL(request, pr_le, pr_val.pv_reqid, reqid_compare);
+
+XLIST_DESTROY_IMPL(acceptor, pa_le, acceptor_destroy);
+XLIST_DESTROY_IMPL(instance, pi_le, instance_destroy);
+XLIST_DESTROY_IMPL(request, pr_le, request_destroy);
 
 /**
  * Helper routine to obtain the instance on ilist with the closest instance

@@ -27,14 +27,19 @@ void request_destroy(struct paxos_request *req);
 
 /* List helpers. */
 struct paxos_acceptor *acceptor_find(struct acceptor_list *, paxid_t);
+struct paxos_instance *instance_find(struct instance_list *, paxid_t);
+struct paxos_request *request_find(struct request_list *, reqid_t);
+
 struct paxos_acceptor *acceptor_insert(struct acceptor_list *,
     struct paxos_acceptor *);
-struct paxos_instance *instance_find(struct instance_list *, paxid_t);
 struct paxos_instance *instance_insert(struct instance_list *,
     struct paxos_instance *);
-struct paxos_request *request_find(struct request_list *, reqid_t);
 struct paxos_request *request_insert(struct request_list *,
     struct paxos_request *);
+
+void acceptor_list_destroy(struct acceptor_list *);
+void instance_list_destroy(struct instance_list *);
+void request_list_destroy(struct request_list *);
 
 struct paxos_instance *get_instance_lub(struct paxos_instance *it,
     struct instance_list *ilist, paxid_t inum);
