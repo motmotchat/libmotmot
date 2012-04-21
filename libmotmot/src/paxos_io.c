@@ -89,7 +89,6 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
 
   if (status == G_IO_STATUS_ERROR) {
     g_warning("paxos_peer_read: Read from socket failed.\n");
-    // XXX: ...shouldn't we return or something?
   }
 
   // Inform the msgpack_unpacker how much of the buffer we actually consumed.
@@ -139,9 +138,6 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
 
   if (status == G_IO_STATUS_ERROR) {
     g_warning("paxos_peer_write: Write to socket failed.\n");
-  } else if (status == G_IO_STATUS_EOF) {
-    paxos_drop_connection(peer);
-    return FALSE;
   }
 
   // XXX: This is really awful.
@@ -160,9 +156,13 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
     peer->pp_write_buffer.data = new_data;
   }
 
-  status = g_io_channel_flush(peer->pp_channel, &error);
-  if (status == G_IO_STATUS_ERROR) {
+  if (g_io_channel_flush(peer->pp_channel, &error) == G_IO_STATUS_ERROR) {
     g_critical("paxos_peer_write: Could not flush channel.\n");
+  }
+
+  if (status == G_IO_STATUS_EOF) {
+    paxos_drop_connection(peer);
+    return FALSE;
   }
 
   return TRUE;
