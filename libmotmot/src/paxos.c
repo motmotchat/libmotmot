@@ -3,6 +3,7 @@
  */
 #include "paxos.h"
 #include "paxos_helper.h"
+#include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_protocol.h"
 #include "list.h"
@@ -116,6 +117,9 @@ paxos_end()
   paxos_init(pax.connect, &pax.learn);
 }
 
+/**
+ * proposer_dispatch - Process a message as the proposer.
+ */
 static int
 proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
@@ -189,6 +193,9 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
   return 0;
 }
 
+/**
+ * acceptor_dispatch - Process a message as an acceptor.
+ */
 static int
 acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
@@ -250,7 +257,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 }
 
 /**
- * Handle a Paxos message.
+ * paxos_dispatch - Handle a Paxos message.
  */
 int
 paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
@@ -275,6 +282,21 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 
   g_free(hdr);
   return retval;
+}
+
+/**
+ * paxos_register - Register a channel with Paxos.
+ *
+ * This function is called by a new client each time an acceptor first
+ * initiates a connection with it.  We queue up these channels
+ */
+void
+paxos_register_connection(GIOChannel *chan)
+{
+  struct paxos_peer *peer;
+
+  // Initialize a peer object.
+  peer = paxos_peer_init(chan);
 }
 
 /**

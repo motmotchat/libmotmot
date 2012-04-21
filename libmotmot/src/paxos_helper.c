@@ -2,6 +2,7 @@
  * paxos_helper.c - Helper functions for Paxos.
  */
 #include "paxos.h"
+#include "paxos_io.h"
 #include "list.h"
 
 #include <stdio.h>

@@ -38,7 +38,7 @@ motmot_session(const void *desc, size_t size)
 int
 motmot_watch(GIOChannel *channel)
 {
-  paxos_peer_init(channel);
+  paxos_register_connection(channel);
   return 0;
 }
 
