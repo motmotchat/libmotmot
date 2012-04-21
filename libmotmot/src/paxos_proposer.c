@@ -55,7 +55,7 @@ proposer_prepare()
 
   // Obtain the first hole.
   pax.prep->pp_hole = ilist_first_hole(&pax.prep->pp_first, &pax.ilist,
-                                       pax.istart);
+                                       pax.ibase);
 
   // Initialize a Paxos header.
   hdr.ph_ballot.id = pax.ballot.id;

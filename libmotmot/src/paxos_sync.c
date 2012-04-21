@@ -67,7 +67,7 @@ acceptor_ack_sync(struct paxos_header *hdr)
   struct paxos_yak py;
 
   // Obtain the hole.
-  hole = ilist_first_hole(&inst, &pax.ilist, pax.istart);
+  hole = ilist_first_hole(&inst, &pax.ilist, pax.ibase);
 
   // Pack and send the response.
   paxos_payload_init(&py, 2);
@@ -154,22 +154,22 @@ proposer_truncate(struct paxos_header *hdr)
   struct paxos_yak py;
 
   // Obtain our own first instance hole.
-  hole = ilist_first_hole(&inst, &pax.ilist, pax.istart);
+  hole = ilist_first_hole(&inst, &pax.ilist, pax.ibase);
   if (hole < pax.sync->ps_hole) {
     pax.sync->ps_hole = hole;
   }
 
-  // Make this hole our new istart.
-  assert(pax.sync->ps_hole >= pax.istart);
-  pax.istart = pax.sync->ps_hole;
+  // Make this hole our new ibase.
+  assert(pax.sync->ps_hole >= pax.ibase);
+  pax.ibase = pax.sync->ps_hole;
 
-  // Do the truncate (< pax.istart).
-  ilist_truncate_prefix(&pax.ilist, pax.istart);
+  // Do the truncate (< pax.ibase).
+  ilist_truncate_prefix(&pax.ilist, pax.ibase);
 
   // Pack and broadcast a truncate command.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
-  paxos_paxid_pack(&py, pax.istart);
+  paxos_paxid_pack(&py, pax.ibase);
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
@@ -183,11 +183,11 @@ proposer_truncate(struct paxos_header *hdr)
 int
 acceptor_ack_truncate(struct paxos_header *hdr, msgpack_object *o)
 {
-  // Unpack the new istart.
-  paxos_paxid_unpack(&pax.istart, o);
+  // Unpack the new ibase.
+  paxos_paxid_unpack(&pax.ibase, o);
 
-  // Do the truncate (< pax.istart).
-  ilist_truncate_prefix(&pax.ilist, pax.istart);
+  // Do the truncate (< pax.ibase).
+  ilist_truncate_prefix(&pax.ilist, pax.ibase);
 
   return 0;
 }

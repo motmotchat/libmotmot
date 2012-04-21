@@ -215,7 +215,10 @@ struct paxos_state {
   paxid_t req_id;                     // local incrementing request ID
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
   ballot_t ballot;                    // identity of the current ballot
-  paxid_t istart;                     // starting point of instance numbers
+
+  paxid_t ibase;                      // base value for instance numbers
+  paxid_t ihole;                      // number of first uncommitted instance
+  struct paxos_instance *istart;      // lower bound instance of first hole
 
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
   struct paxos_sync *sync;            // sync state; NULL if not syncing

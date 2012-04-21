@@ -28,7 +28,7 @@ paxos_init(connect_t connect, struct learn_table *learn)
   pax.proposer = NULL;
   pax.ballot.id = 0;
   pax.ballot.gen = 0;
-  pax.istart = 0;
+  pax.ibase = 0;
 
   pax.prep = NULL;
   pax.sync = NULL;
@@ -81,7 +81,7 @@ paxos_start(const void *desc, size_t size)
 
   // Add it to our ilist to mark our JOIN.
   LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
-  pax.istart = 1;
+  pax.ibase = 1;
 
   // Add ourselves to the acceptor list.
   acc = g_malloc(sizeof(*acc));

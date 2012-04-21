@@ -18,7 +18,7 @@
  * struct {
  *   paxos_header hdr;
  *   struct {
- *     paxid_t istart;
+ *     paxid_t ibase;
  *     paxos_acceptor alist[];
  *     paxos_instance ilist[];
  *   } init_info;
@@ -55,9 +55,9 @@ proposer_welcome(struct paxos_acceptor *acc)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &hdr);
 
-  // Start off the info payload with the istart.
+  // Start off the info payload with the ibase.
   paxos_payload_begin_array(&py, 3);
-  paxos_paxid_pack(&py, pax.istart);
+  paxos_paxid_pack(&py, pax.ibase);
 
   // Pack the entire alist.  Hopefully we don't have too many un-parted
   // dropped acceptors (we shouldn't).
@@ -104,9 +104,9 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   assert(o->via.array.size == 3);
   arr = o->via.array.ptr;
 
-  // Unpack the istart.
+  // Unpack the ibase.
   assert(arr->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  pax.istart = arr->via.u64;
+  pax.ibase = arr->via.u64;
 
   arr++;
 
