@@ -25,7 +25,7 @@ GMainLoop *gmain;
  * Create a local UNIX socket and wrap it in a GIOChannel.
  */
 GIOChannel *
-open_socket(const char *handle, size_t len, bool listening)
+socket_open(const char *handle, size_t len, bool listening)
 {
   int s;
   struct sockaddr_un *saddr;
@@ -42,19 +42,14 @@ open_socket(const char *handle, size_t len, bool listening)
     err(listen(s, 5) < 0, "listen");
   } else {
     if (connect(s, (struct sockaddr *)saddr, sizeof(short) + len) < 0) {
-      // Connection refused. Probably a stale socket, so just ignore it
-      g_warning("Connection refused");
+      // Connection refused.  Probably a stale socket, so just ignore it.
+      g_warning("socket_open: Connection refused.");
       return NULL;
     }
   }
 
   g_free(saddr);
-
   channel = g_io_channel_unix_new(s);
-  if (g_io_channel_set_encoding(channel, NULL, NULL) == G_IO_STATUS_ERROR) {
-    g_error("socket_to_gio: Failed to set channel encoding.\n");
-    return NULL;
-  }
 
   return channel;
 }
@@ -62,7 +57,7 @@ open_socket(const char *handle, size_t len, bool listening)
 GIOChannel *
 listen_unix(const void *handle, size_t len)
 {
-  return open_socket((char *)handle, len, true);
+  return socket_open((char *)handle, len, true);
 }
 
 /**
@@ -71,7 +66,7 @@ listen_unix(const void *handle, size_t len)
 GIOChannel *
 connect_unix(const void *handle, size_t len)
 {
-  return open_socket((char *)handle, len, false);
+  return socket_open((char *)handle, len, false);
 }
 
 int
@@ -80,9 +75,7 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   int fd, newfd;
   socklen_t len;
   struct sockaddr_un *saddr;
-
   GIOChannel *channel;
-  GError *gerr;
 
   fd = g_io_channel_unix_get_fd(source);
   saddr = g_new0(struct sockaddr_un, 1);
@@ -93,15 +86,8 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
 
   g_free(saddr);
 
-  // Wrap it in a channel.
+  // Create and watch a channel.
   channel = g_io_channel_unix_new(newfd);
-  if (g_io_channel_set_encoding(channel, NULL, &gerr) == G_IO_STATUS_ERROR) {
-    // TODO: error handling
-    g_error("socket_accept: Failed to set channel encoding.\n");
-  }
-  // TODO: check for errors here
-  g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, &gerr);
-
   motmot_watch(channel);
 
   return TRUE;
@@ -127,12 +113,12 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 
   // Do rudimentary command line parsing.
   if (g_str_has_prefix(msg, "/invite ")) {
-    // \invite socket - Handle inviting others
+    // \invite socket - Handle inviting others.
     tmp = msg + 7;
-    while (*++tmp == ' '); // Move past all the spaces.
+    while (*++tmp == ' ');  // Move past all the spaces.
     motmot_invite(tmp, strlen(tmp));
   } else if (g_str_has_prefix(msg, "/part")) {
-    // \part - Only do it if it's followed by a space or EOF
+    // \part - Only do it if it's followed by a space or EOF.
     if (msg[6] == '\0' || msg[6] == ' ') {
       motmot_disconnect();
     }
@@ -192,6 +178,7 @@ main(int argc, char *argv[])
     motmot_session(argv[1], strlen(argv[1]));
   }
 
+  // Invite our friends!
   for (i = 2; i < argc; i++) {
     motmot_invite(argv[i], strlen(argv[i]));
   }

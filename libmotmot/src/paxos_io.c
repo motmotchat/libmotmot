@@ -14,6 +14,8 @@ int paxos_peer_write(GIOChannel *, GIOCondition, void *);
 
 /**
  * paxos_peer_init - Set up peer read/write buffering.
+ *
+ * TODO: error checking
  */
 struct paxos_peer *
 paxos_peer_init(GIOChannel *channel)
@@ -23,9 +25,11 @@ paxos_peer_init(GIOChannel *channel)
   peer = g_malloc0(sizeof(*peer));
   peer->pp_channel = channel;
 
-  // Put the peer's channel into nonblocking mode
-  // TODO: error checking
+  // Put the peer's channel into nonblocking mode.
   g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, NULL);
+
+  // Set the channel encoding to binary.
+  g_io_channel_set_encoding(channel, NULL, NULL);
 
   // Set up the read listener.
   msgpack_unpacker_init(&peer->pp_unpacker, MPBUFSIZE);
