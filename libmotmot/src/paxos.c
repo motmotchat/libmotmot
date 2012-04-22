@@ -70,7 +70,7 @@ paxos_start(const void *desc, size_t size)
   pax.ballot.gen = 1;
 
   // Artificially generate an initial commit, without learning.
-  inst = g_malloc(sizeof(*inst));
+  inst = g_malloc0(sizeof(*inst));
 
   inst->pi_hdr.ph_ballot.id = pax.ballot.id;
   inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
@@ -94,7 +94,7 @@ paxos_start(const void *desc, size_t size)
   pax.istart = inst;
 
   // Add ourselves to the acceptor list.
-  acc = g_malloc(sizeof(*acc));
+  acc = g_malloc0(sizeof(*acc));
   acc->pa_paxid = pax.self_id;
   acc->pa_peer = NULL;
   acc->pa_size = size;
