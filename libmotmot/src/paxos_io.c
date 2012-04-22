@@ -113,7 +113,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
       }
     }
 
-    // Drop the connection if we're at the end
+    // Drop the connection if we're at the end.
     if (status == G_IO_STATUS_EOF) {
       paxos_drop_connection(peer);
       retval = FALSE;
@@ -139,11 +139,12 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
   GIOStatus status;
   GError *error;
 
-  // If there's nothing to write, do nothing
+  // If there's nothing to write, do nothing.
   if (peer->pp_write_buffer.length == 0) {
     return TRUE;
   }
 
+  // Write to the channel.
   status = g_io_channel_write_chars(channel, peer->pp_write_buffer.data,
       peer->pp_write_buffer.length, &bytes_written, &error);
 
@@ -167,13 +168,14 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
     peer->pp_write_buffer.data = new_data;
   }
 
+  // Flush the channel.
   if (g_io_channel_flush(peer->pp_channel, &error) == G_IO_STATUS_ERROR) {
     g_critical("paxos_peer_write: Could not flush channel.\n");
   }
 
   if (status == G_IO_STATUS_EOF) {
-    // Flush the read buffer. It should also detect the EOF as well and destroy
-    // the peer for us
+    // Flush the read buffer.  We will also detect the EOF in paxos_peer_read,
+    // which will destroy the peer for us.
     if (g_io_channel_get_buffer_condition(channel) & G_IO_IN) {
       paxos_peer_read(channel, G_IO_IN, data);
     }
@@ -197,7 +199,7 @@ paxos_peer_send(struct paxos_peer *peer, const char *buffer, size_t length)
 
   if (peer->pp_write_buffer.data == NULL) {
     // This means we weren't interested in the buffer, so we should add a
-    // watch now to catch write events
+    // watch now to catch write events.
     g_io_add_watch(peer->pp_channel, G_IO_OUT, paxos_peer_write, peer);
   }
 
