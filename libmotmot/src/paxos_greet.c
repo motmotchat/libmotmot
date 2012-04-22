@@ -108,6 +108,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   assert(arr->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   pax.ibase = arr->via.u64;
 
+  // Grab the alist array.
   arr++;
 
   // Make sure the alist is well-formed...
@@ -128,6 +129,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     }
   }
 
+  // Grab the ilist array.
   arr++;
 
   // Make sure the ilist is well-formed...
@@ -140,6 +142,32 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     inst = g_malloc0(sizeof(*inst));
     paxos_instance_unpack(inst, p);
     LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
+  }
+
+  // Determine our ihole.  The first instance in the ilist should always have
+  // the instance number pax.ibase, so we start searching there.
+  inst = LIST_FIRST(&pax.ilist);
+  pax.ihole = pax.ibase;
+  for (; ; inst = LIST_NEXT(inst, pi_le), ++pax.ihole) {
+    // If we reached the end of the list, set pax.istart to the last existing
+    // instance.
+    if (inst == (void *)&pax.ilist) {
+      pax.istart = LIST_LAST(&pax.ilist);
+      break;
+    }
+
+    // If we skipped over an instance number because we were missing an
+    // instance, set pax.istart to the last instance before the hole.
+    if (inst->pi_hdr.ph_inum != pax.ihole) {
+      pax.istart = LIST_PREV(inst, pi_le);
+      break;
+    }
+
+    // If we found an uncommitted instance, set pax.istart to it.
+    if (inst->pi_votes != 0) {
+      pax.istart = inst;
+      break;
+    }
   }
 
   return acceptor_ptmy(pax.proposer);
