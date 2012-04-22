@@ -185,6 +185,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     assert(it != (void *)&pax.ilist);
 
     if (it->pi_hdr.ph_inum < inum) {
+      // If inum is past the last instance number seen by the entire Paxos
+      // system, we're done.
+      if (it == LIST_LAST(&pax.ilist)) {
+        break;
+      }
+
       // Nobody in the quorum (including ourselves) has heard of this instance,
       // so make a null decree.
       inst = g_malloc0(sizeof(*inst));

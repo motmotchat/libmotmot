@@ -26,7 +26,7 @@ int acceptor_promise(struct paxos_header *);
 int acceptor_ack_decree(struct paxos_peer *, struct paxos_header *,
     msgpack_object *);
 int acceptor_accept(struct paxos_header *);
-int acceptor_ack_commit(struct paxos_header *, msgpack_object *);
+int acceptor_ack_commit(struct paxos_header *);
 
 /* Participant initiation protocol. */
 int proposer_welcome(struct paxos_acceptor *);

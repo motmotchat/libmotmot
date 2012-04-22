@@ -271,7 +271,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       paxos_redirect(source, hdr);
       break;
     case OP_COMMIT:
-      acceptor_ack_commit(hdr, o);
+      acceptor_ack_commit(hdr);
       break;
 
     case OP_REQUEST:

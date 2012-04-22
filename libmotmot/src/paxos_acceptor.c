@@ -171,7 +171,7 @@ acceptor_accept(struct paxos_header *hdr)
  * value payload.
  */
 int
-acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
+acceptor_ack_commit(struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
 
