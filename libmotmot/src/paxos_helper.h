@@ -41,11 +41,6 @@ void acceptor_list_destroy(struct acceptor_list *);
 void instance_list_destroy(struct instance_list *);
 void request_list_destroy(struct request_list *);
 
-struct paxos_instance *get_instance_lub(struct paxos_instance *it,
-    struct instance_list *ilist, paxid_t inum);
-paxid_t ilist_first_hole(struct paxos_instance **inst,
-    struct instance_list *ilist, paxid_t start);
-
 /* Paxos message sending. */
 int paxos_broadcast(const char *, size_t);
 int paxos_send(struct paxos_acceptor *, const char *, size_t);

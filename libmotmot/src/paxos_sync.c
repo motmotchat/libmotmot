@@ -63,17 +63,12 @@ proposer_sync()
 int
 acceptor_ack_sync(struct paxos_header *hdr)
 {
-  paxid_t hole;
-  struct paxos_instance *inst;
   struct paxos_yak py;
-
-  // Obtain the hole.
-  hole = ilist_first_hole(&inst, &pax.ilist, pax.ibase);
 
   // Pack and send the response.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
-  paxos_paxid_pack(&py, hole);
+  paxos_paxid_pack(&py, pax.ihole);
   paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
 
@@ -150,19 +145,17 @@ ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
 int
 proposer_truncate(struct paxos_header *hdr)
 {
-  paxid_t hole;
-  struct paxos_instance *inst;
   struct paxos_yak py;
 
   // Obtain our own first instance hole.
-  hole = ilist_first_hole(&inst, &pax.ilist, pax.ibase);
-  if (hole < pax.sync->ps_hole) {
-    pax.sync->ps_hole = hole;
+  if (pax.ihole < pax.sync->ps_hole) {
+    pax.sync->ps_hole = pax.ihole;
   }
 
-  // Make this hole our new ibase.
+  // Make the instance before this hole our new ibase, so as not to break
+  // pax.istart.
   assert(pax.sync->ps_hole >= pax.ibase);
-  pax.ibase = pax.sync->ps_hole;
+  pax.ibase = pax.sync->ps_hole - 1;
 
   // Do the truncate (< pax.ibase).
   ilist_truncate_prefix(&pax.ilist, pax.ibase);

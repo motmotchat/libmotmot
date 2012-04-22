@@ -101,8 +101,8 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
   // Check the ballot on the message.
   cmp = ballot_compare(hdr->ph_ballot, pax.ballot);
   if (cmp < 0) {
-    // If the decree has a lower ballot number, send a redirect.
-    return paxos_redirect(source, hdr);
+    // Ignore.
+    return 0;
   } else if (cmp > 0) {
     // XXX: What if the decree has a higher ballot?
   }
@@ -118,6 +118,11 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
 
     // Insert the new instance into the ilist.
     inst = instance_insert(&pax.ilist, inst);
+
+    // Update pax.istart if we just instantiated the hole.
+    if (inst->pi_hdr.ph_inum == pax.ihole) {
+      pax.istart = inst;
+    }
 
     // Accept the decree.
     return acceptor_accept(hdr);

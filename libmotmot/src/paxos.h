@@ -185,9 +185,6 @@ LIST_HEAD(request_list, paxos_request);
 /* Preparation state used by new proposers. */
 struct paxos_prep {
   unsigned pp_nacks;                  // number of prepare acks
-  paxid_t pp_hole;                    // instance number of the first hole
-  struct paxos_instance *pp_first;    // closest instance to the first hole
-                                      //   with instance number <= pp_hole
 };
 
 /* Sync state used by proposers during sync. */

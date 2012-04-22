@@ -52,17 +52,12 @@ proposer_prepare()
   // Start a new prepare.
   pax.prep = g_malloc0(sizeof(*pax.prep));
   pax.prep->pp_nacks = 1;
-  pax.prep->pp_first = NULL;
-
-  // Obtain the first hole.
-  pax.prep->pp_hole = ilist_first_hole(&pax.prep->pp_first, &pax.ilist,
-                                       pax.ibase);
 
   // Initialize a Paxos header.
   hdr.ph_ballot.id = pax.ballot.id;
   hdr.ph_ballot.gen = pax.ballot.gen;
   hdr.ph_opcode = OP_PREPARE;
-  hdr.ph_inum = pax.prep->pp_hole;
+  hdr.ph_inum = pax.ihole;
 
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
@@ -71,6 +66,27 @@ proposer_prepare()
   paxos_payload_destroy(&py);
 
   return 0;
+}
+
+/**
+ * Helper routine to obtain the instance on ilist with the closest instance
+ * number <= inum.  We are passed in an iterator to simulate a continuation.
+ */
+static struct paxos_instance *
+get_instance_glb(struct paxos_instance *it, struct instance_list *ilist,
+    paxid_t inum)
+{
+  struct paxos_instance *prev;
+
+  prev = NULL;
+  for (; it != (void *)ilist; it = LIST_NEXT(it, pi_le)) {
+    if (it->pi_hdr.ph_inum > inum) {
+      break;
+    }
+    prev = it;
+  }
+
+  return prev;
 }
 
 /**
@@ -93,11 +109,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_yak py;
   struct paxos_acceptor *acc;
 
-  // If the promise is for some other ballot, just ignore it.  Acceptors
-  // should only be sending a promise to us in response to a prepare from
-  // us.  There is no reason to redirect because our prepare should arrive
-  // before any message we send now.
-  if (!ballot_compare(pax.ballot, hdr->ph_ballot)) {
+  // If the promise is for some other ballot, just ignore it.
+  if (ballot_compare(pax.ballot, hdr->ph_ballot) != 0) {
     return 0;
   }
 
@@ -113,44 +126,49 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // Initialize loop variables.
   p = o->via.array.ptr;
   pend = o->via.array.ptr + o->via.array.size;
-  it = pax.prep->pp_first;
-
-  // Allocate a scratch instance.
-  inst = g_malloc0(sizeof(*inst));
+  it = pax.istart;
 
   // Loop through all the vote information.  Note that we assume the votes
   // are sorted by instance number.
   for (; p != pend; ++p) {
-    // Unpack a instance.
+    // Allocate and unpack a instance.
+    // TODO: Figure out a pretty way to deallocate less.
+    // XXX: Do we care if other acceptors have committed?  Answer: probably
+    // not because we can recommit without any correctness issue.
+    inst = g_malloc0(sizeof(*inst));
     paxos_instance_unpack(inst, p);
-    inst->pi_votes = 1;
+    inst->pi_votes = 1; // Mark uncommitted.
 
-    // Get the closest instance with instance number >= the instance number
-    // of inst.
-    it = get_instance_lub(it, &pax.ilist, inst->pi_hdr.ph_inum);
+    // Get the closest instance with lesser or equal instance number.  After
+    // starting Paxos, our instance list is guaranteed to always be nonempty,
+    // so this should always return a valid instance (so long as we don't
+    // pass an iterator which already has a higher inum).
+    it = get_instance_glb(it, &pax.ilist, inst->pi_hdr.ph_inum);
+    assert(it != (void *)&pax.ilist);
 
-    if (it == (void *)&pax.ilist) {
-      // We didn't find an instance, so insert at the tail.
-      LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
-    } else if (it->pi_hdr.ph_inum > inst->pi_hdr.ph_inum) {
-      // We found an instance with a higher number, so insert before it.
-      // XXX: We probably want to recommit.
-      LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
+    if (it->pi_hdr.ph_inum < inst->pi_hdr.ph_inum) {
+      // The closest instance is strictly lower in number, so insert after.
+      LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
+
+      // Update pax.istart if we just instantiated our hole.
+      if (inst->pi_hdr.ph_inum == pax.ihole) {
+        pax.istart = inst;
+      }
     } else {
-      // We found an instance of the same number.  If the existing instance
-      // is NOT a commit, and if the new instance has a higher ballot number,
-      // switch the new one in.
+      // We found an instance of the same number.
       if (it->pi_votes != 0 &&
           ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 0) {
-        LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
+        // If the existing instance is NOT a commit, and if the new instance
+        // has a higher ballot number, switch the new one in.
+        LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
         LIST_REMOVE(&pax.ilist, it, pi_le);
         swap((void **)&inst, (void **)&it);
       }
+
+      // Destroy whichever instance we aren't keeping.
+      instance_destroy(inst);
     }
   }
-
-  // Free the scratch instance.
-  instance_destroy(inst);
 
   // Acknowledge the prep.
   pax.prep->pp_nacks++;
@@ -160,21 +178,13 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
-  it = pax.prep->pp_first;
-
   // For each Paxos instance for which we don't have a commit, send a decree.
-  for (inum = pax.prep->pp_hole; ; ++inum) {
-    // Get the closest instance with number >= inum.
-    it = get_instance_lub(it, &pax.ilist, inum);
+  for (it = pax.istart, inum = pax.ihole; ; ++inum) {
+    // Get the closest instance with number <= inum.
+    it = get_instance_glb(it, &pax.ilist, inum);
+    assert(it != (void *)&pax.ilist);
 
-    // If we're at the end of the list, break.
-    if (it == (void *)&pax.ilist) {
-      break;
-    }
-
-    inst = NULL;
-
-    if (it->pi_hdr.ph_inum > inum) {
+    if (it->pi_hdr.ph_inum < inum) {
       // Nobody in the quorum (including ourselves) has heard of this instance,
       // so make a null decree.
       inst = g_malloc0(sizeof(*inst));
@@ -189,7 +199,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_val.pv_reqid.id = pax.self_id;
       inst->pi_val.pv_reqid.gen = pax.req_id;
 
-      LIST_INSERT_BEFORE(&pax.ilist, it, inst, pi_le);
+      LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
+
+      // Update pax.istart if we just instantiated our hole.
+      if (inst->pi_hdr.ph_inum == pax.ihole) {
+        pax.istart = inst;
+      }
     } else if (it->pi_votes != 0) {
       // The quorum has seen this instance before, but it has not been
       // committed.  By the first part of ack_promise, the vote we have here
@@ -265,6 +280,11 @@ proposer_decree(struct paxos_instance *inst)
 
   // Append to the ilist.
   LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
+
+  // Update pax.istart if we just instantiated the hole.
+  if (inst->pi_hdr.ph_inum == pax.ihole) {
+    pax.istart = inst;
+  }
 
   // Pack and broadcast the decree.
   paxos_payload_init(&py, 2);
