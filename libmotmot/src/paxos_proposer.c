@@ -69,6 +69,27 @@ proposer_prepare()
 }
 
 /**
+ * Helper routine to obtain the instance on ilist with the closest instance
+ * number <= inum.  We are passed in an iterator to simulate a continuation.
+ */
+static struct paxos_instance *
+get_instance_glb(struct paxos_instance *it, struct instance_list *ilist,
+    paxid_t inum)
+{
+  struct paxos_instance *prev;
+
+  prev = NULL;
+  for (; it != (void *)ilist; it = LIST_NEXT(it, pi_le)) {
+    if (it->pi_hdr.ph_inum > inum) {
+      break;
+    }
+    prev = it;
+  }
+
+  return prev;
+}
+
+/**
  * proposer_ack_promise - Acknowledge an acceptor's promise.
  *
  * We acknowledge the promise by incrementing the number of acceptors who

@@ -41,9 +41,6 @@ void acceptor_list_destroy(struct acceptor_list *);
 void instance_list_destroy(struct instance_list *);
 void request_list_destroy(struct request_list *);
 
-struct paxos_instance *get_instance_glb(struct paxos_instance *it,
-    struct instance_list *ilist, paxid_t inum);
-
 /* Paxos message sending. */
 int paxos_broadcast(const char *, size_t);
 int paxos_send(struct paxos_acceptor *, const char *, size_t);

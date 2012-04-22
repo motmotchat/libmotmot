@@ -57,9 +57,7 @@ proposer_welcome(struct paxos_acceptor *acc)
 
   // Start off the info payload with the ibase.
   paxos_payload_begin_array(&py, 3);
-  paxos_payload_begin_array(&py, 2);
   paxos_paxid_pack(&py, pax.ibase);
-  paxos_paxid_pack(&py, pax.ihole);
 
   // Pack the entire alist.  Hopefully we don't have too many un-parted
   // dropped acceptors (we shouldn't).
@@ -106,17 +104,10 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   assert(o->via.array.size == 3);
   arr = o->via.array.ptr;
 
-  // Unpack the ibase and ihole.
-  assert(arr->type == MSGPACK_OBJECT_ARRAY);
-  assert(arr->via.array.size == 2);
+  // Unpack the ibase.
+  assert(arr->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  pax.ibase = arr->via.u64;
 
-  p = arr->via.array.ptr;
-  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  pax.ibase = (p++)->via.u64;
-  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  pax.ihole = (p++)->via.u64;
-
-  // Grab the alist array.
   arr++;
 
   // Make sure the alist is well-formed...
@@ -137,7 +128,6 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     }
   }
 
-  // Grab the ilist array.
   arr++;
 
   // Make sure the ilist is well-formed...
@@ -151,9 +141,6 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     paxos_instance_unpack(inst, p);
     LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
   }
-
-  // Set our istart.
-  pax.istart = get_instance_glb(LIST_FIRST(&pax.ilist), &pax.ilist, pax.ihole);
 
   return acceptor_ptmy(pax.proposer);
 }

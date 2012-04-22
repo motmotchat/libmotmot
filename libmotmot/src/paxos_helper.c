@@ -260,27 +260,6 @@ XLIST_DESTROY_IMPL(acceptor, pa_le, acceptor_destroy);
 XLIST_DESTROY_IMPL(instance, pi_le, instance_destroy);
 XLIST_DESTROY_IMPL(request, pr_le, request_destroy);
 
-/**
- * Helper routine to obtain the instance on ilist with the closest instance
- * number <= inum.  We are passed in an iterator to simulate a continuation.
- */
-struct paxos_instance *
-get_instance_glb(struct paxos_instance *it, struct instance_list *ilist,
-    paxid_t inum)
-{
-  struct paxos_instance *prev;
-
-  prev = NULL;
-  for (; it != (void *)ilist; it = LIST_NEXT(it, pi_le)) {
-    if (it->pi_hdr.ph_inum > inum) {
-      break;
-    }
-    prev = it;
-  }
-
-  return prev;
-}
-
 
 ///////////////////////////////////////////////////////////////////////////
 //
