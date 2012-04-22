@@ -288,5 +288,5 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // Actually commit, now that we have the associated request.
-  return paxos_learn(inst);
+  return paxos_commit(inst);
 }

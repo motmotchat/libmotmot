@@ -330,5 +330,5 @@ proposer_commit(struct paxos_instance *inst)
   paxos_payload_destroy(&py);
 
   // Commit and learn the value ourselves.
-  return paxos_learn(inst);
+  return paxos_commit(inst);
 }

@@ -10,8 +10,8 @@
 #include <msgpack.h>
 
 /* Learner operations. */
-int paxos_learn(struct paxos_instance *);
-void paxos_end(void);
+int paxos_commit(struct paxos_instance *);
+int paxos_learn(struct paxos_instance *, struct paxos_request *);
 
 /* Proposer operations. */
 int proposer_prepare(void);

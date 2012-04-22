@@ -178,6 +178,6 @@ acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
   // proposer will always be consistent.  For the same reason, we shouldn't
   // have to check that inst might be NULL.
 
-  // Learn the value, i.e., act on the commit.
-  return paxos_learn(inst);
+  // Perform the commit.
+  return paxos_commit(inst);
 }

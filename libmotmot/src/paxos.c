@@ -69,7 +69,7 @@ paxos_start(const void *desc, size_t size)
   pax.ballot.id = pax.self_id;
   pax.ballot.gen = 1;
 
-  // Initialize an initial commit.
+  // Artificially generate an initial commit, without learning.
   inst = g_malloc(sizeof(*inst));
 
   inst->pi_hdr.ph_ballot.id = pax.ballot.id;
@@ -85,7 +85,11 @@ paxos_start(const void *desc, size_t size)
 
   // Add it to our ilist to mark our JOIN.
   LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
+
+  // Mark the start of the instance list.
   pax.ibase = 1;
+
+  // Set up the learn protocol parameters to start at the next instance.
   pax.ihole = 2;
   pax.istart = inst;
 

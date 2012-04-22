@@ -239,6 +239,7 @@ extern struct paxos_state pax;
 /* Paxos protocol interface. */
 void paxos_init(connect_t, struct learn_table *);
 void paxos_start(const void *, size_t);
+void paxos_end(void);
 void paxos_register_connection(GIOChannel *);
 void paxos_drop_connection(struct paxos_peer *);
 int paxos_request(dkind_t, const void *, size_t len);
