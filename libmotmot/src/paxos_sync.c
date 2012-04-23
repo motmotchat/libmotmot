@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <glib.h>
 
+#define SYNC_SKIP_THRESH  100
+
 /**
  * proposer_sync - Send a sync command to all acceptors.
  *
@@ -29,11 +31,15 @@ proposer_sync()
   struct paxos_yak py;
 
   // If we're already syncing, increment the skip counter.
-  // XXX: Do something with this, perhaps?
   if (pax.sync != NULL) {
-    pax.sync->ps_skips++;
-    return 1;
+    // Resync if we've waited too long for the sync to finish.
+    if (++pax.sync->ps_skips < SYNC_SKIP_THRESH) {
+      return 1;
+    } else {
+      g_free(pax.sync);
+    }
   }
+
 
   // Create a new sync.
   pax.sync = g_malloc0(sizeof(*(pax.sync)));
