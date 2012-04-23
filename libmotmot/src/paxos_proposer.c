@@ -40,12 +40,10 @@ proposer_prepare()
   struct paxos_header hdr;
   struct paxos_yak py;
 
-  // It should not be possible for us to already be in a prepare when we
-  // start a prepare.  A prepare ends either by (1) ending successfully,
-  // (2) ending unsuccessfully because the other acceptors convince us that
-  // we are not the proposer, or (3) failing because we crash.  In the first
-  // two cases, we free the prepare before ending it, and in the last case
-  // it doesn't matter, obviously.
+  // A prepare only ends by succeeding in proposer_ack_promise() or by failing
+  // in proposer_ack_redirect().  We should only ever prepare again if we are
+  // retrying after a rejected redirect, and in that case we do the freeing
+  // elsewhere.
   assert(pax.prep == NULL);
 
   // Start a new ballot.

@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <glib.h>
 
+extern int paxos_force_kill(struct paxos_peer *);
+
 /**
  * paxos_request - Request that the proposer make a decree for us.
  *
@@ -102,11 +104,6 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
 
 /**
  * proposer_ack_request - Dispatch a request as a decree.
- *
- * Regardless of whether the requester thinks we are the proposer, we
- * benevolently handle their request.  However, we send a redirect if they
- * mistook another acceptor as having proposership.  This should only
- * ever occur if the send and receive of the request cross a failover.
  */
 int
 proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
@@ -115,10 +112,12 @@ proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   struct paxos_request *req;
   struct paxos_instance *inst;
 
-  // The requester overloads ph_inst to the acceptor it believes to be the
-  // proposer.  If we are not identified as the proposer, send a redirect.
+  // The requester overloads ph_inst to the ID of the acceptor it believes
+  // to be the proposer.  If the requester has a live connection to us but
+  // does not see that we are the highest-ranked acceptor (and hence the
+  // proposer), kill them.
   if (hdr->ph_inum != pax.self_id) {
-    paxos_redirect(source, hdr);
+    paxos_force_kill(source);
   }
 
   // Allocate a request and unpack into it.

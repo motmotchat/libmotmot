@@ -129,15 +129,13 @@ paxos_end()
  * paxos_register - Register a channel with Paxos.
  *
  * This function is called by a new client each time an acceptor first
- * initiates a connection with it.  We queue up these channels
+ * initiates a connection with it.
  */
 void
 paxos_register_connection(GIOChannel *chan)
 {
-  struct paxos_peer *peer;
-
-  // Initialize a peer object.
-  peer = paxos_peer_init(chan);
+  // Just initialize a peer object.
+  paxos_peer_init(chan);
 }
 
 /**

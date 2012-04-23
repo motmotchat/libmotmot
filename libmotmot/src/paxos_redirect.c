@@ -21,7 +21,7 @@
  * they think they are the proposer.
  */
 int
-paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
+paxos_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
 {
   struct paxos_header hdr;
   struct paxos_yak py;
@@ -29,7 +29,8 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
   // Initialize a header.  Our recipients should use ph_inum rather than the
   // ballot ID as the ID of the proposer we are suggesting, since, in the
   // case that a proposer recently failed over and we have not yet received
-  // their prepare, the preparer and ballot might different.
+  // their prepare, the preparer and ballot might be different (and our
+  // proposer pointer is always updated as soon as we detect failure).
   hdr.ph_ballot.id = pax.ballot.id;
   hdr.ph_ballot.gen = pax.ballot.gen;
   hdr.ph_opcode = OP_REDIRECT;
@@ -39,7 +40,7 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
   // to be incorrect.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &hdr);
-  paxos_header_pack(&py, recv_hdr);
+  paxos_header_pack(&py, orig_hdr);
 
   // Send the payload.
   paxos_peer_send(source, UNYAK(&py));
@@ -58,8 +59,13 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *recv_hdr)
  * total ordering, receiving a redirect means that there is someone more
  * fitting to be proposer who we have lost contact with.
  *
+ * Note that this does not necessarily mean that the identified proposer
+ * is still live; it is possible that we noticed a proposer failure and
+ * then prepared before the acceptor who sent the redirect detected the
+ * failure.
+ *
  * To ensure that this redirect wasn't intended for us at some point in the
- * past before we were the proposer, we can check the opcode of the second
+ * past before we became the proposer, we check the opcode of the second
  * paxos_header we are passed.
  */
 int
@@ -68,7 +74,9 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_header orig_hdr;
   struct paxos_acceptor *acc;
 
-  // Sanity check that the supposed true proposer has a lower ID than we do.
+  // We dispatched as the proposer, so we have not found a more suitably
+  // ranked individual.  Just sanity check that the supposed true proposer
+  // has a lower ID than we do.
   assert(hdr->ph_inum < pax.self_id);
 
   // Check that this redirect is a response to a prepare.
@@ -84,14 +92,19 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   assert(acc->pa_peer == NULL);
   acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
 
-  // If the reconnect succeeds, relinquish proposership and cancel any
-  // standing prepare.
+  // Cancel our prepare if it is still in progress.
+  g_free(pax.prep);
+
   if (acc->pa_peer != NULL) {
+    // If the reconnect succeeds, relinquish proposership.
     pax.proposer = acc;
+
     // XXX: Is setting the ballot safe?
     pax.ballot.id = hdr->ph_ballot.id;
     pax.ballot.gen = hdr->ph_ballot.gen;
-    g_free(pax.prep);
+  } else {
+    // If the reconnect fails, try preparing again.
+    proposer_prepare();
   }
 
   return 0;
@@ -104,8 +117,14 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
  * If we send a request to someone who is not the proposer, but identifying
  * them as the proposer, we will receive a redirect.  Since the correctness
  * of the Paxos protocol guarantees that the acceptor list has a consistent
- * ttal ordering, receiving a redirect means that there is someone more
- * fitting to be proposer than the person we identified.
+ * ttal ordering across the system, receiving a redirect means that there
+ * is someone more fitting to be proposer than the acceptor we identified.
+ *
+ * Note, as with ack_proposer, that it is possible we noticed a proposer
+ * failure and sent our request to the new proposer correctly before the
+ * acceptor who sent us the redirect was able to detect the failure.
+ * Also, as with ack_proposer, we check the opcode of the second header
+ * to ensure validity.
  */
 int
 acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
@@ -114,7 +133,7 @@ acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_acceptor *acc;
 
   // Check whether, since we sent our request, we have found a more suitable
-  // proposer.
+  // proposer (possibly due to a redirect).
   if (pax.proposer->pa_paxid <= hdr->ph_inum) {
     return 0;
   }
@@ -132,9 +151,10 @@ acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   assert(acc->pa_peer == NULL);
   acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
 
-  // If the reconnect succeeds, reset our proposer and ballot info correctly.
   if (acc->pa_peer != NULL) {
+    // If the reconnect succeeds, reset our proposer and ballot info correctly.
     pax.proposer = acc;
+
     // XXX: Is setting the ballot safe?
     pax.ballot.id = hdr->ph_ballot.id;
     pax.ballot.gen = hdr->ph_ballot.gen;
