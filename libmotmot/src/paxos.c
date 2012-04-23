@@ -18,6 +18,7 @@
 struct paxos_state pax;
 
 void ilist_insert(struct paxos_instance *);
+int paxos_force_kill(struct paxos_peer *);
 
 /**
  * paxos_init - Initialize local Paxos state.
@@ -184,30 +185,26 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 {
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
-      // If this happens, it means that two proposers share a live connection
-      // yet both think that they are at the head of the list of acceptors.
-      // This list is the result of iterative Paxos commits, and hence a
-      // proposer receiving an OP_PREPARE qualifies as an inconsistent state
-      // of the system.
-      g_error("Proposer received OP_PREPARE.\n");
+      // Invalid system state; kill the offender.
+      proposer_force_kill(source);
       break;
     case OP_PROMISE:
       proposer_ack_promise(hdr, o);
       break;
     case OP_DECREE:
-      // XXX: If the decree is for a higher ballot number, we should probably
-      // cry.
-      g_error("Bad opcode OP_DECREE recieved by proposer. Redirecting...\n");
-      paxos_redirect(source, hdr);
+      // Invalid system state; kill the offender.
+      proposer_force_kill(source);
       break;
     case OP_ACCEPT:
       proposer_ack_accept(source, hdr);
       break;
     case OP_COMMIT:
-      // TODO: Commit and relinquish presidency if the ballot is higher,
+      // XXX: Commit and relinquish presidency if the ballot is higher,
       // otherwise check if we have a decree of the given instance.  If
       // we do and /are not preparing/, redirect; otherwise (if we don't
       // or we do but we are preparing), commit it.
+      // Invalid system state; kill the offender.
+      proposer_force_kill(source);
       break;
 
     case OP_REQUEST:
@@ -221,30 +218,33 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_WELCOME:
-      // Ignore.
+      // Invalid system state; kill the offender.
+      proposer_force_kill(source);
       break;
     case OP_GREET:
-      // Ignore.
+      // Invalid system state; kill the offender.
+      proposer_force_kill(source);
       break;
     case OP_HELLO:
       // This shouldn't be possible; all the acceptors who would say hello to
       // us are higher-ranked than us when we join the protocol, and if we are
-      // the proposer, they have all dropped.
-      g_error("Proposer received OP_HELLO.\n");
+      // the proposer, they have all dropped.  Try to kill whoever sent this
+      // to us.
+      proposer_force_kill(source);
       break;
     case OP_PTMY:
       proposer_ack_ptmy(hdr);
       break;
 
     case OP_REDIRECT:
-      // TODO: Decide what to do.
+      proposer_ack_redirect(hdr, o);
       break;
     case OP_SYNC:
       proposer_ack_sync(hdr, o);
       break;
     case OP_TRUNCATE:
-      // Holy fucking shit what is happening.
-      g_error("Proposer received OP_TRUNCATE.\n");
+      // Invalid system state; kill the offender.
+      proposer_force_kill(source);
       break;
   }
 
@@ -263,15 +263,13 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       acceptor_ack_prepare(source, hdr);
       break;
     case OP_PROMISE:
-      g_error("Bad opcode OP_PROMISE recieved by acceptor. Redirecting...\n");
-      paxos_redirect(source, hdr);
+      // Ignore promises.
       break;
     case OP_DECREE:
       acceptor_ack_decree(hdr, o);
       break;
     case OP_ACCEPT:
-      g_error("Bad opcode OP_ACCEPT recieved by acceptor. Redirecting...\n");
-      paxos_redirect(source, hdr);
+      // Ignore accepts.
       break;
     case OP_COMMIT:
       acceptor_ack_commit(hdr, o);
@@ -297,11 +295,11 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       acceptor_ack_hello(source, hdr);
       break;
     case OP_PTMY:
-      // Ignore.
+      // Ignore ptmy's.
       break;
 
     case OP_REDIRECT:
-      // TODO: Think Real Hard (tm)
+      acceptor_ack_redirect(hdr, o);
       break;
     case OP_SYNC:
       acceptor_ack_sync(hdr);
@@ -365,4 +363,45 @@ ilist_insert(struct paxos_instance *inst)
   if (inst->pi_hdr.ph_inum == pax.ihole) {
     pax.istart = inst;
   }
+}
+
+/**
+ * proposer_force_kill - Somebody is misbehaving in our Paxos, and our proposer
+ * will have none of it.
+ *
+ * We call this whenever the proposer receives a message from someone else who
+ * thinks they have the right to propose.  Since the ranking for proposer
+ * eligibility is the result of Paxos commits, and since we totally order all
+ * learns of commits, this qualifies as an inconsistent state of the system,
+ * which should not actually be possible by Paxos's correctness guarantees.
+ *
+ * To make a best effort at eliminating the inconsistency, we call this routine
+ * to try to kill the offender.
+ */
+int
+proposer_force_kill(struct paxos_peer *source)
+{
+  struct paxos_acceptor *acc;
+  struct paxos_instance *inst;
+
+  // Cry.
+  g_critical("paxos_dispatch: Two live proposers detected.\n");
+
+  // Find our acceptor object.
+  LIST_FOREACH(acc, &pax.alist, pa_le) {
+    if (acc->pa_peer == source) {
+      // Decree a part for the acceptor.
+      inst = g_malloc(sizeof(*inst));
+
+      inst->pi_val.pv_dkind = DEC_PART;
+      inst->pi_val.pv_reqid.id = pax.self_id;
+      inst->pi_val.pv_reqid.gen = (++pax.req_id);
+      inst->pi_val.pv_extra = acc->pa_paxid;
+
+      return proposer_decree(inst);
+    }
+  }
+
+  // If we didn't find the acceptor, fail.
+  return 1;
 }
