@@ -17,6 +17,8 @@
 // Local protocol state
 struct paxos_state pax;
 
+void ilist_insert(struct paxos_instance *);
+
 /**
  * paxos_init - Initialize local Paxos state.
  *
@@ -338,4 +340,29 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 
   g_free(hdr);
   return retval;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Shared protocol helpers
+//
+
+/**
+ * ilist_insert - Insert a newly allocated instance into the ilist, marking
+ * it as uncommitted (with one vote) and updating the hole.
+ */
+void
+ilist_insert(struct paxos_instance *inst)
+{
+  // Mark one vote.
+  inst->pi_votes = 1;
+
+  // Insert into the ilist.
+  instance_insert(&pax.ilist, inst);
+
+  // Update istart if we just instantiated the hole.
+  if (inst->pi_hdr.ph_inum == pax.ihole) {
+    pax.istart = inst;
+  }
 }

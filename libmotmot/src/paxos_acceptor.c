@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <glib.h>
 
+extern void ilist_insert(struct paxos_instance *);
+
 /**
  * acceptor_ack_prepare - Prepare for a new proposer.
  *
@@ -112,15 +114,9 @@ acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     inst = g_malloc0(sizeof(*inst));
     memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
     paxos_value_unpack(&inst->pi_val, o);
-    inst->pi_votes = 1; // For acceptors, != 0 just means not committed.
 
-    // Insert the new instance into the ilist.
-    inst = instance_insert(&pax.ilist, inst);
-
-    // Update pax.istart if we just instantiated the hole.
-    if (inst->pi_hdr.ph_inum == pax.ihole) {
-      pax.istart = inst;
-    }
+    // Insert into the ilist, marking uncommitted and updating istart.
+    ilist_insert(inst);
 
     // Accept the decree.
     return acceptor_accept(hdr);

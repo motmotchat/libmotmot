@@ -22,6 +22,8 @@ swap(void **p1, void **p2)
   *p2 = tmp;
 }
 
+extern void ilist_insert(struct paxos_instance *);
+
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
  *
@@ -282,16 +284,8 @@ proposer_decree(struct paxos_instance *inst)
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_inum = next_instance();
 
-  // Mark one vote.
-  inst->pi_votes = 1;
-
-  // Append to the ilist.
-  LIST_INSERT_TAIL(&pax.ilist, inst, pi_le);
-
-  // Update pax.istart if we just instantiated the hole.
-  if (inst->pi_hdr.ph_inum == pax.ihole) {
-    pax.istart = inst;
-  }
+  // Insert into the ilist, updating pi_votes and pax.istart.
+  ilist_insert(inst);
 
   // Pack and broadcast the decree.
   paxos_payload_init(&py, 2);
