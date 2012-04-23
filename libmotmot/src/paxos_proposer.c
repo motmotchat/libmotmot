@@ -132,10 +132,10 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // Loop through all the vote information.  Note that we assume the votes
   // are sorted by instance number.
   for (; p != pend; ++p) {
-    // Allocate and unpack a instance.
+    // Allocate and unpack a instance.  We don't care whether any of the
+    // acceptors have already committed; we can safely ask them to recommit
+    // without violating correctness.
     // TODO: Figure out a pretty way to deallocate less.
-    // XXX: Do we care if other acceptors have committed?  Answer: probably
-    // not because we can recommit without any correctness issue.
     inst = g_malloc0(sizeof(*inst));
     paxos_instance_unpack(inst, p);
     inst->pi_votes = 1; // Mark uncommitted.

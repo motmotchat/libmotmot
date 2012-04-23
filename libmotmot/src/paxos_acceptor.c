@@ -96,16 +96,13 @@ int
 acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
-  int cmp;
   struct paxos_instance *inst;
 
-  // Check the ballot on the message.
-  cmp = ballot_compare(hdr->ph_ballot, pax.ballot);
-  if (cmp < 0) {
-    // Ignore.
+  // Check the ballot on the message.  If it's not the most recent ballot
+  // that we've prepared for, we do not agree with the decree and simply
+  // take no action.
+  if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
     return 0;
-  } else if (cmp > 0) {
-    // XXX: What if the decree has a higher ballot?
   }
 
   // See if we have seen this instance for another ballot.
