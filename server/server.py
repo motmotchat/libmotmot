@@ -5,9 +5,14 @@ import gevent.socket
 import gevent.server
 import gevent.queue
 import msgpack
+import sys
 
 import rpc
+import motmot
 
+
+
+DOMAIN_NAME = ""
 
 class Connection():
     new = gevent.queue.Queue()
@@ -25,6 +30,10 @@ class Connection():
         # Spawn off reader-writer greenlets to process the queues
         gevent.spawn(self.__reader__)
         gevent.spawn(self.__writer__)
+        
+        # give the connection the server domain
+        # this is needed for server-server auth
+        self.domain = DOMAIN_NAME
 
         Connection.new.put(self)
 
@@ -38,7 +47,12 @@ class Connection():
         fd = self.socket.fileno()
         while True:
             gevent.socket.wait_read(fd)
-            unpacker.feed(self.socket.recv(4096))
+            rVal = self.socket.recv(4096)
+            if not rVal:
+                print "connection lost"
+                motmot.userDisc(self.address[0], self.address[1])
+                break;
+            unpacker.feed(rVal)
             for val in unpacker:
                 self.__recvqueue.put(val)
 
@@ -51,6 +65,7 @@ class Connection():
             self.socket.sendall(buf)
 
 if __name__ == '__main__':
+    DOMAIN_NAME = sys.argv[1]
     gevent.spawn(rpc.new_connection_watcher, Connection.new)
     server = gevent.server.StreamServer(('127.0.0.1', 8888), Connection)
     server.serve_forever()

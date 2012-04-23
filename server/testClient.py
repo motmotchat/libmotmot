@@ -7,26 +7,10 @@ import msgpack
 import time
 import socket as bSock
 
-class RemoteMethods:
-    AUTHENTICATE_USER=1
-    REGISTER_FRIEND=2
-    UNREGISTER_FRIEND=3
-    GET_FRIEND_IP=4
-    REGISTER_STATUS=5
-    AUTHENTICATE_SERVER=30
-    SERVER_SEND_FRIEND=31
-    SERVER_SEND_UNFRIEND=32
-    ACCEPT_FRIEND=6
-    SERVER_SEND_ACCEPT=34
-    SERVER_SEND_STATUS_CHANGED=33
-    PUSH_CLIENT_STATUS=20
-    PUSH_FRIEND_ACCEPT=21
-    GET_ALL_STATUSES=7
-    ALL_STATUS_RESPONSE=65
-    SERVER_GET_STATUS=35
-    SERVER_GET_STATUS_RESP=66
+import motmot
+from pprint import pprint as pp
 
-
+RM = motmot.RemoteMethods
 sendQ = queue.Queue()
 
 class sendGreenlet(Greenlet):
@@ -34,21 +18,16 @@ class sendGreenlet(Greenlet):
     def __init__(self, sock):
         Greenlet.__init__(self)
         self.sock = sock
-        self.msgIdCnt = 0
+        
 
     def _run(self):
         while True:
             msg = sendQ.get()
-            needId = [RemoteMethods.AUTHENTICATE_USER, RemoteMethods.REGISTER_FRIEND, RemoteMethods.UNREGISTER_FRIEND, RemoteMethods.GET_FRIEND_IP, RemoteMethods.REGISTER_STATUS, RemoteMethods.ACCEPT_FRIEND, RemoteMethods.GET_ALL_STATUSES]
-            if msg[1] in needId:
-                self.msgIdCnt+=1
-                msg[2] = ['c', self.msgIdCnt]
 
             sVal = msgpack.packb(msg)
             print "Sending: "
             print msg
             self.sock.sendall(sVal)
-            #test = [1,2,['c',self.msgIdCnt],"test@bensing.com"]
 
 
 class recvGreenlet(Greenlet):
@@ -58,20 +37,23 @@ class recvGreenlet(Greenlet):
         self.sock = sock
 
     def _run(self):
+        unpacker = msgpack.Unpacker()
         while True:
             rVal = self.sock.recv(4096)
             if not rVal:
                 print "connection gone"
                 break
 
-            rVal = msgpack.unpackb(rVal)
+            rVal = unpacker.feed(rVal)
             print "Receiving: "
-            print rVal
-            respList = [RemoteMethods.PUSH_CLIENT_STATUS, RemoteMethods.PUSH_FRIEND_ACCEPT]
-            if rVal[1] in respList:
-                sVal = [1, 60 ,rVal[2], "Success"]
-                print sVal
-                sendQ.put(sVal)
+            for o in unpacker:
+                pp(o)
+
+                respList = [RM.PUSH_CLIENT_STATUS, RM.PUSH_FRIEND_ACCEPT]
+                if o[0] in respList:
+                    sVal = [60 , "Success"]
+                    print sVal
+                    sendQ.put(sVal)
 
 
 
@@ -82,10 +64,9 @@ if __name__ == '__main__':
 
     sock = socket.socket()
     sock.connect(address)
-    sendQ.put([1,1,'',"ej@bensing.com","12345"])
-    sendQ.put([1,2,'',"test@bensing.com"])
-    sendQ.put([1,5,'',2])
-    sendQ.put([1,7,''])
+    sendQ.put([RM.AUTHENTICATE_USER,"ebensing@bensing.com","12345"])
+    sendQ.put([RM.REGISTER_FRIEND, "test@bensing.com"])
+    sendQ.put([RM.UNREGISTER_FRIEND, "test@bensing.com"])
     recv = recvGreenlet(sock)
     recv.start()
     send = sendGreenlet(sock)

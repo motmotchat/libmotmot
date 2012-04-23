@@ -4,9 +4,9 @@ import motmot
 RM = motmot.RemoteMethods
 
 dispatch_table = {
-    RM.AUTHENTICATE_USER:           motmot.nop,
-    RM.REGISTER_FRIEND:             motmot.nop,
-    RM.UNREGISTER_FRIEND:           motmot.nop,
+    RM.AUTHENTICATE_USER:           motmot.doAuth,
+    RM.REGISTER_FRIEND:             motmot.registerFriend,
+    RM.UNREGISTER_FRIEND:           motmot.unregisterFriend,
     RM.GET_FRIEND_IP:               motmot.nop,
     RM.REGISTER_STATUS:             motmot.nop,
     RM.AUTHENTICATE_SERVER:         motmot.nop,
