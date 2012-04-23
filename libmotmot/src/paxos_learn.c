@@ -186,6 +186,13 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 
       // Pull the acceptor from the alist.
       acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
+      if (acc == NULL) {
+        // It is possible that we may part twice; for instance, if a proposer
+        // issues a part for itself but its departure from the system is
+        // detected by acceptors before the part commit is received.  In this
+        // case, just do nothing.
+        break;
+      }
 
       // Invoke client learning callback.
       pax.learn.part(acc->pa_desc, acc->pa_size);
