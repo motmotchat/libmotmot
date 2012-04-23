@@ -345,8 +345,9 @@ proposer_commit(struct paxos_instance *inst)
   inst->pi_hdr.ph_opcode = OP_COMMIT;
 
   // Pack and broadcast the commit.
-  paxos_payload_init(&py, 1);
+  paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &(inst->pi_hdr));
+  paxos_value_pack(&py, &(inst->pi_val));
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 

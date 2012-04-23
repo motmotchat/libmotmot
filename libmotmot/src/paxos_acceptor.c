@@ -95,14 +95,16 @@ acceptor_promise(struct paxos_header *hdr)
  * Move to commit the given value for the given Paxos instance.
  */
 int
-acceptor_ack_decree(struct paxos_peer *source, struct paxos_header *hdr,
-    msgpack_object *o)
+acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 {
   struct paxos_instance *inst;
 
   // Check the ballot on the message.  If it's not the most recent ballot
   // that we've prepared for, we do not agree with the decree and simply
-  // take no action.
+  // take no action.  Importantly, the proposer doesn't keep track of
+  // who has responded to prepares, and hence if we respond to both the
+  // proposer's (higher) ballot and our (lower) ballot, we could break
+  // correctness guarantees.
   if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
     return 0;
   }
@@ -165,17 +167,31 @@ acceptor_accept(struct paxos_header *hdr)
  * value payload.
  */
 int
-acceptor_ack_commit(struct paxos_header *hdr)
+acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
 {
   struct paxos_instance *inst;
 
   // Retrieve the instance struct corresponding to the inum.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
 
-  // XXX: I don't think we need to check that the ballot numbers match
-  // because Paxos is supposed to guarantee that a commit command from the
-  // proposer will always be consistent.  For the same reason, we shouldn't
-  // have to check that inst might be NULL.
+  // The instance may not exist if we didn't get the original decree, but
+  // we can trust the majority and commit anyway.
+  if (inst == NULL) {
+    inst = g_malloc0(sizeof(*inst));
+    memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
+    ilist_insert(inst);
+  }
+
+  // If we committed already, ignore the commit; it's guaranteed to be the
+  // same by Paxos.
+  if (inst->pi_votes == 0) {
+    return 0;
+  }
+
+  // It's possible that we accepted a decree for inst->pi_inum which was never
+  // committed, and then we received a commit for a later ballot for which
+  // we never received the original decree.  So, we always reset the value.
+  paxos_value_unpack(&inst->pi_val, o);
 
   // Perform the commit.
   return paxos_commit(inst);

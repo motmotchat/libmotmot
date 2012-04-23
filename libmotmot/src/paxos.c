@@ -267,14 +267,14 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       paxos_redirect(source, hdr);
       break;
     case OP_DECREE:
-      acceptor_ack_decree(source, hdr, o);
+      acceptor_ack_decree(hdr, o);
       break;
     case OP_ACCEPT:
       g_error("Bad opcode OP_ACCEPT recieved by acceptor. Redirecting...\n");
       paxos_redirect(source, hdr);
       break;
     case OP_COMMIT:
-      acceptor_ack_commit(hdr);
+      acceptor_ack_commit(hdr, o);
       break;
 
     case OP_REQUEST:
