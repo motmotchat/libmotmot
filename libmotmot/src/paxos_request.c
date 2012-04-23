@@ -105,9 +105,8 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
  *
  * Regardless of whether the requester thinks we are the proposer, we
  * benevolently handle their request.  However, we send a redirect if they
- * mistook another acceptor as having proposership.
- *
- * XXX: I don't think this mistake can actually occur.
+ * mistook another acceptor as having proposership.  This should only
+ * ever occur if the send and receive of the request cross a failover.
  */
 int
 proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
