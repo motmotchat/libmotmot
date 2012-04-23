@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <glib.h>
 
-extern int paxos_force_kill(struct paxos_peer *);
+extern int proposer_force_kill(struct paxos_peer *);
 
 /**
  * paxos_request - Request that the proposer make a decree for us.
@@ -117,7 +117,7 @@ proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   // does not see that we are the highest-ranked acceptor (and hence the
   // proposer), kill them.
   if (hdr->ph_inum != pax.self_id) {
-    paxos_force_kill(source);
+    proposer_force_kill(source);
   }
 
   // Allocate a request and unpack into it.

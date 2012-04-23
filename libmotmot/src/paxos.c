@@ -18,7 +18,7 @@
 struct paxos_state pax;
 
 void ilist_insert(struct paxos_instance *);
-int paxos_force_kill(struct paxos_peer *);
+int proposer_force_kill(struct paxos_peer *);
 
 /**
  * paxos_init - Initialize local Paxos state.
