@@ -84,7 +84,7 @@ paxos_start(const void *desc, size_t size)
 
   inst->pi_val.pv_dkind = DEC_JOIN;
   inst->pi_val.pv_reqid.id = pax.self_id;
-  inst->pi_val.pv_reqid.gen = pax.req_id;
+  inst->pi_val.pv_reqid.gen = (++pax.req_id);
 
   // Add it to our ilist to mark our JOIN.
   LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);

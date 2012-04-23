@@ -206,7 +206,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
       inst->pi_val.pv_dkind = DEC_NULL;
       inst->pi_val.pv_reqid.id = pax.self_id;
-      inst->pi_val.pv_reqid.gen = pax.req_id;
+      inst->pi_val.pv_reqid.gen = (++pax.req_id);
 
       LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
 
@@ -246,7 +246,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst = g_malloc0(sizeof(*inst));
       inst->pi_val.pv_dkind = DEC_PART;
       inst->pi_val.pv_reqid.id = pax.self_id;
-      inst->pi_val.pv_reqid.gen = pax.req_id;
+      inst->pi_val.pv_reqid.gen = (++pax.req_id);
       inst->pi_val.pv_extra = acc->pa_paxid;
 
       // Decree it.
