@@ -33,6 +33,7 @@
 int
 paxos_commit(struct paxos_instance *inst)
 {
+  int err;
   struct paxos_request *req = NULL;
   struct paxos_instance *it;
 
@@ -59,7 +60,9 @@ paxos_commit(struct paxos_instance *inst)
   }
 
   // If we did just fill in the hole, learn it.
-  paxos_learn(inst, req);
+  if ((err = paxos_learn(inst, req))) {
+    return err;
+  }
 
   // Set pax.istart to point to the instance numbered pax.ihole.
   while (pax.istart->pi_hdr.ph_inum != pax.ihole) {
@@ -101,15 +104,19 @@ paxos_commit(struct paxos_instance *inst)
       break;
     }
 
-    // Otherwise, we've found a previously unlearned but committed instance,
-    // so learn it.  Note that an instance only commits if its associated
-    // request object was cached.
+    // Otherwise, we've found a previously unlearned but committed instance.
+    // Locate its associated request.  Note that an instance only commits if
+    // its associated request object was cached.
     req = NULL;
     if (request_needs_cached(it->pi_val.pv_dkind)) {
       req = request_find(&pax.rcache, it->pi_val.pv_reqid);
       assert(req != NULL);
     }
-    paxos_learn(it, req);
+
+    // Learn the value.
+    if ((err = paxos_learn(it, req))) {
+      return err;
+    }
   }
 
   return 0;
@@ -204,6 +211,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       } else {
         // We are leaving the protocol, so wipe all our state clean.
         paxos_end();
+        return 1;
       }
 
       // Prepare if we became the proposer as a result of the part.

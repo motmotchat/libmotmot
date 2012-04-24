@@ -181,20 +181,22 @@ static int
 proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
+  int retval = 0;
+
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
       // Invalid system state; kill the offender.
-      proposer_force_kill(source);
+      retval = proposer_force_kill(source);
       break;
     case OP_PROMISE:
-      proposer_ack_promise(hdr, o);
+      retval = proposer_ack_promise(hdr, o);
       break;
     case OP_DECREE:
       // Invalid system state; kill the offender.
-      proposer_force_kill(source);
+      retval = proposer_force_kill(source);
       break;
     case OP_ACCEPT:
-      proposer_ack_accept(source, hdr);
+      retval = proposer_ack_accept(source, hdr);
       break;
     case OP_COMMIT:
       // XXX: Commit and relinquish presidency if the ballot is higher,
@@ -202,51 +204,51 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       // we do and /are not preparing/, redirect; otherwise (if we don't
       // or we do but we are preparing), commit it.
       // Invalid system state; kill the offender.
-      proposer_force_kill(source);
+      retval = proposer_force_kill(source);
       break;
 
     case OP_REQUEST:
-      proposer_ack_request(source, hdr, o);
+      retval = proposer_ack_request(source, hdr, o);
       break;
     case OP_RETRIEVE:
-      paxos_ack_retrieve(hdr, o);
+      retval = paxos_ack_retrieve(hdr, o);
       break;
     case OP_RESEND:
-      paxos_ack_resend(hdr, o);
+      retval = paxos_ack_resend(hdr, o);
       break;
 
     case OP_WELCOME:
       // Invalid system state; kill the offender.
-      proposer_force_kill(source);
+      retval = proposer_force_kill(source);
       break;
     case OP_GREET:
       // Invalid system state; kill the offender.
-      proposer_force_kill(source);
+      retval = proposer_force_kill(source);
       break;
     case OP_HELLO:
       // This shouldn't be possible; all the acceptors who would say hello to
       // us are higher-ranked than us when we join the protocol, and if we are
       // the proposer, they have all dropped.  Try to kill whoever sent this
       // to us.
-      proposer_force_kill(source);
+      retval = proposer_force_kill(source);
       break;
     case OP_PTMY:
-      proposer_ack_ptmy(hdr);
+      retval = proposer_ack_ptmy(hdr);
       break;
 
     case OP_REDIRECT:
-      proposer_ack_redirect(hdr, o);
+      retval = proposer_ack_redirect(hdr, o);
       break;
     case OP_SYNC:
-      proposer_ack_sync(hdr, o);
+      retval = proposer_ack_sync(hdr, o);
       break;
     case OP_TRUNCATE:
       // Invalid system state; kill the offender.
-      proposer_force_kill(source);
+      retval = proposer_force_kill(source);
       break;
   }
 
-  return 0;
+  return retval;
 }
 
 /**
@@ -256,54 +258,56 @@ static int
 acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
+  int retval = 0;
+
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
-      acceptor_ack_prepare(source, hdr);
+      retval = acceptor_ack_prepare(source, hdr);
       break;
     case OP_PROMISE:
       // Ignore promises.
       break;
     case OP_DECREE:
-      acceptor_ack_decree(hdr, o);
+      retval = acceptor_ack_decree(hdr, o);
       break;
     case OP_ACCEPT:
       // Ignore accepts.
       break;
     case OP_COMMIT:
-      acceptor_ack_commit(hdr, o);
+      retval = acceptor_ack_commit(hdr, o);
       break;
 
     case OP_REQUEST:
-      acceptor_ack_request(source, hdr, o);
+      retval = acceptor_ack_request(source, hdr, o);
       break;
     case OP_RETRIEVE:
-      paxos_ack_retrieve(hdr, o);
+      retval = paxos_ack_retrieve(hdr, o);
       break;
     case OP_RESEND:
-      paxos_ack_resend(hdr, o);
+      retval = paxos_ack_resend(hdr, o);
       break;
 
     case OP_WELCOME:
-      acceptor_ack_welcome(source, hdr, o);
+      retval = acceptor_ack_welcome(source, hdr, o);
       break;
     case OP_GREET:
-      acceptor_ack_greet(hdr);
+      retval = acceptor_ack_greet(hdr);
       break;
     case OP_HELLO:
-      acceptor_ack_hello(source, hdr);
+      retval = acceptor_ack_hello(source, hdr);
       break;
     case OP_PTMY:
       // Ignore ptmy's.
       break;
 
     case OP_REDIRECT:
-      acceptor_ack_redirect(hdr, o);
+      retval = acceptor_ack_redirect(hdr, o);
       break;
     case OP_SYNC:
-      acceptor_ack_sync(hdr);
+      retval = acceptor_ack_sync(hdr);
       break;
     case OP_TRUNCATE:
-      acceptor_ack_truncate(hdr, o);
+      retval = acceptor_ack_truncate(hdr, o);
       break;
   }
 
