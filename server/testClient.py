@@ -60,16 +60,16 @@ class recvGreenlet(Greenlet):
 
 if __name__ == '__main__':
 
-    address = (bSock.gethostbyname('127.0.0.1'), 8888)
+    address = (bSock.gethostbyname('140.247.149.126'), 8888)
 
     sock = socket.socket()
     sock.connect(address)
-    sendQ.put([RM.AUTHENTICATE_USER,"ebensing@bensing.com","12345"])
-    sendQ.put([RM.REGISTER_FRIEND, "test@bensing.com"])
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing1.com","12345"])
+    sendQ.put([RM.REGISTER_FRIEND, "ej@bensing2.com"])
     #sendQ.put([RM.UNREGISTER_FRIEND, "test@bensing.com"])
-    sendQ.put([RM.REGISTER_STATUS, motmot.status.AWAY])
-    sendQ.put([RM.ACCEPT_FRIEND, "test@bensing.com"])
-    sendQ.put([RM.GET_ALL_STATUSES])
+    #sendQ.put([RM.REGISTER_STATUS, motmot.status.AWAY])
+    #sendQ.put([RM.ACCEPT_FRIEND, "test@bensing.com"])
+    #sendQ.put([RM.GET_ALL_STATUSES])
     recv = recvGreenlet(sock)
     recv.start()
     send = sendGreenlet(sock)
