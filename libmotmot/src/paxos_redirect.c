@@ -94,6 +94,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 
   // Cancel our prepare if it is still in progress.
   g_free(pax.prep);
+  pax.prep = NULL;
 
   if (acc->pa_peer != NULL) {
     // If the reconnect succeeds, relinquish proposership.
