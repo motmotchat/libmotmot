@@ -17,6 +17,7 @@ dispatch_table = {
     RM.SERVER_SEND_STATUS_CHANGED:  motmot.serverStatusChange,
     RM.GET_ALL_STATUSES:            motmot.getAllFriendStatuses,
     RM.SERVER_GET_STATUS:           motmot.serverGetStatus,
+    RM.SUCCESS:                     motmot.nop,
 }
 
 def writeback(conn, fn, args):

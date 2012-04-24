@@ -362,7 +362,8 @@ def getAllFriendStatuses(conn):
                 if splt[1] in frByDom:
                     frByDom[splt[1]].append(friend[0])
                 else:
-                    frByDom[splt[1]] = [].append(friend[0])
+                    frByDom[splt[1]] = []
+                    frByDom[splt[1]].append(friend[0])
         
         up = msgpack.Unpacker()
         # send a message to each other domain requesting a list of statuses of the requested users
@@ -376,7 +377,7 @@ def getAllFriendStatuses(conn):
             rVal = msgpack.unpackb(rVal)
             if rVal[0] != RM.AUTHENTICATED:
                 raise RPCError
-
+            
             sock.sendall(msgpack.packb([RM.SERVER_GET_STATUS, friends]))
             
             up.feed(sock.recv(4096))
