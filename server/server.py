@@ -6,6 +6,7 @@ import gevent.server
 import gevent.queue
 import msgpack
 import sys
+import socket as bSock
 
 import rpc
 import motmot
@@ -70,5 +71,6 @@ class Connection():
 if __name__ == '__main__':
     DOMAIN_NAME = sys.argv[1]
     gevent.spawn(rpc.new_connection_watcher, Connection.new)
-    server = gevent.server.StreamServer(('127.0.0.1', 8888), Connection)
+
+    server = gevent.server.StreamServer((bSock.gethostbyname(DOMAIN_NAME), 8888), Connection)
     server.serve_forever()
