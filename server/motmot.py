@@ -156,6 +156,8 @@ def registerFriend(conn, friend, un=None):
         # this shit ensures that we don't get in an infinite loop of messages
         if authList[conn.address][1] != status.SERVER:
             address = (bSock.gethostbyname(splt[1]), 8888)
+            print "remote addr:"
+            print address
             sock = socket.socket()
             sock.connect(address)
 
@@ -170,7 +172,7 @@ def registerFriend(conn, friend, un=None):
             sock.sendall(msgpack.packb([RM.SERVER_SEND_FRIEND, userName, friend]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            if rVal[0] != RM.SUCESS:
+            if rVal[0] != RM.SUCCESS:
                 raise RPCError
             sock.close()
 
@@ -218,7 +220,7 @@ def unregisterFriend(conn, friend, un=None):
             sock.sendall(msgpack.packb([RM.SERVER_SEND_UNFRIEND, userName, friend]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            if rVal[0] != RM.SUCESS:
+            if rVal[0] != RM.SUCCESS:
                 raise RPCError
 
             sock.close()
