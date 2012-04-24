@@ -17,7 +17,10 @@ motmot: $(SRC:.c=.o)
 tags:
 	ctags -R
 
-clean:
-	-rm -rf conn/* $(DEPDIR) $(SRC:.c=.o) motmot
+clean: disconn
+	-rm -rf $(DEPDIR) $(SRC:.c=.o) motmot
+
+disconn:
+	-rm -rf conn/*
 
 -include $(addprefix $(DEPDIR),$(SRC:.c=.d))
