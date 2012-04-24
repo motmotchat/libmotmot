@@ -16,6 +16,9 @@ DOMAIN_NAME = ""
 
 class Connection():
     new = gevent.queue.Queue()
+    
+    # used to allow for push updates
+    connTbl = {}
 
     def __init__(self, socket, address):
         self.socket = socket
@@ -50,7 +53,7 @@ class Connection():
             rVal = self.socket.recv(4096)
             if not rVal:
                 print "connection lost"
-                motmot.userDisc(self.address[0], self.address[1])
+                motmot.userDisc(self)
                 break;
             unpacker.feed(rVal)
             for val in unpacker:
