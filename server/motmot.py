@@ -99,7 +99,7 @@ def doAuth(conn, userName, password):
 #when a user disconnections, removes them from the auth list
 def userDisc(conn):
     if conn.address in authList:
-        if authList[conn.address] in conn.connTbl:
+        if authList[conn.address][0] in conn.connTbl:
             del conn.connTbl[authList[conn.address][0]]
         del authList[conn.address]
         
