@@ -119,6 +119,7 @@ def doAuthServer(conn, hostName):
     if hostIp == ipAddr:
         authList[(ipAddr, port)] = [hostName, status.SERVER]
         auth = True
+        conn.connTbl[hostName] = conn
 
     if auth:
         return [RM.AUTHENTICATED,"Authentication Succeeded"]
