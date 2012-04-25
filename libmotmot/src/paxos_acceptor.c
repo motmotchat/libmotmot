@@ -29,7 +29,8 @@ int
 acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
 {
   // If the ballot being prepared for is <= our most recent ballot, or if
-  // the preparer is not who we believe the proposer to be, redirect.
+  // the preparer is not the highest-ranking acceptor (i.e., the proposer),
+  // send a redirect.
   if (ballot_compare(hdr->ph_ballot, pax.ballot) <= 0 ||
       pax.proposer->pa_peer != source) {
     return paxos_redirect(source, hdr);
@@ -91,7 +92,9 @@ acceptor_promise(struct paxos_header *hdr)
 /**
  * acceptor_ack_decree - Accept a value for a Paxos instance.
  *
- * Move to commit the given value for the given Paxos instance.
+ * Move to commit the given value for the given Paxos instance.  If the decree
+ * is a part and we believe that the target of the part is still live, we may
+ * also reject.
  */
 int
 acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
@@ -107,11 +110,10 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   // (higher) ballot and our (lower) ballot, we could break correctness
   // guarantees by responding to more decrees for the lower ballot.
   if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
-    // XXX: Consider sending a reject.
     return 0;
   }
 
-  // Unpack the value and see if it decrees a part.  If so, but if the victim
+  // Unpack the value and see if it decrees a part.  If so, but if the target
   // acceptor is still alive, reject the decree.
   paxos_value_unpack(&val, o);
   if (val.pv_dkind == DEC_PART) {
