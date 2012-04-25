@@ -65,7 +65,7 @@ proposer_prepare()
   // XXX: If a majority of acceptors are disconnected, we should probably
   // just end the chat.
   pax.prep->pp_acks = 1;
-  pax.prep->pp_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
+  pax.prep->pp_redirects = LIST_COUNT(&pax.alist) - pax.live_count;
 
   // Initialize a Paxos header.
   hdr.ph_ballot.id = pax.prep->pp_ballot.id;
@@ -331,11 +331,11 @@ proposer_decree(struct paxos_instance *inst)
 /**
  * proposer_ack_accept - Acknowledge an acceptor's accept.
  *
- * Just increment the vote count of the correct Paxos instance and commit
+ * Just increment the vote count of the appropriate Paxos instance and commit
  * if we have a majority.
  */
 int
-proposer_ack_accept(struct paxos_peer *source, struct paxos_header *hdr)
+proposer_ack_accept(struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
 

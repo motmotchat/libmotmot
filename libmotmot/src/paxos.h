@@ -186,7 +186,7 @@ LIST_HEAD(request_list, paxos_request);
 struct paxos_prep {
   ballot_t pp_ballot;                 // ballot being prepared
   unsigned pp_acks;                   // number of prepare acks
-  unsigned pp_rejects;                // number of prepare rejects
+  unsigned pp_redirects;              // number of prepare rejects
 };
 
 /* Sync state used by proposers during sync. */

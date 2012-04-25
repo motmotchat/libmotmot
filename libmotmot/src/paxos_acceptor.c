@@ -101,12 +101,11 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_instance *inst;
 
   // Check the ballot on the message.  If it's not the most recent ballot
-  // that we've prepared for, we do not agree with the decree and simply
-  // take no action.  Importantly, the proposer doesn't keep track of
-  // who has responded to prepares, and hence if we respond to both the
-  // proposer's (higher) ballot and our (lower) ballot, we could break
-  // correctness guarantees by responding to more decrees for the lower
-  // ballot.
+  // that we've prepared for, we do not agree with the decree and simply take
+  // no action.  Importantly, the proposer doesn't keep track of who has
+  // responded to prepares, and hence if we respond to both the proposer's
+  // (higher) ballot and our (lower) ballot, we could break correctness
+  // guarantees by responding to more decrees for the lower ballot.
   if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
     // XXX: Consider sending a reject.
     return 0;
@@ -143,7 +142,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 }
 
 /**
- * acceptor_accept - Notify the proposer we accept their decree.
+ * acceptor_accept - Notify the proposer that we accept their decree.
  */
 int
 acceptor_accept(struct paxos_header *hdr)
@@ -161,7 +160,6 @@ acceptor_accept(struct paxos_header *hdr)
 
   return 0;
 }
-
 
 /**
  * acceptor_ack_commit - Commit a value.

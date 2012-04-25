@@ -202,7 +202,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       retval = proposer_force_kill(source);
       break;
     case OP_ACCEPT:
-      retval = proposer_ack_accept(source, hdr);
+      retval = proposer_ack_accept(hdr);
       break;
     case OP_COMMIT:
       // XXX: Commit and relinquish presidency if the ballot is higher,

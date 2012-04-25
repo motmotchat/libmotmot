@@ -100,10 +100,10 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // Acknowledge the rejection of our prepare.
-  pax.prep->pp_rejects++;
+  pax.prep->pp_redirects++;
 
   // Return if we haven't been rejected by a majority.
-  if (pax.prep->pp_rejects < MAJORITY) {
+  if (pax.prep->pp_redirects < MAJORITY) {
     return 0;
   }
 
