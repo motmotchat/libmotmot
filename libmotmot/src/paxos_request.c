@@ -22,6 +22,8 @@ extern int proposer_force_kill(struct paxos_peer *);
 static int
 proposer_decree_request(struct paxos_request *req)
 {
+  struct paxos_instance *inst;
+
   // Allocate an instance and copy in the value from the request.
   inst = g_malloc0(sizeof(*inst));
   memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
@@ -52,7 +54,6 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
   int needs_cached;
   struct paxos_header hdr;
   struct paxos_request *req;
-  struct paxos_instance *inst;
   struct paxos_yak py;
 
   // We can't make requests if we're not part of a protocol.
@@ -118,7 +119,6 @@ proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
   struct paxos_request *req;
-  struct paxos_instance *inst;
 
   // The requester overloads ph_inst to the ID of the acceptor it believes
   // to be the proposer.  If the requester has a live connection to us but
