@@ -265,14 +265,17 @@ acceptor_ack_greet(struct paxos_header *hdr)
   }
 
   // If the join has occurred, say hello to our new acceptor.
-  return acceptor_hello(acc);
+  return paxos_hello(acc);
 }
 
 /**
- * acceptor_hello - Let a new acceptor know our identity.
+ * paxos_hello - Let an acceptor know our identity
+ *
+ * This acceptor may have just joined the system, or we may be reintroducing
+ * ourselves after a dropped connection was reestablished.
  */
 int
-acceptor_hello(struct paxos_acceptor *acc)
+paxos_hello(struct paxos_acceptor *acc)
 {
   struct paxos_header hdr;
   struct paxos_yak py;
@@ -293,19 +296,59 @@ acceptor_hello(struct paxos_acceptor *acc)
 }
 
 /**
- * acceptor_ack_hello - Record the identity of a fellow acceptor.
+ * paxos_ack_hello - Record the identity of a fellow acceptor.
+ *
+ * As with paxos_hello(), we may receive a hello if we have just joined the
+ * system, or if someone is reconnecting with us after our connection was
+ * dropped.
  */
 int
-acceptor_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
+paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
 {
   struct paxos_acceptor *acc;
 
-  // Associate the peer to the corresponding acceptor.
+  // Grab the appropriate acceptor object.
   acc = acceptor_find(&pax.alist, hdr->ph_inum);
-  acc->pa_peer = source;
 
-  // One more acceptor is live to us.
-  pax.live_count++;
+  if (acc->pa_peer != NULL && hdr->ph_inum < pax.self_id) {
+    // If our acceptor already has a peer attached, both we and the acceptor
+    // attempted to reconnect concurrently and succeeded.  In this case, we
+    // keep the peer created by the higher-ranking (i.e., lower-ID) acceptor.
+    paxos_peer_destroy(acc->pa_peer);
+    acc->pa_peer = source;
+  } else if (acc->pa_peer == NULL) {
+    // If there is no peer, just attach it.
+    acc->pa_peer = source;
+    pax.live_count++;
+  }
+
+  // Suppose the source of the hello is the proposer.  The proposer only says
+  // hello when a part was rejected and our connection was reestablished.  We
+  // claim that, in this case, we can reset our ballot blindly without fear of
+  // inconsistency.  We have three cases to consider:
+  //
+  // 1. Our ballot numbers are equal.  Resetting is a no-op.
+  //
+  // 2. Our local ballot number is higher.  Someone else who was disconnected
+  // from the proposer must have prepared.  However, because the proposer was
+  // able to achieve a majority of responses rejecting the part decree, we
+  // know that, despite our local disconnect, the proposer is still supported
+  // by a majority, and hence the prepare for which we updated our ballot will
+  // fail.
+  // XXX: Think about this case some more.
+  //
+  // 3. Our local ballot number is lower.  The proposer is past the prepare
+  // phase, which means that a quorum of those votes which the proposer didn't
+  // know about at prepare time has already been processed.  Moreover, the
+  // proposer's ballot number will never change again in its lifetime, and
+  // all future ballots in the system should be higher, so it is safe to
+  // update our ballot.
+  //
+  // So update our ballot already.
+  if (hdr->ph_inum == pax.proposer->pa_paxid) {
+    pax.ballot.id = hdr->ph_ballot.id;
+    pax.ballot.gen = hdr->ph_ballot.gen;
+  }
 
   return 0;
 }

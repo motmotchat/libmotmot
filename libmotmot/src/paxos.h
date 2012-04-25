@@ -35,8 +35,8 @@ typedef enum paxos_opcode {
   /* Participant initiation. */
   OP_WELCOME,           // welcome the new acceptor into our proposership
   OP_GREET,             // tell all the acceptors to say hello
-  OP_HELLO,             // say hello to a fellow acceptor
-  OP_PTMY,              // acknowledge a hello or welcome
+  OP_HELLO,             // introduce ourselves after connecting
+  OP_PTMY,              // acknowledge a welcome
 
   /* Out-of-band decree requests. */
   OP_REQUEST,           // request a decree from the proposer
@@ -46,7 +46,6 @@ typedef enum paxos_opcode {
   /* Participant reconnection. */
   OP_REDIRECT,          // suggests the true identity of the proposer
   OP_REJECT,            // reject a part decree due to live connection
-  OP_REINTRO,           // reintroduce after a connection drop
 
   /* Log synchronization. */
   OP_SYNC,              // sync up ilists in preparation for a truncate

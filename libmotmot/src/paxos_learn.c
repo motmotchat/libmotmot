@@ -175,7 +175,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 
       // Send the deferred hello if necessary.
       if (deferred) {
-        acceptor_hello(acc);
+        paxos_hello(acc);
       }
 
       // Invoke client learning callback.

@@ -238,11 +238,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       retval = proposer_force_kill(source);
       break;
     case OP_HELLO:
-      // This shouldn't be possible; all the acceptors who would say hello to
-      // us are higher-ranked than us when we join the protocol, and if we are
-      // the proposer, they have all dropped.  Try to kill whoever sent this
-      // to us.
-      retval = proposer_force_kill(source);
+      retval = paxos_ack_hello(source, hdr);
       break;
     case OP_PTMY:
       retval = proposer_ack_ptmy(hdr);
@@ -253,9 +249,6 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
     case OP_REJECT:
       retval = proposer_ack_reject(hdr);
-      break;
-    case OP_REINTRO:
-      retval = paxos_ack_reintro(source, hdr);
       break;
 
     case OP_SYNC:
@@ -313,7 +306,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       retval = acceptor_ack_greet(hdr);
       break;
     case OP_HELLO:
-      retval = acceptor_ack_hello(source, hdr);
+      retval = paxos_ack_hello(source, hdr);
       break;
     case OP_PTMY:
       // Ignore ptmy's.
@@ -324,9 +317,6 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
     case OP_REJECT:
       // Ignore rejects.
-      break;
-    case OP_REINTRO:
-      retval = paxos_ack_reintro(source, hdr);
       break;
 
     case OP_SYNC:

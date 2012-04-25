@@ -35,8 +35,8 @@ int acceptor_ptmy(struct paxos_acceptor *);
 int proposer_ack_ptmy(struct paxos_header *);
 int proposer_greet(struct paxos_header *, struct paxos_acceptor *acc);
 int acceptor_ack_greet(struct paxos_header *);
-int acceptor_hello(struct paxos_acceptor *);
-int acceptor_ack_hello(struct paxos_peer *, struct paxos_header *);
+int paxos_hello(struct paxos_acceptor *);
+int paxos_ack_hello(struct paxos_peer *, struct paxos_header *);
 
 /* Out-of-band request protocol. */
 int proposer_ack_request(struct paxos_peer *, struct paxos_header *,
@@ -55,8 +55,6 @@ int proposer_ack_redirect(struct paxos_header *, msgpack_object *);
 int acceptor_ack_redirect(struct paxos_header *, msgpack_object *);
 int acceptor_reject(struct paxos_header *);
 int proposer_ack_reject(struct paxos_header *);
-int paxos_reintro(struct paxos_acceptor *);
-int paxos_ack_reintro(struct paxos_peer *, struct paxos_header *);
 
 /* Log sync protocol. */
 int proposer_sync(void);

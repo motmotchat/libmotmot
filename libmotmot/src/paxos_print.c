@@ -52,9 +52,6 @@ paxop_print(paxop_t op)
     case OP_REJECT:
       printf("OP_REJECT\n");
       break;
-    case OP_REINTRO:
-      printf("OP_REINTRO\n");
-      break;
     case OP_SYNC:
       printf("OP_SYNC\n");
       break;
