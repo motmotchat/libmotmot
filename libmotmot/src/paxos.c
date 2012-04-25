@@ -245,6 +245,9 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REDIRECT:
       retval = proposer_ack_redirect(hdr, o);
       break;
+    case OP_REJECT:
+      retval = proposer_ack_reject(hdr);
+      break;
     case OP_SYNC:
       retval = proposer_ack_sync(hdr, o);
       break;
@@ -309,6 +312,9 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REDIRECT:
       retval = acceptor_ack_redirect(hdr, o);
       break;
+    case OP_REJECT:
+      // Ignore rejects.
+      break;
     case OP_SYNC:
       retval = acceptor_ack_sync(hdr);
       break;
@@ -361,8 +367,9 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 void
 ilist_insert(struct paxos_instance *inst)
 {
-  // Mark one vote.
+  // Mark one vote and as many rejects as we have dead acceptors.
   inst->pi_votes = 1;
+  inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
 
   // Insert into the ilist.
   instance_insert(&pax.ilist, inst);

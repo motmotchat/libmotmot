@@ -45,6 +45,7 @@ typedef enum paxos_opcode {
 
   /* Protocol utilities. */
   OP_REDIRECT,          // suggests the true identity of the proposer
+  OP_REJECT,            // reject a part decree
   OP_SYNC,              // sync up ilists in preparation for a truncate
   OP_TRUNCATE,          // order acceptors to truncate their ilists
 } paxop_t;
@@ -168,6 +169,7 @@ LIST_HEAD(acceptor_list, paxos_acceptor);
 struct paxos_instance {
   struct paxos_header pi_hdr;         // Paxos header identifying the instance
   unsigned pi_votes;                  // number of accepts -OR- 0 if committed
+  unsigned pi_rejects;                // number of rejects; not sent over wire
   LIST_ENTRY(paxos_instance) pi_le;   // sorted linked list of instances
   struct paxos_value pi_val;          // value of the decree
 };

@@ -205,4 +205,7 @@ paxos_instance_unpack(struct paxos_instance *inst, msgpack_object *o)
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   inst->pi_votes = (p++)->via.u64;
   paxos_value_unpack(&inst->pi_val, p++);
+
+  // Set reject count to 0; it is never meaningful when transmitted.
+  inst->pi_rejects = 0;
 }

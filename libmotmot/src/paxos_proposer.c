@@ -151,7 +151,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     // TODO: Figure out a pretty way to deallocate less.
     inst = g_malloc0(sizeof(*inst));
     paxos_instance_unpack(inst, p);
-    inst->pi_votes = 1; // Mark uncommitted.
+    inst->pi_votes = 1;     // Mark uncommitted.
+    inst->pi_rejects = 0;   // Doesn't matter.
 
     // Get the closest instance with lesser or equal instance number.  After
     // starting Paxos, our instance list is guaranteed to always be nonempty,
@@ -220,6 +221,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_hdr.ph_inum = inum;
 
       inst->pi_votes = 1;
+      inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
 
       inst->pi_val.pv_dkind = DEC_NULL;
       inst->pi_val.pv_reqid.id = pax.self_id;
@@ -240,6 +242,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
       inst->pi_hdr.ph_opcode = OP_DECREE;
       inst->pi_votes = 1;
+      inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
     }
 
     // XXX: Maybe we should commit everything again to avoid hitting the (as
