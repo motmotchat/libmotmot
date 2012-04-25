@@ -103,34 +103,43 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   // Acknowledge the rejection of our prepare.
   pax.prep->pp_redirects++;
 
-  // Return if we haven't been rejected by a majority.
-  if (pax.prep->pp_redirects < MAJORITY) {
-    return 0;
+  // If we have been redirected by a majority, give up on the prepare and
+  // attempt reconnection.
+  if (pax.prep->pp_redirects >= MAJORITY) {
+    // Free the prepare.
+    g_free(pax.prep);
+    pax.prep = NULL;
+
+    // Connect to the higher-ranked acceptor indicated in the most recent
+    // redirect message we received (i.e., this one).  It's possible that an
+    // even higher-ranked acceptor exists, but we'll find that out when we
+    // try to send a request.
+    acc = acceptor_find(&pax.alist, hdr->ph_inum);
+    assert(acc->pa_peer == NULL);
+    acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+
+    if (acc->pa_peer != NULL) {
+      // If the reconnect succeeds, relinquish proposership and reintroduce
+      // ourselves to the proposer.
+      pax.proposer = acc;
+      pax.live_count++;
+      return paxos_hello(acc);
+    } else {
+      // If the reconnect fails, try preparing again.
+      return proposer_prepare();
+    }
   }
 
-  // Free the prepare.
-  g_free(pax.prep);
-  pax.prep = NULL;
-
-  // It appears that a majority of acceptors believe (or believed, at some
-  // point during the course of our prepare) that an acceptor of higher rank
-  // than us is still alive.  Let's try to connect to that acceptor.  Note
-  // that we should have already set the pa_peer of this acceptor to NULL
-  // to indicate the lost connection.
-  acc = acceptor_find(&pax.alist, hdr->ph_inum);
-  assert(acc->pa_peer == NULL);
-  acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
-
-  if (acc->pa_peer != NULL) {
-    // If the reconnect succeeds, relinquish proposership and reintroduce
-    // ourselves to the proposer.
-    pax.proposer = acc;
-    pax.live_count++;
-    return paxos_hello(acc);
-  } else {
-    // If the reconnect fails, try preparing again.
+  // If we have heard back from everyone but the acks and redirects are tied,
+  // just prepare again.
+  if (pax.prep->pp_acks < MAJORITY && pax.prep->pp_redirects < MAJORITY &&
+      pax.prep->pp_acks + pax.prep->pp_redirects == LIST_COUNT(&pax.alist)) {
+    g_free(pax.prep);
+    pax.prep = NULL;
     return proposer_prepare();
   }
+
+  return 0;
 }
 
 /**
@@ -226,40 +235,45 @@ proposer_ack_reject(struct paxos_header *hdr)
   // lifetime in the system.
   assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
 
-  // Find the decree of the correct instance and increment the vote count.
+  // Find the decree of the correct instance and increment the reject count.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
   inst->pi_rejects++;
-
-  // If we don't have a majority, just return.
-  if (inst->pi_rejects < MAJORITY) {
-    return 0;
-  }
 
   // We only reject parts.
   assert(inst->pi_val.pv_dkind == DEC_PART);
 
-  // See if we can reconnect to the acceptor we tried to part.
-  acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
-  assert(acc->pa_peer == NULL);
-  acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+  // If we have been rejected by a majority, attempt reconnection.
+  if (inst->pi_rejects >= MAJORITY) {
+    // See if we can reconnect to the acceptor we tried to part.
+    acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
+    assert(acc->pa_peer == NULL);
+    acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
 
-  if (acc->pa_peer != NULL) {
-    // Account for new live connection.
-    pax.live_count++;
+    if (acc->pa_peer != NULL) {
+      // Account for a new live connection.
+      pax.live_count++;
 
-    // Reintroduce ourselves to the acceptor.
-    paxos_hello(acc);
+      // Reintroduce ourselves to the acceptor.
+      paxos_hello(acc);
 
-    // Nullify the instance.
-    inst->pi_hdr.ph_opcode = OP_DECREE;
-    inst->pi_votes = 1;
-    inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
-    inst->pi_val.pv_dkind = DEC_NULL;
-    inst->pi_val.pv_extra = 0;
+      // Nullify the instance.
+      inst->pi_hdr.ph_opcode = OP_DECREE;
+      inst->pi_votes = 1;
+      inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
+      inst->pi_val.pv_dkind = DEC_NULL;
+      inst->pi_val.pv_extra = 0;
+    }
+
+    // Decree null if the reconnect succeeded, else redecree the part.
+    return paxos_broadcast_ihv(inst);
   }
 
-  // Decree null if the reconnect succeeded, else redecree the part.
-  paxos_broadcast_ihv(inst);
+  // If we have heard back from everyone but the accepts and rejects are tied,
+  // just decree the part again.
+  if (inst->pi_votes < MAJORITY && inst->pi_rejects < MAJORITY &&
+      inst->pi_votes + inst->pi_rejects == LIST_COUNT(&pax.alist)) {
+    return paxos_broadcast_ihv(inst);
+  }
 
   return 0;
 }
