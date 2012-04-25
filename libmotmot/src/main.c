@@ -125,8 +125,8 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
     // \part - Only do it if it's followed by a space or EOF.
     if (msg[6] == '\0' || msg[6] == ' ') {
       motmot_disconnect();
-      close(g_io_channel_unix_get_fd(self_channel));
       g_io_channel_shutdown(self_channel, TRUE, &gerr);
+      exit(0);
     }
   } else {
     // Broadcast via motmot.
