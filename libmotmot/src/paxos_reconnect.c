@@ -105,7 +105,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 
   // If we have been redirected by a majority, give up on the prepare and
   // attempt reconnection.
-  if (pax.prep->pp_redirects >= majority()) {
+  if (DEATH_ADJUSTED(pax.prep->pp_redirects) >= majority()) {
     // Free the prepare.
     g_free(pax.prep);
     pax.prep = NULL;
@@ -132,8 +132,9 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 
   // If we have heard back from everyone but the acks and redirects are tied,
   // just prepare again.
-  if (pax.prep->pp_acks < majority() && pax.prep->pp_redirects < majority() &&
-      pax.prep->pp_acks + pax.prep->pp_redirects == LIST_COUNT(&pax.alist)) {
+  if (pax.prep->pp_acks < majority() &&
+      DEATH_ADJUSTED(pax.prep->pp_redirects) < majority() &&
+      pax.prep->pp_acks + pax.prep->pp_redirects == pax.live_count) {
     g_free(pax.prep);
     pax.prep = NULL;
     return proposer_prepare();
@@ -243,7 +244,7 @@ proposer_ack_reject(struct paxos_header *hdr)
   assert(inst->pi_val.pv_dkind == DEC_PART);
 
   // If we have been rejected by a majority, attempt reconnection.
-  if (inst->pi_rejects >= majority()) {
+  if (DEATH_ADJUSTED(inst->pi_rejects) >= majority()) {
     // See if we can reconnect to the acceptor we tried to part.
     acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
     assert(acc->pa_peer == NULL);
@@ -259,7 +260,7 @@ proposer_ack_reject(struct paxos_header *hdr)
       // Nullify the instance.
       inst->pi_hdr.ph_opcode = OP_DECREE;
       inst->pi_votes = 1;
-      inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
+      inst->pi_rejects = 0;
       inst->pi_val.pv_dkind = DEC_NULL;
       inst->pi_val.pv_extra = 0;
     }
@@ -270,8 +271,9 @@ proposer_ack_reject(struct paxos_header *hdr)
 
   // If we have heard back from everyone but the accepts and rejects are tied,
   // just decree the part again.
-  if (inst->pi_votes < majority() && inst->pi_rejects < majority() &&
-      inst->pi_votes + inst->pi_rejects == LIST_COUNT(&pax.alist)) {
+  if (inst->pi_votes < majority() &&
+      DEATH_ADJUSTED(inst->pi_rejects) < majority() &&
+      inst->pi_votes + inst->pi_rejects == pax.live_count) {
     return paxos_broadcast_ihv(inst);
   }
 

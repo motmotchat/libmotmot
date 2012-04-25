@@ -389,9 +389,9 @@ paxos_broadcast_ihv(struct paxos_instance *inst)
 void
 ilist_insert(struct paxos_instance *inst)
 {
-  // Mark one vote and as many rejects as we have dead acceptors.
+  // Initialize our vote counts.
   inst->pi_votes = 1;
-  inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
+  inst->pi_rejects = 0;
 
   // Insert into the ilist.
   instance_insert(&pax.ilist, inst);

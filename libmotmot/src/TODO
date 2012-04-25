@@ -1,6 +1,4 @@
 Things left to do:
-- take live_count into account at majority-check time rather than at
-  counter-init time
 - just have the new acceptor say hello to everyone instead of doing this
   silly two-hop greet
 - implement RETRY to obtain missing commits; this will probably just be
