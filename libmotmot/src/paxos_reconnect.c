@@ -270,6 +270,22 @@ proposer_ack_reject(struct paxos_header *hdr)
 int
 paxos_reintro(struct paxos_acceptor *acc)
 {
+  struct paxos_header hdr;
+  struct paxos_yak py;
+
+  // Initialize a header.  We use ph_inum to identify ourselves as in the
+  // standard greet protocol.
+  hdr.ph_ballot.id = pax.ballot.id;
+  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_opcode = OP_REINTRO;
+  hdr.ph_inum = pax.self_id;
+
+  // Pack and send the reintro.
+  paxos_payload_init(&py, 1);
+  paxos_header_pack(&py, &hdr);
+  paxos_send(acc, UNYAK(&py));
+  paxos_payload_destroy(&py);
+
   return 0;
 }
 
@@ -277,7 +293,31 @@ paxos_reintro(struct paxos_acceptor *acc)
  * paxos_ack_reintro - Recognize an acceptor's reintroduction in order to
  * complete the reconnection process.
  */
-int paxos_ack_reintro(struct paxos_header *hdr)
+int paxos_ack_reintro(struct paxos_peer *source, struct paxos_header *hdr)
 {
+  struct paxos_acceptor *acc;
+
+  // Grab the appropriate acceptor object.
+  acc = acceptor_find(&pax.alist, hdr->ph_inum);
+
+  // If our acceptor already has a peer attached, both we and the acceptor
+  // attempted and succeeded in reconnecting concurrently.  In this case,
+  // we keep the peer created by the higher-ranking (i.e., lower-ID)
+  // acceptor.  If it doesn't, then just attach the peer.
+  if (acc->pa_peer != NULL && hdr->ph_inum < pax.self_id) {
+    paxos_peer_destroy(acc->pa_peer);
+    acc->pa_peer = source;
+  } else if (acc->pa_peer == NULL) {
+    acc->pa_peer = source;
+    pax.live_count++; // Only increment if no connection existed.
+  }
+
+  // If the source of the reintro is the proposer, then the proposer is
+  // necessarily past the prepare phase, so we can set our ballot without
+  // fear of inconsistency.
+  if (hdr->ph_inum == pax.proposer->pa_paxid) {
+    pax.ballot.id = hdr->ph_ballot.id;
+    pax.ballot.gen = hdr->ph_ballot.gen;
+  }
   return 0;
 }
