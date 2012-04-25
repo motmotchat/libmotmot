@@ -254,6 +254,10 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REJECT:
       retval = proposer_ack_reject(hdr);
       break;
+    case OP_REINTRO:
+      retval = paxos_ack_reintro(hdr);
+      break;
+
     case OP_SYNC:
       retval = proposer_ack_sync(hdr, o);
       break;
@@ -321,6 +325,10 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REJECT:
       // Ignore rejects.
       break;
+    case OP_REINTRO:
+      retval = paxos_ack_reintro(hdr);
+      break;
+
     case OP_SYNC:
       retval = acceptor_ack_sync(hdr);
       break;

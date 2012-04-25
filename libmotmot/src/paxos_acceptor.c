@@ -174,8 +174,9 @@ acceptor_accept(struct paxos_header *hdr)
 /**
  * acceptor_ack_commit - Commit a value.
  *
- * Commit this value as a permanent learned value, and notify listeners of the
- * value payload.
+ * Note that we don't check the ballot of the commit; if a commit is made, it
+ * is guaranteed by Paxos to be consistent, and hence we can blindly accept
+ * it.  We also call paxos_learn() to notify listeners of the value payload.
  */
 int
 acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)

@@ -43,9 +43,12 @@ typedef enum paxos_opcode {
   OP_RETRIEVE,          // retrieve missing request data for commit
   OP_RESEND,            // resend request data
 
-  /* Protocol utilities. */
+  /* Participant reconnection. */
   OP_REDIRECT,          // suggests the true identity of the proposer
-  OP_REJECT,            // reject a part decree
+  OP_REJECT,            // reject a part decree due to live connection
+  OP_REINTRO,           // reintroduce after a connection drop
+
+  /* Log synchronization. */
   OP_SYNC,              // sync up ilists in preparation for a truncate
   OP_TRUNCATE,          // order acceptors to truncate their ilists
 } paxop_t;

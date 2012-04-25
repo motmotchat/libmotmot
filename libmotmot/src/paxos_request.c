@@ -149,8 +149,8 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   struct paxos_request *req;
 
   // The requester overloads ph_inst to the acceptor it believes to be the
-  // proposer.  If we are incorrectly identified as the proposer, send a
-  // redirect.
+  // proposer.  If we are incorrectly identified as the proposer (i.e., if
+  // we believe someone higher-ranked is still live), send a redirect.
   if (hdr->ph_inum == pax.self_id) {
     paxos_redirect(source, hdr);
   }
