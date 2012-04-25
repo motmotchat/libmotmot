@@ -263,8 +263,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // sure to skip ourselves since we have no pa_peer.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
     if (acc->pa_peer == NULL && acc->pa_paxid != pax.self_id) {
-      printf("decreeing part: %u\n", acc->pa_paxid);
-
       proposer_decree_part(acc);
     }
   }
