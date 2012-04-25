@@ -17,7 +17,9 @@
 // Local protocol state
 struct paxos_state pax;
 
+int proposer_broadcast_ihv(struct paxos_instance *);
 void ilist_insert(struct paxos_instance *);
+int proposer_decree_part(struct paxos_acceptor *);
 int proposer_force_kill(struct paxos_peer *);
 
 /**
@@ -153,23 +155,29 @@ void
 paxos_drop_connection(struct paxos_peer *source)
 {
   int was_proposer;
-  struct paxos_acceptor *it;
+  struct paxos_acceptor *acc;
 
   // Are we the proposer right now?
   was_proposer = is_proposer();
 
   // Connection dropped; mark the acceptor as dead.
-  LIST_FOREACH(it, &pax.alist, pa_le) {
-    if (it->pa_peer == source) {
-      paxos_peer_destroy(it->pa_peer);
-      it->pa_peer = NULL;
+  LIST_FOREACH(acc, &pax.alist, pa_le) {
+    if (acc->pa_peer == source) {
+      paxos_peer_destroy(acc->pa_peer);
+      acc->pa_peer = NULL;
       pax.live_count--;
       break;
     }
   }
 
+  // If we are the proposer, decree a part for the acceptor.
+  if (was_proposer) {
+    proposer_decree_part(acc);
+    return;
+  }
+
   // Oh noes!  Did we lose the proposer?
-  if (it->pa_paxid == pax.proposer->pa_paxid) {
+  if (acc->pa_paxid == pax.proposer->pa_paxid) {
     // Let's mark the new one.
     reset_proposer();
 

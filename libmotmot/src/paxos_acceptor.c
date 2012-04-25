@@ -118,7 +118,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   paxos_value_unpack(&val, o);
   if (val.pv_dkind == DEC_PART) {
     acc = acceptor_find(&pax.alist, val.pv_extra);
-    if (acc->pa_peer == NULL) {
+    if (acc->pa_peer != NULL) {
       return acceptor_reject(hdr);
     }
   }
