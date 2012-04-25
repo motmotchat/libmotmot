@@ -59,24 +59,37 @@ proposer_ack_reject(struct paxos_header *hdr)
     return 0;
   }
 
-  // See if we can reconnect to the acceptor we tried to part.
-  acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
-  assert(acc->pa_peer == NULL);
-  acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+  switch (inst->pi_val.pv_dkind) {
+    case DEC_NULL:
+      break;
 
-  if (acc->pa_peer != NULL) {
-    // If the reconnect succeeds, nullify inst.
-    inst->pi_hdr.ph_opcode = OP_DECREE;
-    inst->pi_votes = 1;
-    inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
-    inst->pi_val.pv_dkind = DEC_NULL;
-    inst->pi_val.pv_extra = 0;
+    case DEC_CHAT:
+      break;
 
-    // XXX: Greet of some sort?
+    case DEC_JOIN:
+      break;
+
+    case DEC_PART:
+      // See if we can reconnect to the acceptor we tried to part.
+      acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
+      assert(acc->pa_peer == NULL);
+      acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+
+      if (acc->pa_peer != NULL) {
+        // If the reconnect succeeds, nullify inst.
+        inst->pi_hdr.ph_opcode = OP_DECREE;
+        inst->pi_votes = 1;
+        inst->pi_rejects = LIST_COUNT(&pax.alist) - pax.live_count;
+        inst->pi_val.pv_dkind = DEC_NULL;
+        inst->pi_val.pv_extra = 0;
+
+        // XXX: Greet of some sort?
+      }
+
+      // Decree null if the reconnect succeeded, else redecree the part.
+      paxos_broadcast_ihv(inst);
+      break;
   }
-
-  // Decree null if the reconnect succeeded, else redecree the part.
-  paxos_broadcast_ihv(inst);
 
   return 0;
 }
