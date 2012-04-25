@@ -162,6 +162,9 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 
       // Initialize a paxos_peer via a callback.
       acc->pa_peer = paxos_peer_init(pax.connect(req->pr_data, req->pr_size));
+      if (acc->pa_peer != NULL) {
+        pax.live_count++;
+      }
 
       // Copy over the identity information.
       acc->pa_size = req->pr_size;

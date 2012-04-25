@@ -184,13 +184,15 @@ LIST_HEAD(request_list, paxos_request);
 
 /* Preparation state used by new proposers. */
 struct paxos_prep {
-  unsigned pp_nacks;                  // number of prepare acks
+  ballot_t pp_ballot;                 // ballot being prepared
+  unsigned pp_acks;                   // number of prepare acks
+  unsigned pp_rejects;                // number of prepare rejects
 };
 
 /* Sync state used by proposers during sync. */
 struct paxos_sync {
   unsigned ps_total;      // number of acceptors syncing
-  unsigned ps_nacks;      // number of sync acks
+  unsigned ps_acks;       // number of sync acks
   unsigned ps_skips;      // number of times we skipped starting a new sync
   paxid_t ps_hole;        // inum of the first hole among all acceptors
 };
@@ -216,10 +218,12 @@ struct paxos_state {
   paxid_t ihole;                      // number of first uncommitted instance
   struct paxos_instance *istart;      // lower bound instance of first hole
 
+  paxid_t gen_high;                   // high water mark of ballots we've seen
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
   struct paxos_sync *sync;            // sync state; NULL if not syncing
   paxid_t sync_id;                    // locally-unique sync ID
 
+  unsigned live_count;                // number of acceptors we think are live
   struct acceptor_list alist;         // list of all Paxos participants
   struct instance_list ilist;         // list of all instances
   struct instance_list idefer;        // list of deferred instances

@@ -40,11 +40,10 @@ proposer_sync()
     }
   }
 
-
   // Create a new sync.
   pax.sync = g_malloc0(sizeof(*(pax.sync)));
   pax.sync->ps_total = LIST_COUNT(&pax.alist);
-  pax.sync->ps_nacks = 1; // Including ourselves.
+  pax.sync->ps_acks = 1; // Including ourselves.
   pax.sync->ps_skips = 0;
 
   // Initialize a header.
@@ -101,9 +100,9 @@ proposer_ack_sync(struct paxos_header *hdr, msgpack_object *o)
     pax.sync->ps_hole = hole;
   }
 
-  // Increment nacks and command a truncate if the sync is over.
-  pax.sync->ps_nacks++;
-  if (pax.sync->ps_nacks == pax.sync->ps_total) {
+  // Increment acks and command a truncate if the sync is over.
+  pax.sync->ps_acks++;
+  if (pax.sync->ps_acks == pax.sync->ps_total) {
     return proposer_truncate(hdr);
   }
 
@@ -160,7 +159,8 @@ proposer_truncate(struct paxos_header *hdr)
   }
 
   // Make the instance before this hole our new ibase, so as not to break
-  // pax.istart.
+  // pax.istart and to ensure that our ilist always has at least one
+  // committed instance.
   assert(pax.sync->ps_hole >= pax.ibase);
   pax.ibase = pax.sync->ps_hole - 1;
 

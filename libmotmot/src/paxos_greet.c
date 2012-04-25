@@ -100,6 +100,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   pax.ballot.id = hdr->ph_ballot.id;
   pax.ballot.gen = hdr->ph_ballot.gen;
   pax.self_id = hdr->ph_inum;
+  pax.gen_high = hdr->ph_ballot.gen;
 
   // Make sure the payload is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
@@ -130,6 +131,9 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
       pax.proposer->pa_peer = source;
     }
   }
+
+  // Two acceptors are live to us, the proposer and ourselves.
+  pax.live_count = 2;
 
   // Grab the ilist array.
   arr++;
@@ -301,6 +305,9 @@ acceptor_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
   // Associate the peer to the corresponding acceptor.
   acc = acceptor_find(&pax.alist, hdr->ph_inum);
   acc->pa_peer = source;
+
+  // One more acceptor is live to us.
+  pax.live_count++;
 
   return 0;
 }

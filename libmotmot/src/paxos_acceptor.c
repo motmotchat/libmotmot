@@ -58,6 +58,7 @@ acceptor_promise(struct paxos_header *hdr)
   // Set our ballot to the one given in the prepare.
   pax.ballot.id = hdr->ph_ballot.id;
   pax.ballot.gen = hdr->ph_ballot.gen;
+  pax.gen_high = pax.ballot.gen;
 
   // Start off the payload with the header.
   hdr->ph_opcode = OP_PROMISE;
@@ -104,8 +105,10 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   // take no action.  Importantly, the proposer doesn't keep track of
   // who has responded to prepares, and hence if we respond to both the
   // proposer's (higher) ballot and our (lower) ballot, we could break
-  // correctness guarantees.
+  // correctness guarantees by responding to more decrees for the lower
+  // ballot.
   if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
+    // XXX: Consider sending a reject.
     return 0;
   }
 
@@ -182,8 +185,9 @@ acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
     ilist_insert(inst);
   }
 
-  // If we committed already, ignore the commit; it's guaranteed to be the
+  // If we committed already, don't commit again; it's guaranteed to be the
   // same by Paxos.
+  // XXX: Should we update the ballot number?  I don't think it should matter.
   if (inst->pi_votes == 0) {
     return 0;
   }

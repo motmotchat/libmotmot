@@ -33,6 +33,7 @@ paxos_init(connect_t connect, struct learn_table *learn)
   pax.proposer = NULL;
   pax.ballot.id = 0;
   pax.ballot.gen = 0;
+  pax.gen_high = 0;
 
   pax.ibase = 0;
   pax.ihole = 0;
@@ -42,6 +43,7 @@ paxos_init(connect_t connect, struct learn_table *learn)
   pax.sync = NULL;
   pax.sync_id = 0;
 
+  pax.live_count = 0;
   LIST_INIT(&pax.alist);
   LIST_INIT(&pax.ilist);
   LIST_INIT(&pax.idefer);
@@ -72,6 +74,7 @@ paxos_start(const void *desc, size_t size)
   // Prepare a new ballot.  Hey, we accept the prepare!  Hoorah.
   pax.ballot.id = pax.self_id;
   pax.ballot.gen = 1;
+  pax.gen_high = 1;
 
   // Artificially generate an initial commit, without learning.
   inst = g_malloc0(sizeof(*inst));
@@ -104,6 +107,8 @@ paxos_start(const void *desc, size_t size)
   acc->pa_size = size;
   acc->pa_desc = g_memdup(desc, size);
   LIST_INSERT_HEAD(&pax.alist, acc, pa_le);
+
+  pax.live_count = 1;
 
   // Set ourselves as the proposer.
   pax.proposer = acc;
@@ -158,6 +163,7 @@ paxos_drop_connection(struct paxos_peer *source)
     if (it->pa_peer == source) {
       paxos_peer_destroy(it->pa_peer);
       it->pa_peer = NULL;
+      pax.live_count--;
       break;
     }
   }
