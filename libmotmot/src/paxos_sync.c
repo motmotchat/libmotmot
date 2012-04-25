@@ -10,8 +10,6 @@
 #include "list.h"
 
 #include <assert.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <glib.h>
 
 #define SYNC_SKIP_THRESH  100

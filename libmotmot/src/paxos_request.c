@@ -10,8 +10,6 @@
 #include "list.h"
 
 #include <assert.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <glib.h>
 
 extern int proposer_force_kill(struct paxos_peer *);

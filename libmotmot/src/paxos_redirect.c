@@ -11,8 +11,6 @@
 #include "list.h"
 
 #include <assert.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <glib.h>
 
 /**

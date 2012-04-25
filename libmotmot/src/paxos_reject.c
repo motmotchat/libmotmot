@@ -10,8 +10,6 @@
 #include "list.h"
 
 #include <assert.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <glib.h>
 
 extern int paxos_broadcast_ihv(struct paxos_instance *);
