@@ -23,6 +23,7 @@ swap(void **p1, void **p2)
 }
 
 extern void ilist_insert(struct paxos_instance *);
+extern int proposer_decree_part(struct paxos_acceptor *acc);
 
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
@@ -266,16 +267,9 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // sure to skip ourselves since we have no pa_peer.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
     if (acc->pa_peer == NULL && acc->pa_paxid != pax.self_id) {
-      // Initialize a new instance.
-      inst = g_malloc0(sizeof(*inst));
+      printf("decreeing part: %u\n", acc->pa_paxid);
 
-      inst->pi_val.pv_dkind = DEC_PART;
-      inst->pi_val.pv_reqid.id = pax.self_id;
-      inst->pi_val.pv_reqid.gen = (++pax.req_id);
-      inst->pi_val.pv_extra = acc->pa_paxid;
-
-      // Decree it.
-      proposer_decree(inst);
+      proposer_decree_part(acc);
     }
   }
 

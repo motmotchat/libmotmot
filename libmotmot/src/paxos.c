@@ -381,6 +381,24 @@ ilist_insert(struct paxos_instance *inst)
 }
 
 /**
+ * proposer_decree_part - Decree a part.
+ */
+int
+proposer_decree_part(struct paxos_acceptor *acc)
+{
+  struct paxos_instance *inst;
+
+  inst = g_malloc(sizeof(*inst));
+
+  inst->pi_val.pv_dkind = DEC_PART;
+  inst->pi_val.pv_reqid.id = pax.self_id;
+  inst->pi_val.pv_reqid.gen = (++pax.req_id);
+  inst->pi_val.pv_extra = acc->pa_paxid;
+
+  return proposer_decree(inst);
+}
+
+/**
  * proposer_force_kill - Somebody is misbehaving in our Paxos, and our proposer
  * will have none of it.
  *
@@ -397,7 +415,6 @@ int
 proposer_force_kill(struct paxos_peer *source)
 {
   struct paxos_acceptor *acc;
-  struct paxos_instance *inst;
 
   // Cry.
   g_critical("paxos_dispatch: Two live proposers detected.\n");
@@ -406,14 +423,7 @@ proposer_force_kill(struct paxos_peer *source)
   LIST_FOREACH(acc, &pax.alist, pa_le) {
     if (acc->pa_peer == source) {
       // Decree a part for the acceptor.
-      inst = g_malloc(sizeof(*inst));
-
-      inst->pi_val.pv_dkind = DEC_PART;
-      inst->pi_val.pv_reqid.id = pax.self_id;
-      inst->pi_val.pv_reqid.gen = (++pax.req_id);
-      inst->pi_val.pv_extra = acc->pa_paxid;
-
-      return proposer_decree(inst);
+      return proposer_decree_part(acc);
     }
   }
 
