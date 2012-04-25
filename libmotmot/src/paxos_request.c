@@ -17,6 +17,25 @@
 extern int proposer_force_kill(struct paxos_peer *);
 
 /**
+ * proposer_decree_request - Helper function for proposers to decree requests.
+ */
+static int
+proposer_decree_request(struct paxos_request *req)
+{
+  // Allocate an instance and copy in the value from the request.
+  inst = g_malloc0(sizeof(*inst));
+  memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
+
+  // Send a decree if we're not preparing; if we are, defer it.
+  if (pax.prep != NULL) {
+    LIST_INSERT_TAIL(&pax.idefer, inst, pi_le);
+    return 0;
+  } else {
+    return proposer_decree(inst);
+  }
+}
+
+/**
  * paxos_request - Request that the proposer make a decree for us.
  *
  * If the request has data attached to it, we broadcast an out-of-band message
@@ -83,22 +102,11 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
     paxos_payload_destroy(&py);
   }
 
-  // We're done if we're not the proposer.
-  if (!is_proposer()) {
-    return 0;
-  }
-
-  // We're the proposer, so allocate an instance and copy in the value from
-  // the request.
-  inst = g_malloc0(sizeof(*inst));
-  memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
-
-  // Send a decree if we're not preparing; if we are, defer it.
-  if (pax.prep != NULL) {
-    LIST_INSERT_TAIL(&pax.idefer, inst, pi_le);
-    return 0;
+  // Decree the request if we're the proposer; otherwise just return.
+  if (is_proposer()) {
+    return proposer_decree_request(req);
   } else {
-    return proposer_decree(inst);
+    return 0;
   }
 }
 
@@ -129,17 +137,7 @@ proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
     request_insert(&pax.rcache, req);
   }
 
-  // Allocate an instance and copy in the value from the request.
-  inst = g_malloc0(sizeof(*inst));
-  memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
-
-  // Send a decree if we're not preparing; if we are, defer it.
-  if (pax.prep != NULL) {
-    LIST_INSERT_TAIL(&pax.idefer, inst, pi_le);
-    return 0;
-  } else {
-    return proposer_decree(inst);
-  }
+  return proposer_decree_request(req);
 }
 
 /**
