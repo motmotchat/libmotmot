@@ -193,9 +193,9 @@ acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
     ilist_insert(inst);
   }
 
-  // If we committed already, don't commit again; it's guaranteed to be the
-  // same by Paxos.
-  // XXX: Should we update the ballot number?  I don't think it should matter.
+  // If we committed already, we know that a quorum has the same value that
+  // we do, which means any other decree for the same instance will share
+  // this same value.  So just return.
   if (inst->pi_votes == 0) {
     return 0;
   }
