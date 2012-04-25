@@ -54,10 +54,10 @@ motmot_invite(const void *handle, size_t len)
 /**
  * motmot_disconnect - Disconnect from a chat.
  */
-int
+void
 motmot_disconnect()
 {
-  return paxos_request(DEC_PART, NULL, 0);
+  paxos_end();
 }
 
 /**

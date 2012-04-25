@@ -53,8 +53,7 @@ int motmot_invite(const void *handle, size_t len);
  *
  * @returns         0 on success, nonzero on error
  */
-int
-motmot_disconnect(void);
+void motmot_disconnect(void);
 
 /**
  * motmot_send - Queue the message for reliable ordered broadcast.

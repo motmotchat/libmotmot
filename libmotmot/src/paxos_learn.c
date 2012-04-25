@@ -185,12 +185,6 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       break;
 
     case DEC_PART:
-      // The pv_extra field tells us who is parting (possibly a forced part).
-      // If it is 0, it is a user request to self-part.
-      if (inst->pi_val.pv_extra == 0) {
-        inst->pi_val.pv_extra = inst->pi_val.pv_reqid.id;
-      }
-
       // Are we the proposer right now?
       was_proposer = is_proposer();
 

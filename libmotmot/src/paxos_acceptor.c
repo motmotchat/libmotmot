@@ -113,11 +113,10 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
-  // Unpack the value and see if it's a forced part (if pv_extra == 0, the
-  // part is voluntary).
+  // Unpack the value and see if it decrees a part.  If so, but if the victim
+  // acceptor is still alive, reject the decree.
   paxos_value_unpack(&val, o);
-  if (val.pv_dkind == DEC_PART && val.pv_extra != 0) {
-    // If the parting acceptor is still alive, reject the part.
+  if (val.pv_dkind == DEC_PART) {
     acc = acceptor_find(&pax.alist, val.pv_extra);
     if (acc->pa_peer == NULL) {
       return acceptor_reject(hdr);
