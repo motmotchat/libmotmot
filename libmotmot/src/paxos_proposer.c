@@ -130,7 +130,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // If the promise is for some other ballot, just ignore it.
-  if (ballot_compare(pax.ballot, hdr->ph_ballot) != 0) {
+  if (ballot_compare(pax.prep->pp_ballot, hdr->ph_ballot) != 0) {
     return 0;
   }
 
