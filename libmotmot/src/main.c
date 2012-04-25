@@ -20,9 +20,10 @@
   }
 
 GMainLoop *gmain;
+GIOChannel *self_channel;
 
 /**
- * Create a local UNIX socket and wrap it in a GIOChannel.
+ * socket_open - Create a local UNIX socket and wrap it in a GIOChannel.
  */
 GIOChannel *
 socket_open(const char *handle, size_t len, bool listening)
@@ -60,15 +61,15 @@ listen_unix(const void *handle, size_t len)
   return socket_open((char *)handle, len, true);
 }
 
-/**
- * Wrapper around create_socket_channel.
- */
 GIOChannel *
 connect_unix(const void *handle, size_t len)
 {
   return socket_open((char *)handle, len, false);
 }
 
+/**
+ * socket_accept - Like UNIX accept() but with GIOChannels.
+ */
 int
 socket_accept(GIOChannel *source, GIOCondition condition, void *data)
 {
@@ -93,6 +94,9 @@ socket_accept(GIOChannel *source, GIOCondition condition, void *data)
   return TRUE;
 }
 
+/**
+ * input_loop - Listen for input on stdin, parse, and dispatch.
+ */
 int
 input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 {
@@ -121,6 +125,8 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
     // \part - Only do it if it's followed by a space or EOF.
     if (msg[6] == '\0' || msg[6] == ' ') {
       motmot_disconnect();
+      close(g_io_channel_unix_get_fd(self_channel));
+      g_io_channel_shutdown(self_channel, TRUE, &gerr);
     }
   } else {
     // Broadcast via motmot.
@@ -153,7 +159,6 @@ int
 main(int argc, char *argv[])
 {
   int i;
-  GIOChannel *channel;
 
   if (argc < 2) {
     printf("Usage: motmot my/sock [other/socks...]\n");
@@ -164,8 +169,8 @@ main(int argc, char *argv[])
   gmain = g_main_loop_new(g_main_context_default(), FALSE);
 
   // Create our server / listening socket.
-  channel = listen_unix(argv[1], strlen(argv[1]));
-  g_io_add_watch(channel, G_IO_IN, socket_accept, NULL);
+  self_channel = listen_unix(argv[1], strlen(argv[1]));
+  g_io_add_watch(self_channel, G_IO_IN, socket_accept, NULL);
 
   // Watch for input on stdin.
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
