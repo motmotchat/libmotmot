@@ -239,8 +239,6 @@ struct paxos_state {
 
 extern struct paxos_state pax;
 
-#define MAJORITY  ((LIST_COUNT(&(pax.alist)) / 2) + 1)
-
 /* Paxos protocol interface. */
 void paxos_init(connect_t, struct learn_table *);
 void paxos_start(const void *, size_t);

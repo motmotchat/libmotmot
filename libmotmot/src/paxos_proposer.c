@@ -188,7 +188,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   pax.prep->pp_acks++;
 
   // Return if we don't have a majority of acks; otherwise, end the prepare.
-  if (pax.prep->pp_acks < MAJORITY) {
+  if (pax.prep->pp_acks < majority()) {
     return 0;
   }
 
@@ -304,7 +304,7 @@ proposer_decree(struct paxos_instance *inst)
   paxos_broadcast_ihv(inst);
 
   // Do we constitute a majority ourselves?  If so, commit!
-  if (inst->pi_votes >= MAJORITY) {
+  if (inst->pi_votes >= majority()) {
     return proposer_commit(inst);
   }
 
@@ -332,7 +332,7 @@ proposer_ack_accept(struct paxos_header *hdr)
   inst->pi_votes++;
 
   // If we have a majority, send a commit message.
-  if (inst->pi_votes >= MAJORITY) {
+  if (inst->pi_votes >= majority()) {
     return proposer_commit(inst);
   }
 

@@ -56,6 +56,21 @@ request_needs_cached(dkind_t dkind)
 }
 
 /**
+ * Get the minimum number of acceptors needed in a simple majority.
+ */
+unsigned
+majority()
+{
+  return (LIST_COUNT(&pax.alist) / 2) + 1;
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Comparison functions.
+//
+
+/**
  * Compare two paxid's.
  */
 int
@@ -112,7 +127,7 @@ reqid_compare(reqid_t x, reqid_t y)
 
 ///////////////////////////////////////////////////////////////////////////
 //
-//  Struct destructors.
+//  Destructor routines.
 //
 
 void
