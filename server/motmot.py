@@ -11,7 +11,8 @@ from mothelper import *
 
 from pprint import pprint as pp # For debugging
 
-# TODO: All the methods that used to live in motServer.py should go here
+# TODO: <s>Make auth push out status update when user comes online</s>
+#       add error handling for when server cannot connect to remote domains socket.gaierror, probably need to catch a couple other errors
 
 class RemoteMethods:
     AUTHENTICATE_USER=1
@@ -83,6 +84,8 @@ def doAuth(conn, userName, password):
             # add the connection to the connTbl in Connection
             # this is used for push updates
             conn.connTbl[userName] = conn
+            statusChanged(conn, status.ONLINE)
+
 
     except lite.Error, e:
         print "Error %s:" % e.args[0]
