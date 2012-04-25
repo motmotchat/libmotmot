@@ -361,6 +361,24 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 //
 
 /**
+ * paxos_broadcast_ihv - Pack the header and value of an instance and
+ * broadcast.
+ */
+int
+paxos_broadcast_ihv(struct paxos_instance *inst)
+{
+  struct paxos_yak py;
+
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &(inst->pi_hdr));
+  paxos_value_pack(&py, &(inst->pi_val));
+  paxos_broadcast(UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return 0;
+}
+
+/**
  * ilist_insert - Insert a newly allocated instance into the ilist, marking
  * it as uncommitted (with one vote) and updating the hole.
  */

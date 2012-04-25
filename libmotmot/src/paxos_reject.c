@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <glib.h>
 
+extern int paxos_broadcast_ihv(struct paxos_instance *);
+
 /**
  * acceptor_reject - Notify the proposer that we reject their decree.
  */
@@ -47,7 +49,6 @@ proposer_ack_reject(struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
   struct paxos_acceptor *acc;
-  struct paxos_yak py;
 
   assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
 
@@ -77,11 +78,7 @@ proposer_ack_reject(struct paxos_header *hdr)
   }
 
   // Decree null if the reconnect succeeded, else redecree the part.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_value_pack(&py, &(inst->pi_val));
-  paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
+  paxos_broadcast_ihv(inst);
 
   return 0;
 }

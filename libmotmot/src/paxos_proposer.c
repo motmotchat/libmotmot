@@ -23,7 +23,8 @@ swap(void **p1, void **p2)
 }
 
 extern void ilist_insert(struct paxos_instance *);
-extern int proposer_decree_part(struct paxos_acceptor *acc);
+extern int proposer_decree_part(struct paxos_acceptor *);
+extern int paxos_broadcast_ihv(struct paxos_instance *);
 
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
@@ -121,7 +122,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   msgpack_object *p, *pend;
   struct paxos_instance *inst, *it;
   paxid_t inum;
-  struct paxos_yak py;
   struct paxos_acceptor *acc;
 
   // If we're not preparing but are still the proposer, then our prepare has
@@ -251,11 +251,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
     // Pack and broadcast the decree.
     if (inst != NULL) {
-      paxos_payload_init(&py, 2);
-      paxos_header_pack(&py, &(inst->pi_hdr));
-      paxos_value_pack(&py, &(inst->pi_val));
-      paxos_broadcast(UNYAK(&py));
-      paxos_payload_destroy(&py);
+      paxos_broadcast_ihv(inst);
     }
   }
 
@@ -299,8 +295,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 int
 proposer_decree(struct paxos_instance *inst)
 {
-  struct paxos_yak py;
-
   // Update the header.
   inst->pi_hdr.ph_ballot.id = pax.ballot.id;
   inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
@@ -311,11 +305,7 @@ proposer_decree(struct paxos_instance *inst)
   ilist_insert(inst);
 
   // Pack and broadcast the decree.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_value_pack(&py, &(inst->pi_val));
-  paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
+  paxos_broadcast_ihv(inst);
 
   // Do we constitute a majority ourselves?  If so, commit!
   if (inst->pi_votes >= MAJORITY) {
@@ -362,17 +352,11 @@ proposer_ack_accept(struct paxos_header *hdr)
 int
 proposer_commit(struct paxos_instance *inst)
 {
-  struct paxos_yak py;
-
   // Modify the instance header.
   inst->pi_hdr.ph_opcode = OP_COMMIT;
 
   // Pack and broadcast the commit.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_value_pack(&py, &(inst->pi_val));
-  paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
+  paxos_broadcast_ihv(inst);
 
   // Commit and learn the value ourselves.
   return paxos_commit(inst);
