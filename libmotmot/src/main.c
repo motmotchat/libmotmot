@@ -43,8 +43,8 @@ socket_open(const char *handle, size_t len, bool listening)
     err(listen(s, 5) < 0, "listen");
   } else {
     if (connect(s, (struct sockaddr *)saddr, sizeof(short) + len) < 0) {
-      // Connection refused.  Probably a stale socket, so just ignore it.
-      g_warning("socket_open: Connection refused.");
+      // Connection refused.  Probably a stale socket, so let Paxos know that
+      // the other client is probably dead.
       return NULL;
     }
   }

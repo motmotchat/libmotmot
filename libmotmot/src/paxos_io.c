@@ -22,6 +22,10 @@ paxos_peer_init(GIOChannel *channel)
 {
   struct paxos_peer *peer;
 
+  if (channel == NULL) {
+    return NULL;
+  }
+
   peer = g_malloc0(sizeof(*peer));
   peer->pp_channel = channel;
 
