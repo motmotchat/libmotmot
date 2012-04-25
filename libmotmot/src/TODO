@@ -1,8 +1,10 @@
 Things left to do:
+- decide how to break ties between accepts and rejects (should be in the
+  direction of "try again")
+- just have the new acceptor say hello to everyone instead of doing this
+  silly two-hop greet
 - implement RETRY to obtain missing commits; this will probably just be
   done through the SYNC protocol
 - make request cache retrieves more robust; figure out who to ask that
   isn't the request originator
-- decide how to break ties between accepts and rejects (should be in the
-  direction of "try again")
 - lots and lots of error-handling
