@@ -1,6 +1,4 @@
 Things left to do:
-- just have the new acceptor say hello to everyone instead of doing this
-  silly two-hop greet
 - implement RETRY to obtain missing commits; this will probably just be
   done through the SYNC protocol
 - make request cache retrieves more robust; figure out who to ask that
