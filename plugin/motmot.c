@@ -49,9 +49,6 @@
 #include <ctype.h>
 #include <msgpack.h>
 
-// MOTMOT presentation thingy
-#define ROOM_ID "Jeff's Room"
-#define CHAT_ID 1
 
 // Nop!
 
@@ -61,11 +58,14 @@
 #define DISPLAY_VERSION "1"
 #define MOTMOT_WEBSITE "https://github.com/zenazn/motmot"
 
+#define DEFAULT_SERV "motmottest.com"
+#define DEFAULT_PORT 8888
+
 /* If you're using this as the basis of a prpl that will be distributed
  * separately from libpurple, remove the internal.h include below and replace
  * it with code to include your own config.h or similar.  If you're going to
  * provide for translation, you'll also need to setup the gettext macros. */
-//#include "internal.h"
+// #include "internal.h"
 
 #include "account.h"
 #include "accountopt.h"
@@ -82,8 +82,10 @@
 #include "util.h"
 #include "version.h"
 
-static void motmot_rec_stuff(const char *stuff, size_t s, void *ptr);
-static void motmot_send_stuff(const char *msg, const char *username);
+#include "motmot.h"
+
+static void motmot_login_cb(gpointer data, gint source, const gchar *error_message);
+void motmot_parse(char *buffer, int len);
 
 #define NULLPRPL_ID "prpl-motmot"
 static PurplePlugin *_null_protocol = NULL;
@@ -377,14 +379,50 @@ static GHashTable *nullprpl_chat_info_defaults(PurpleConnection *gc,
 
 static void nullprpl_login(PurpleAccount *acct)
 {
+  char **userparts;
+  motmot_conn *conn;
+  int port;
+
+	const char *username = purple_account_get_username(acct);
+
   PurpleConnection *gc = purple_account_get_connection(acct);
   GList *offline_messages;
 
   purple_debug_info("nullprpl", "logging in %s\n", acct->username);
 
+  /* MOTMOT! */
+
+	if (strpbrk(username, " \t\v\r\n") != NULL) {
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
+			_("Motmot server may not contain whitespace"));
+		return;
+	}
+
+  gc -> proto_data = conn = g_new0(motmot_conn, 1); 
+  conn -> fd = g_io_channel_unix_new(-1);
+  conn -> account = acct;
+  
+  userparts = g_strsplit(username, "@", 2);
+  purple_connection_set_display_name(gc, userparts[0]);
+  conn -> server = g_strdup(userparts[1]);
+  g_strfreev(userparts);
+
+  port = purple_account_get_int(acct, "disc_port", DEFAULT_PORT);
+
   purple_connection_update_progress(gc, _("Connecting"),
                                     0,   /* which connection step this is */
                                     2);  /* total number of steps */
+
+  /* no ssl support yet */
+  if (purple_proxy_connect(gc, acct, conn->server, port, motmot_login_cb, gc)
+    == NULL){
+    purple_connection_error_reason (gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+    _("Unable to connect"));
+    return;
+  }
+
+
 
   purple_connection_update_progress(gc, _("Connected"),
                                     1,   /* which connection step this is */
@@ -417,65 +455,77 @@ static void nullprpl_login(PurpleAccount *acct)
   g_list_free(offline_messages);
   g_hash_table_remove(goffline_messages, &acct->username);
 
-  // TESTING CODE
-  serv_got_joined_chat(gc, CHAT_ID, ROOM_ID);
 }
 
-// silly stuff
-// from
-// chat id
-// message
-/*
-static void motmot_send_stuff(const char *msg, const char *username){
-    msgpack_sbuffer *buffer = msgpack_sbuffer_new();
-    msgpack_packer* pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
+static gboolean do_login(PurpleConnection *gc){
+  return TRUE;
+}
 
-    msgpack_pack_array(pk, 3);
+void motmot_parse(char *buffer, int len){
+  gboolean success;
+  msgpack_unpacked msg;
+  msgpack_unpacked_init(&msg);
 
-    msgpack_pack_raw(pk, strlen(username) + 1);
-    msgpack_pack_raw_body(pk, username, strlen(username) + 1);
+  success = msgpack_unpack_next(&msg, buffer, len, NULL);
 
-    msgpack_pack_int(pk, CHAT_ID);
-
-    msgpack_pack_raw(pk, strlen(msg+1));
-    msgpack_pack_raw_body(pk, msg, strlen(msg) + 1);
-
-    //motmot_send(buffer -> data, buffer -> size);
-
-    msgpack_sbuffer_free(buffer);
-    msgpack_packer_free(pk);
 }
 
 
-static void motmot_rec_stuff(const char *stuff, size_t s, void *ptr){
-    const char *from;
-    int id;
-    msgpack_object obj;
-    const char *unpacked_msg;
+/* read in data, parse, undertake appropriate action */
 
-    msgpack_unpacked msg;
-    msgpack_unpacked_init(&msg);
+static void motmot_input_cb(gpointer *data, gint fd, PurpleInputCondition cond){
+  PurpleConnection *gc = (PurpleConnection *) data;
+  gsize l;
+  char *buffer = g_malloc(512);
 
-    msgpack_unpack_next(&msg, stuff, s, NULL); 
+  GError *err = g_error_new(0, 0, NULL);
+  GIOChannel *f = g_io_channel_unix_new(fd); 
+  GIOStatus s = g_io_channel_read_to_end(f, &buffer, &l, &err);
+  if(s == G_IO_STATUS_AGAIN){
+     return;
+  }
 
-    obj = msg.data;
+  else if (s != G_IO_STATUS_NORMAL){
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, _("network error"));
+		return;
+  }
 
-    from = ((obj.via).raw).ptr; 
+  else if (l == 0){
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+			_("Server closed the connection"));
+		return;
+  }
 
-    msgpack_unpack_next(&msg, stuff, s, NULL); 
-
-    obj = msg.data;
-
-    id = (obj.via).i64;
-
-
-    msgpack_unpack_next(&msg, stuff, s, NULL); 
-
-    obj = msg.data;
-
-    unpacked_msg = ((obj.via).raw).ptr;
+  motmot_parse(buffer, l);
+  g_free(buffer);
+  return;
 }
-*/
+
+
+static void motmot_login_cb(gpointer data, gint source, const gchar *error_message){
+  PurpleConnection *gc = data;
+  motmot_conn *conn = gc -> proto_data;
+
+	if (source < 0) {
+		gchar *tmp = g_strdup_printf(_("Unable to connect: %s"),
+			error_message);
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+		g_free(tmp);
+		return;
+	}
+
+	if (do_login(gc)) {
+		gc->inpa = purple_input_add(source, PURPLE_INPUT_READ, motmot_input_cb, gc);
+	}
+  conn -> fd = g_io_channel_unix_new(source);
+}
+
+
+
+
 
 static void nullprpl_close(PurpleConnection *gc)
 {
@@ -486,8 +536,6 @@ static void nullprpl_close(PurpleConnection *gc)
 static int nullprpl_send_im(PurpleConnection *gc, const char *who,
                             const char *message, PurpleMessageFlags flags)
 {
-  int i;
-  char *message2;
 
   const char *from_username = gc->account->username;
   PurpleMessageFlags receive_flags = ((flags & ~PURPLE_MESSAGE_SEND)
@@ -513,18 +561,8 @@ static int nullprpl_send_im(PurpleConnection *gc, const char *who,
   /* is the recipient online? */
   to = get_nullprpl_gc(who);
   if (to) {  /* yes, send */
-    message2 = malloc((strlen(message) + 1) * sizeof(char));
-    for(i=0;;i++){
-        if(message[i] == '\0'){
-            break;
-        }
-        message2[i] = message[i];
-    }
-    message2[i] = '\0';
 
-    serv_got_im(to, from_username, message2, receive_flags, time(NULL));
-
-    free(message2);
+    serv_got_im(to, from_username, message, receive_flags, time(NULL));
 
   } else {  /* nope, store as an offline message */
     GOfflineMessage *offline_message;
@@ -942,10 +980,6 @@ static int nullprpl_chat_send(PurpleConnection *gc, int id, const char *message,
     /* send message to everyone in the chat room */
     foreach_gc_in_chat(receive_chat_message, gc, id, (gpointer)message);
     
-    // TESTING THINGS
-    if(id == CHAT_ID){
-        // motmot_send_stuff(msg, username);
-    }
     return 0;
   } else {
     purple_debug_info("nullprpl",
@@ -1139,7 +1173,7 @@ static gboolean nullprpl_offline_message(const PurpleBuddy *buddy) {
 
 static PurplePluginProtocolInfo prpl_info =
 {
-  OPT_PROTO_NO_PASSWORD | OPT_PROTO_CHAT_TOPIC,  /* options */
+  /* OPT_PROTO_NO_PASSWORD |  OPT_PROTO_CHAT_TOPIC */ 0,  /* options */
   NULL,               /* user_splits, initialized in nullprpl_init() */
   NULL,               /* protocol_options, initialized in nullprpl_init() */
   {   /* icon_spec, a PurpleBuddyIconSpec */
@@ -1227,14 +1261,15 @@ static void nullprpl_init(PurplePlugin *plugin)
 {
   /* see accountopt.h for information about user splits and protocol options */
   PurpleAccountUserSplit *split = purple_account_user_split_new(
-    _("Example user split"),  /* text shown to user */
-    "default",                /* default value */
+    _("Discovery Server"),  /* text shown to user */
+    DEFAULT_SERV,                /* default value */
     '@');                     /* field separator */
-  PurpleAccountOption *option = purple_account_option_string_new(
-    _("Example option"),      /* text shown to user */
-    "example",                /* pref name */
-    "default");               /* default value */
+  PurpleAccountOption *option = purple_account_option_int_new(
+    _("Port"),      /* text shown to user */
+    "disc_port",                /* pref name */
+    DEFAULT_PORT);               /* default value */
 
+  /* MOTMOT! */
   purple_debug_info("nullprpl", "starting up\n");
 
   prpl_info.user_splits = g_list_append(NULL, split);
