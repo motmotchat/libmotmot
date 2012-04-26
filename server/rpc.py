@@ -1,5 +1,6 @@
 import gevent
 import motmot
+import socket as bSock
 
 RM = motmot.RemoteMethods
 
@@ -22,7 +23,21 @@ dispatch_table = {
 
 def writeback(conn, fn, args):
     print "writeback"
-    conn.send(fn(conn, *args))
+    rVal = []
+    # separated the errors out incase we need to do separate handling later
+    try:
+        rVal = fn(conn, *args)
+    except bSock.gaierror, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.FRIEND_SERVER_DOWN,"Connection to Friend Server could not be made"]
+    except bSock.error, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.FRIEND_SERVER_DOWN,"Connection to Friend Server could not be made"]
+    except motmot.RPCError, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.FRIEND_SERVER_DOWN,"Connection to Friend Server could not be made"]
+    finally:
+        conn.send(rVal)
 
 def rpc_dispatcher(conn):
     while True:

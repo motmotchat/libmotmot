@@ -12,7 +12,9 @@ from mothelper import *
 from pprint import pprint as pp # For debugging
 
 # TODO: <s>Make auth push out status update when user comes online</s>
-#       add error handling for when server cannot connect to remote domains socket.gaierror, probably need to catch a couple other errors
+#      <s> add error handling for when server cannot connect to remote domains socket.gaierror, probably need to catch a couple other errors </s>
+#       add SSL support
+#       add certificate signing function
 
 class RemoteMethods:
     AUTHENTICATE_USER=1
@@ -36,6 +38,7 @@ class RemoteMethods:
     AUTH_FAILED=62
     SUCCESS=60
     ACCESS_DENIED=63
+    FRIEND_SERVER_DOWN=91
 
 
 RM = RemoteMethods
@@ -161,8 +164,6 @@ def registerFriend(conn, friend, un=None):
         # this shit ensures that we don't get in an infinite loop of messages
         if authList[conn.address][1] != status.SERVER:
             address = (bSock.gethostbyname(splt[1]), 8888)
-            print "remote addr:"
-            print address
             sock = socket.socket()
             sock.connect(address)
 
