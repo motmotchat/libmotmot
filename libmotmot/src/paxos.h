@@ -34,9 +34,7 @@ typedef enum paxos_opcode {
 
   /* Participant initiation. */
   OP_WELCOME,           // welcome the new acceptor into our proposership
-  OP_GREET,             // tell all the acceptors to say hello
   OP_HELLO,             // introduce ourselves after connecting
-  OP_PTMY,              // acknowledge a welcome
 
   /* Out-of-band decree requests. */
   OP_REQUEST,           // request a decree from the proposer
@@ -73,9 +71,7 @@ struct paxos_header {
    * - OP_WELCOME: The new acceptor's assigned paxid (which is, in fact, the
    *   instance number of its JOIN).
    *
-   * - OP_GREET: The paxid of the new acceptor.
-   *
-   * - OP_HELLO, OP_PTMY: The ID of the greeter.
+   * - OP_HELLO: The ID of the greeter.
    *
    * - OP_REQUEST: The paxid of the acceptor who we think is the proposer who
    *   will send our request.  This allows us to send a redirect appropriately.
@@ -84,6 +80,8 @@ struct paxos_header {
    *   desired request.
    *
    * - OP_REDIRECT: The ID of the proposer we are redirecting to.
+   *
+   * - OP_REJECT: The instance number of the decree.
    *
    * - OP_SYNC, OP_TRUNCATE: The ID of the sync as determined by the proposer;
    *   this is used only by the proposer and is simply echoed across all
@@ -111,9 +109,7 @@ struct paxos_header {
  * - OP_WELCOME: An array consisting of the starting instance number (which
  *   respects truncation), the alist, and the ilist of the proposer, used
  *   to initialize the newcomer.
- * - OP_GREET: None.
  * - OP_HELLO: None.
- * - OP_PTMY: None.
  *
  * - OP_REQUEST: The paxos_request object.
  * - OP_RETRIEVE: A msgpack array containing the ID of the retriever and
@@ -121,6 +117,8 @@ struct paxos_header {
  * - OP_RESEND: The paxos_request object being resent.
  *
  * - OP_REDIRECT: The header of the message that resulted in our redirecting.
+ * - OP_REJECT: None.
+ *
  * - OP_SYNC: None.
  * - OP_SYNCREPLY: The "hole" instance number requested for the sync.
  * - OP_TRUNCATE: The new starting point of the instance log.
@@ -229,6 +227,8 @@ struct paxos_state {
 
   unsigned live_count;                // number of acceptors we think are live
   struct acceptor_list alist;         // list of all Paxos participants
+  struct acceptor_list adefer;        // list of deferred hello acks
+
   struct instance_list ilist;         // list of all instances
   struct instance_list idefer;        // list of deferred instances
   struct request_list rcache;         // cached requests waiting for commit

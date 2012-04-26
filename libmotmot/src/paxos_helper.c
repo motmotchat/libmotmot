@@ -168,6 +168,10 @@ request_destroy(struct paxos_request *req)
     int cmp;                                                          \
     struct paxos_##name *it;                                          \
                                                                       \
+    if (LIST_EMPTY(head)) {                                           \
+      return NULL;                                                    \
+    }                                                                 \
+                                                                      \
     LIST_FOREACH(it, head, le_field) {                                \
       cmp = compare(id, it->id_field);                                \
       if (cmp == 0) {                                                 \
@@ -186,6 +190,10 @@ request_destroy(struct paxos_request *req)
   {                                                                   \
     int cmp;                                                          \
     struct paxos_##name *it;                                          \
+                                                                      \
+    if (LIST_EMPTY(head)) {                                           \
+      return NULL;                                                    \
+    }                                                                 \
                                                                       \
     LIST_FOREACH_REV(it, head, le_field) {                            \
       cmp = compare(id, it->id_field);                                \

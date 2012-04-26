@@ -28,14 +28,8 @@ paxop_print(paxop_t op)
     case OP_WELCOME:
       printf("OP_WELCOME\n");
       break;
-    case OP_GREET:
-      printf("OP_GREET\n");
-      break;
     case OP_HELLO:
       printf("OP_HELLO\n");
-      break;
-    case OP_PTMY:
-      printf("OP_PTMY\n");
       break;
     case OP_REQUEST:
       printf("OP_REQUEST\n");

@@ -129,7 +129,7 @@ paxos_commit(struct paxos_instance *inst)
 int
 paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 {
-  int was_proposer, deferred;
+  int was_proposer;
   struct paxos_acceptor *acc;
 
   // Act on the decree (e.g., display chat, record acceptor list changes).
@@ -143,39 +143,31 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       break;
 
     case DEC_JOIN:
-      // Finding an existing acceptor object with the new acceptor's ID means
-      // that we received a greet order from the proposer for this join before
-      // we actually committed it.  In this case, we do not reinitialize and
-      // send out the deferred hello.
-      acc = acceptor_find(&pax.alist, inst->pi_hdr.ph_inum);
-      deferred = (acc != NULL);
+      // Check the adefer list to see if we received a hello already for the
+      // newly joined acceptor.
+      acc = acceptor_find(&pax.adefer, inst->pi_hdr.ph_inum);
 
-      // If we don't find anything, initialize a new acceptor struct.  Its
-      // paxid is the instance number of the join.
-      if (!deferred) {
+      if (acc != NULL) {
+        // We found a deferred hello.  To complete the hello, just move our
+        // acceptor over to the alist and increment the live count.
+        LIST_REMOVE(&pax.adefer, acc, pa_le);
+        pax.live_count++;
+      } else {
+        // We have not yet gotten the hello, so create a new acceptor.
         acc = g_malloc0(sizeof(*acc));
         acc->pa_paxid = inst->pi_hdr.ph_inum;
-        acceptor_insert(&pax.alist, acc);
       }
-
-      // Initialize a paxos_peer via a callback.
-      acc->pa_peer = paxos_peer_init(pax.connect(req->pr_data, req->pr_size));
-      if (acc->pa_peer != NULL) {
-        pax.live_count++;
-      }
+      acceptor_insert(&pax.alist, acc);
 
       // Copy over the identity information.
       acc->pa_size = req->pr_size;
       acc->pa_desc = g_memdup(req->pr_data, req->pr_size);
 
-      // If we are the proposer, send the new acceptor its paxid.
+      // If we are the proposer, we are responsible for connecting to the new
+      // acceptor, as well as for sending the new acceptor its paxid and other
+      // initial data.
       if (is_proposer()) {
         proposer_welcome(acc);
-      }
-
-      // Send the deferred hello if necessary.
-      if (deferred) {
-        paxos_hello(acc);
       }
 
       // Invoke client learning callback.

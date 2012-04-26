@@ -45,6 +45,8 @@ paxos_init(connect_t connect, struct learn_table *learn)
 
   pax.live_count = 0;
   LIST_INIT(&pax.alist);
+  LIST_INIT(&pax.adefer);
+
   LIST_INIT(&pax.ilist);
   LIST_INIT(&pax.idefer);
   LIST_INIT(&pax.rcache);
@@ -233,15 +235,8 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       // Invalid system state; kill the offender.
       retval = proposer_force_kill(source);
       break;
-    case OP_GREET:
-      // Invalid system state; kill the offender.
-      retval = proposer_force_kill(source);
-      break;
     case OP_HELLO:
       retval = paxos_ack_hello(source, hdr);
-      break;
-    case OP_PTMY:
-      retval = proposer_ack_ptmy(hdr);
       break;
 
     case OP_REDIRECT:
@@ -302,14 +297,8 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_WELCOME:
       retval = acceptor_ack_welcome(source, hdr, o);
       break;
-    case OP_GREET:
-      retval = acceptor_ack_greet(hdr);
-      break;
     case OP_HELLO:
       retval = paxos_ack_hello(source, hdr);
-      break;
-    case OP_PTMY:
-      // Ignore ptmy's.
       break;
 
     case OP_REDIRECT:

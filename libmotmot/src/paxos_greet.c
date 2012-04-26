@@ -12,8 +12,10 @@
 #include <assert.h>
 #include <glib.h>
 
+extern int proposer_decree_part(struct paxos_acceptor *);
+
 /**
- * proposer_welcome - Welcome new protocol participant by passing along
+ * proposer_welcome - Welcome a new protocol participant by passing along
  *
  * struct {
  *   paxos_header hdr;
@@ -32,8 +34,8 @@
  * We avoid sending over our request cache to reduce strain on the network;
  * the new acceptor can issue retrieves to obtain any necessary requests.
  *
- * We assume that the paxos_acceptor argument has already been fully
- * initialized.
+ * We also initiate the connection to the new acceptor, but we assume that
+ * the rest of the acceptor object has been initialized already.
  */
 int
 proposer_welcome(struct paxos_acceptor *acc)
@@ -42,6 +44,15 @@ proposer_welcome(struct paxos_acceptor *acc)
   struct paxos_acceptor *acc_it;
   struct paxos_instance *inst_it;
   struct paxos_yak py;
+
+  // Initiate a connection with the new acceptor.
+  acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+  if (acc->pa_peer != NULL) {
+    pax.live_count++;
+  } else {
+    // If a connection cannot be made, part the acceptor.
+    return proposer_decree_part(acc);
+  }
 
   // Initialize a header.
   hdr.ph_ballot.id = pax.ballot.id;
@@ -107,41 +118,44 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 
   // Unpack the ibase.
   assert(arr->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  pax.ibase = arr->via.u64;
+  pax.ibase = (arr++)->via.u64;
 
-  // Grab the alist array.
-  arr++;
-
-  // Make sure the alist is well-formed...
+  // Make sure the alist is well-formed.
   assert(arr->type == MSGPACK_OBJECT_ARRAY);
-  p = arr->via.array.ptr;
   pend = arr->via.array.ptr + arr->via.array.size;
+  p = (arr++)->via.array.ptr;
 
-  // ...and unpack our new alist.
+  // We are live!
+  pax.live_count = 1;
+
+  // Unpack the alist.  For each acceptor, in addition to adding an acceptor
+  // object to our list, we make a connection and send a hello message.
   for (; p != pend; ++p) {
     acc = g_malloc0(sizeof(*acc));
     paxos_acceptor_unpack(acc, p);
     LIST_INSERT_TAIL(&pax.alist, acc, pa_le);
 
-    // Set the proposer correctly.
     if (acc->pa_paxid == hdr->ph_ballot.id) {
+      // Don't send a hello to the proposer.
       pax.proposer = acc;
       pax.proposer->pa_peer = source;
+      pax.live_count++;
+    } else if (acc->pa_paxid != pax.self_id) {
+      // Connect and say hello to everyone but ourselves.
+      acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+      if (acc->pa_peer != NULL) {
+        pax.live_count++;
+        paxos_hello(acc);
+      }
     }
   }
 
-  // Two acceptors are live to us, the proposer and ourselves.
-  pax.live_count = 2;
-
-  // Grab the ilist array.
-  arr++;
-
-  // Make sure the ilist is well-formed...
+  // Make sure the ilist is well-formed.
   assert(arr->type == MSGPACK_OBJECT_ARRAY);
-  p = arr->via.array.ptr;
   pend = arr->via.array.ptr + arr->via.array.size;
+  p = (arr++)->via.array.ptr;
 
-  // ...and unpack our new ilist.
+  // Unpack the ilist.
   for (; p != pend; ++p) {
     inst = g_malloc0(sizeof(*inst));
     paxos_instance_unpack(inst, p);
@@ -152,7 +166,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   // the instance number pax.ibase, so we start searching there.
   inst = LIST_FIRST(&pax.ilist);
   pax.ihole = pax.ibase;
-  for (; ; inst = LIST_NEXT(inst, pi_le), ++pax.ihole) {
+  for (;; inst = LIST_NEXT(inst, pi_le), ++pax.ihole) {
     // If we reached the end of the list, set pax.istart to the last existing
     // instance.
     if (inst == (void *)&pax.ilist) {
@@ -174,105 +188,14 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     }
   }
 
-  return acceptor_ptmy(pax.proposer);
-}
-
-/**
- * acceptor_ptmy - Acknowledge a proposer's welcome.
- */
-int
-acceptor_ptmy(struct paxos_acceptor *acc)
-{
-  struct paxos_header hdr;
-  struct paxos_yak py;
-
-  // Initialize a header.
-  hdr.ph_ballot.id = pax.ballot.id;
-  hdr.ph_ballot.gen = pax.ballot.gen;
-  hdr.ph_opcode = OP_PTMY;
-  hdr.ph_inum = pax.self_id;  // Our ID.
-
-  // Pack it and send it back to our greeter.
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, &hdr);
-  paxos_send(acc, UNYAK(&py));
-  paxos_payload_destroy(&py);
-
   return 0;
 }
 
 /**
- * proposer_ack_ptmy - Acknowledge a new acceptor's response to your welcome.
- */
-int
-proposer_ack_ptmy(struct paxos_header *hdr)
-{
-  struct paxos_acceptor *acc;
-
-  // Grab our acceptor from the list.
-  acc = acceptor_find(&pax.alist, hdr->ph_inum);
-
-  // Tell everyone to greet.
-  return proposer_greet(hdr, acc);
-}
-
-/**
- * proposer_greet - Issue an order to all acceptors to say hello to a newly
- * added acceptor.
- */
-int
-proposer_greet(struct paxos_header *hdr, struct paxos_acceptor *acc)
-{
-  struct paxos_yak py;
-
-  // Modify the header.
-  hdr->ph_opcode = OP_GREET;
-
-  // Pack and broadcast the greet command.
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, hdr);
-  paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
-
-  return 0;
-}
-
-/**
- * acceptor_ack_greet - Act on a proposer's command to say hello to a newly
- * added acceptor.
- */
-int
-acceptor_ack_greet(struct paxos_header *hdr)
-{
-  struct paxos_acceptor *acc;
-
-  // Don't greet anyone older than us.
-  if (hdr->ph_inum <= pax.self_id) {
-    return 0;
-  }
-
-  // Grab our acceptor from the list.
-  acc = acceptor_find(&pax.alist, hdr->ph_inum);
-
-  // If we have not yet committed and learned a join for the new acceptor,
-  // we defer the hello.  We insert a properly identified acceptor object
-  // in the acceptor list to signal this deferral to the join protocol.
-  if (acc == NULL) {
-    acc = g_malloc0(sizeof(*acc));
-    acc->pa_paxid = hdr->ph_inum;
-    acceptor_insert(&pax.alist, acc);
-    return 0;
-  }
-
-  // If the join has occurred, say hello to our new acceptor.
-  return paxos_hello(acc);
-}
-
-/**
- * paxos_hello - Let an acceptor know our identity
+ * paxos_hello - Let an acceptor know our identity.
  *
- * This acceptor may have just joined the system, or we may be reintroducing
- * ourselves after a dropped connection was reestablished.
+ * We may have just joined the system, or we may be reintroducing ourselves
+ * after a dropped connection was reestablished.
  */
 int
 paxos_hello(struct paxos_acceptor *acc)
@@ -298,17 +221,29 @@ paxos_hello(struct paxos_acceptor *acc)
 /**
  * paxos_ack_hello - Record the identity of a fellow acceptor.
  *
- * As with paxos_hello(), we may receive a hello if we have just joined the
- * system, or if someone is reconnecting with us after our connection was
- * dropped.
+ * We may receive hellos either from new acceptors or from acceptors who are
+ * reconnecting to us after our connection was dropped.
  */
 int
 paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
 {
   struct paxos_acceptor *acc;
 
-  // Grab the appropriate acceptor object.
+  // Grab our acceptor from the list.
   acc = acceptor_find(&pax.alist, hdr->ph_inum);
+
+  // If we have not yet created an acceptor object, then the acceptor is new
+  // to the system but we have not yet committed and learned its join.  In
+  // this case, we defer registering the hello by creating a new object and
+  // inserting to a defer list.  Adding to the main alist now could cause
+  // loss of consistency.
+  if (acc == NULL) {
+    acc = g_malloc0(sizeof(*acc));
+    acc->pa_paxid = hdr->ph_inum;
+    acc->pa_peer = source;
+    acceptor_insert(&pax.adefer, acc);
+    return 0;
+  }
 
   if (acc->pa_peer != NULL && hdr->ph_inum < pax.self_id) {
     // If our acceptor already has a peer attached, both we and the acceptor
