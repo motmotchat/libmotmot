@@ -2,7 +2,7 @@ DEPDIR = .deps/
 INSTALLDIR = /home/jeff/262proj/build/lib/purple-2/
 
 CC = gcc
-CFLAGS = -ggdb3 -Wall `pkg-config --cflags glib-2.0 purple`
+CFLAGS = -ggdb3 -Wall `pkg-config --cflags glib-2.0 purple` 
 LDFLAGS = `pkg-config --libs glib-2.0 purple` -rpath $(INSTALLDIR)
 
 LIBTOOL = libtool --tag=CC
@@ -12,7 +12,7 @@ SRC = $(wildcard *.c)
 all: libmotmot.la
 
 libmotmot.la: $(SRC:.c=.o)
-	$(LIBTOOL) --mode=link $(CC) $(LDFLAGS) -o libmotmot.la $(SRC:.c=.lo)
+	$(LIBTOOL) --mode=link $(CC) $(LDFLAGS) -o libmotmot.la $(SRC:.c=.lo) -lmsgpack
 
 .c.o:
 	@mkdir -p $(DEPDIR)

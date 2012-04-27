@@ -527,6 +527,12 @@ void motmot_parse(char *buffer, int len, PurpleConnection *gc){
       switch (status){
         case ONLINE: 
           purple_prpl_got_user_status(a, friend_name, NULL_STATUS_ONLINE, NULL); 
+        case AWAY:
+          purple_prpl_got_user_status(a, friend_name, NULL_STATUS_AWAY, NULL); 
+        case BUSY:
+          purple_prpl_got_user_status(a, friend_name, NULL_STATUS_AWAY, NULL); 
+        case OFFLINE:
+          purple_prpl_got_user_status(a, friend_name, NULL_STATUS_OFFLINE, NULL); 
         default:
           return;
       }
