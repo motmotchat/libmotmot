@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from gevent import socket
+from gevent import ssl
 from gevent import Greenlet
 from gevent import queue
 import msgpack
@@ -63,13 +64,14 @@ if __name__ == '__main__':
     address = (bSock.gethostbyname('127.0.0.1'), 8888)
 
     sock = socket.socket()
+    sock = ssl.wrap_socket(sock)
     sock.connect(address)
     sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
-    sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing.com"])
+    #sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing.com"])
     #sendQ.put([RM.UNREGISTER_FRIEND, "test@bensing.com"])
     #sendQ.put([RM.REGISTER_STATUS, motmot.status.AWAY])
-    sendQ.put([RM.ACCEPT_FRIEND, "ej2@bensing.com"])
-    sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing22.com"])
+    #sendQ.put([RM.ACCEPT_FRIEND, "ej2@bensing.com"])
+    #sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing22.com"])
     #sendQ.put([RM.GET_ALL_STATUSES])
     recv = recvGreenlet(sock)
     recv.start()

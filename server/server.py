@@ -10,6 +10,7 @@ import socket as bSock
 
 import rpc
 import motmot
+import cryptomot
 
 
 
@@ -70,7 +71,8 @@ class Connection():
 
 if __name__ == '__main__':
     DOMAIN_NAME = sys.argv[1]
+    cryptomot.create_self_signed_cert('cert',DOMAIN_NAME)
     gevent.spawn(rpc.new_connection_watcher, Connection.new)
 
-    server = gevent.server.StreamServer((bSock.gethostbyname(DOMAIN_NAME), 8888), Connection)
+    server = gevent.server.StreamServer((bSock.gethostbyname(DOMAIN_NAME), 8888), Connection, keyfile='cert/motmot.key', certfile='cert/motmot.crt')
     server.serve_forever()

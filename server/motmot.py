@@ -2,6 +2,7 @@ from gevent.server import *
 from gevent import Greenlet
 from gevent import socket
 from gevent import monkey
+from gevent import ssl
 import msgpack
 import sqlite3 as lite
 import sys
@@ -30,6 +31,7 @@ class RemoteMethods:
     SERVER_SEND_STATUS_CHANGED=33
     PUSH_CLIENT_STATUS=20
     PUSH_FRIEND_ACCEPT=21
+    PUSH_FRIEND_REQUEST=22
     GET_ALL_STATUSES=7
     SERVER_GET_STATUS=35
     SERVER_GET_STATUS_RESP=66
@@ -165,6 +167,7 @@ def registerFriend(conn, friend, un=None):
         if authList[conn.address][1] != status.SERVER:
             address = (bSock.gethostbyname(splt[1]), 8888)
             sock = socket.socket()
+            sock = ssl.wrap_socket(sock)
             sock.connect(address)
 
             # authenticate
@@ -190,6 +193,15 @@ def registerFriend(conn, friend, un=None):
         if cnt[0] == 0:
             fins_q = "INSERT INTO friends (userName, friend, accepted) VALUES (?, ?, 'False');"
             execute_query(fins_q, (friend, userName))
+            # if the requested friend is online and part of this domain
+            # send a message
+            if friend in conn.connTbl:
+                conn.connTbl[friend].send([RM.PUSH_FRIEND_REQUEST, userName])
+            # this is to deal with cross domain stuff. this same function 
+            # is used to the remote server. so this statement can only evalute true when the call
+            # is made from a server
+            if userName in conn.connTbl and un != None:
+                conn.connTbl[userName].send([RM.PUSH_FRIEND_REQUEST, friend])
     
     return [RM.SUCCESS, "Friend Registered"]
 
@@ -213,6 +225,7 @@ def unregisterFriend(conn, friend, un=None):
         if authList[conn.address][1] != status.SERVER:
             address = (bSock.gethostbyname(splt[1]), 8888)
             sock = socket.socket()
+            sock = ssl.wrap_socket(sock)
             sock.connect(address)
 
             # authenicate
@@ -269,6 +282,7 @@ def statusChanged(conn, status):
                     # handle /etc/hosts
                     address = (bSock.gethostbyname(splt[1]), 8888)
                     sock = socket.socket()
+                    sock = ssl.wrap_socket(sock)
                     sock.connect(address)
 
                     # doing all of this syncronously because having 
@@ -318,6 +332,7 @@ def acceptFriend(conn, friend):
         # if the user is not from this domain, send a message to the appropriate server
         address = (bSock.gethostbyname(splt[1]), 8888)
         sock = socket.socket()
+        sock = ssl.wrap_socket(sock)
         sock.connect(address)
 
         sock.sendall(msgpack.packb([RM.AUTHENTICATE_SERVER, conn.domain]))
@@ -374,6 +389,7 @@ def getAllFriendStatuses(conn):
         for dom, friends in frByDom.iteritems():
             address = (bSock.gethostbyname(dom), 8888)
             sock = socket.socket()
+            sock = ssl.wrap_socket(sock)
             sock.connect(address)
 
             sock.sendall(msgpack.packb([RM.AUTHENTICATE_SERVER, conn.domain]))
