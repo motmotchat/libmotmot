@@ -485,6 +485,6 @@ def signClientCert(conn, certStr):
     # carl said something about needing to store the client cert?
     userName = authList[conn.address][0]
 
-    signedCert = cryptomot.signCert('cert/',certStr)
+    signedCert = cryptomot.signCert('cert/', certStr, userName)
 
     return [RM.SIGN_CERT_RESP, signedCert]

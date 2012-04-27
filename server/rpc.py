@@ -1,6 +1,7 @@
 import gevent
 import motmot
 import socket as bSock
+import cryptomot
 
 RM = motmot.RemoteMethods
 
@@ -37,6 +38,9 @@ def writeback(conn, fn, args):
     except motmot.RPCError, e:
         print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
         rVal = [RM.FRIEND_SERVER_DOWN,"Connection to Friend Server could not be made"]
+    except cryptomot.CertNameMismatch, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.CERT_DENIED,"Username on cert does not match current user"]
     finally:
         conn.send(rVal)
 

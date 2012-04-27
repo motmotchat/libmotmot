@@ -11,6 +11,9 @@ from os.path import exists, join
 CERT_FILE = "motmot.crt"
 KEY_FILE = "motmot.key"
 
+class CertNameMismatch(Exception):
+    pass
+
 # creates a self signed cert for the server if one doesn't exist
 def create_self_signed_cert(cert_dir, domain):
     """
@@ -46,7 +49,7 @@ def create_self_signed_cert(cert_dir, domain):
             crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
 
 # this function will use the local cert to sign a client cert
-def signCert(cert_dir, certStr):
+def signCert(cert_dir, certStr, userName):
     
     pk = crypto.PKey()
     # load private key
@@ -55,9 +58,11 @@ def signCert(cert_dir, certStr):
     
     # load certificate into X509 instance
     cert = crypto.load_certificate(crypto.FILETYPE_PEM, certStr)
-    
-    # sign it
-    cert.sign(pk, 'sha1')
+    if cert.get_subject().CN == userName:
+        # sign it
+        cert.sign(pk, 'sha1')
+        # return string of cert
+        return crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+    else:
+        raise CertNameMismatch
 
-    # return string of cert
-    return crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
