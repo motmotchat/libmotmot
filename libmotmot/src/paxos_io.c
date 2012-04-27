@@ -49,7 +49,7 @@ void
 paxos_peer_destroy(struct paxos_peer *peer)
 {
   GIOStatus status;
-  GError *error;
+  GError *error = NULL;
 
   if (peer == NULL) {
     return;
@@ -141,7 +141,7 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
   char *new_data;
 
   GIOStatus status;
-  GError *error;
+  GError *error = NULL;
 
   // If there's nothing to write, do nothing.
   if (peer->pp_write_buffer.length == 0) {

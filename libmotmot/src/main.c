@@ -102,7 +102,7 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 {
   char *msg, *tmp;
   unsigned long eol;
-  GError *gerr;
+  GError *gerr = NULL;
   GIOStatus status;
 
   // Read in a line.
