@@ -48,6 +48,7 @@
 
 #include <ctype.h>
 #include <msgpack.h>
+#include <assert.h>
 
 
 // Nop!
@@ -83,9 +84,37 @@
 #include "version.h"
 
 #include "motmot.h"
+#define AUTHENTICATE_USER 1
+#define REGISTER_FRIEND 2
+#define UNREGISTER_FRIEND 3
+#define GET_FRIEND_IP 4
+#define REGISTER_STATUS 5
+#define AUTHENTICATE_SERVER 30
+#define SERVER_SEND_FRIEND 31
+#define SERVER_SEND_UNFRIEND 32
+#define ACCEPT_FRIEND 6
+#define SERVER_SEND_ACCEPT 34
+#define SERVER_SEND_STATUS_CHANGED 33
+#define PUSH_CLIENT_STATUS 20
+#define PUSH_FRIEND_ACCEPT 21
+#define PUSH_FRIEND_REQUEST 22
+#define GET_ALL_STATUSES 7
+#define SERVER_GET_STATUS 35
+#define SERVER_GET_STATUS_RESP 66
+#define ALL_STATUS_RESPONSE 65
+#define AUTHENTICATED 61
+#define AUTH_FAILED 62
+#define SUCCESS 60
+#define ACCESS_DENIED 63
+#define FRIEND_SERVER_DOWN 91
 
+#define ONLINE 1
+#define AWAY 2
+#define OFFLINE 3
+#define BUSY 4
+#define SERVER 5
 static void motmot_login_cb(gpointer data, gint source, const gchar *error_message);
-void motmot_parse(char *buffer, int len);
+void motmot_parse(char *buffer, int len, PurpleConnection *gc);
 
 #define NULLPRPL_ID "prpl-motmot"
 static PurplePlugin *_null_protocol = NULL;
@@ -461,13 +490,49 @@ static gboolean do_login(PurpleConnection *gc){
   return TRUE;
 }
 
-void motmot_parse(char *buffer, int len){
+void motmot_parse(char *buffer, int len, PurpleConnection *gc){
+  const char *friend_name;
+  int status;
   gboolean success;
+  int opcode;
+  msgpack_object data;
   msgpack_unpacked msg;
+  
+  PurpleAccount *a = gc -> account;
+
   msgpack_unpacked_init(&msg);
 
   success = msgpack_unpack_next(&msg, buffer, len, NULL);
+  assert(success);
+  data = msg.data;
+ 
+  assert(data.type == MSGPACK_OBJECT_NEGATIVE_INTEGER);
+  opcode = (data.via).i64;
 
+  switch (opcode) {
+    case PUSH_CLIENT_STATUS:
+      success = msgpack_unpack_next(&msg, buffer, len, NULL);
+      assert(success);
+      data = msg.data;
+      assert(data.type == MSGPACK_OBJECT_RAW);
+      friend_name = data.via.raw.ptr;
+
+
+      success = msgpack_unpack_next(&msg, buffer, len, NULL);
+      assert(success);
+      data = msg.data;
+      assert(data.type == MSGPACK_OBJECT_NEGATIVE_INTEGER);
+      status = data.via.i64;
+
+      switch (status){
+        case ONLINE: 
+          purple_prpl_got_user_status(a, friend_name, NULL_STATUS_ONLINE, NULL); 
+        default:
+          return;
+      }
+    default:
+      return;
+  }
 }
 
 
@@ -498,7 +563,7 @@ static void motmot_input_cb(gpointer *data, gint fd, PurpleInputCondition cond){
 		return;
   }
 
-  motmot_parse(buffer, l);
+  motmot_parse(buffer, l, gc);
   g_free(buffer);
   return;
 }
