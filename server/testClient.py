@@ -73,6 +73,9 @@ if __name__ == '__main__':
     #sendQ.put([RM.ACCEPT_FRIEND, "ej2@bensing.com"])
     #sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing22.com"])
     #sendQ.put([RM.GET_ALL_STATUSES])
+    cert = open('cert/motmot.crt').read()
+    sendQ.put([RM.SIGN_CERT_REQUEST, cert])
+
     recv = recvGreenlet(sock)
     recv.start()
     send = sendGreenlet(sock)

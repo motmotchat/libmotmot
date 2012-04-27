@@ -19,6 +19,7 @@ dispatch_table = {
     RM.GET_ALL_STATUSES:            motmot.getAllFriendStatuses,
     RM.SERVER_GET_STATUS:           motmot.serverGetStatus,
     RM.SUCCESS:                     motmot.nop,
+    RM.SIGN_CERT_REQUEST:           motmot.signClientCert,
 }
 
 def writeback(conn, fn, args):

@@ -9,6 +9,7 @@ import sys
 from gevent.queue import Queue
 import socket as bSock
 from mothelper import *
+import cryptomot
 
 from pprint import pprint as pp # For debugging
 
@@ -41,7 +42,8 @@ class RemoteMethods:
     SUCCESS=60
     ACCESS_DENIED=63
     FRIEND_SERVER_DOWN=91
-
+    SIGN_CERT_REQUEST=8
+    SIGN_CERT_RESP=67
 
 RM = RemoteMethods
 
@@ -474,3 +476,15 @@ def serverGetStatus(conn, users):
             rList.append(authList[conn.connTbl[user].address])
 
     return [RM.SERVER_GET_STATUS_RESP, rList]
+
+# wrapper function for signing a client cert
+def signClientCert(conn, certStr):
+    if not auth(conn):
+        return DENIED
+
+    # carl said something about needing to store the client cert?
+    userName = authList[conn.address][0]
+
+    signedCert = cryptomot.signCert('cert/',certStr)
+
+    return [RM.SIGN_CERT_RESP, signedCert]

@@ -11,6 +11,7 @@ from os.path import exists, join
 CERT_FILE = "motmot.crt"
 KEY_FILE = "motmot.key"
 
+# creates a self signed cert for the server if one doesn't exist
 def create_self_signed_cert(cert_dir, domain):
     """
     If datacard.crt and datacard.key don't exist in cert_dir, create a new
@@ -44,7 +45,8 @@ def create_self_signed_cert(cert_dir, domain):
         open(join(cert_dir, KEY_FILE), "wt").write(
             crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
 
-def signCert(certStr):
+# this function will use the local cert to sign a client cert
+def signCert(cert_dir, certStr):
     
     pk = crypto.PKey()
     # load private key
@@ -52,7 +54,7 @@ def signCert(certStr):
     pk = crypto.load_privatekey(crypto.FILETYPE_PEM, f.read())
     
     # load certificate into X509 instance
-    cert = crypto.load_certificate(certStr, crypto.FILETYPE_PRM)
+    cert = crypto.load_certificate(crypto.FILETYPE_PEM, certStr)
     
     # sign it
     cert.sign(pk, 'sha1')
