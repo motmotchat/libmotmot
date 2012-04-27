@@ -173,6 +173,7 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
   }
 
   // Flush the channel.
+  error = NULL;
   if (g_io_channel_flush(peer->pp_channel, &error) == G_IO_STATUS_ERROR) {
     g_critical("paxos_peer_write: Could not flush channel.\n");
   }
