@@ -52,7 +52,7 @@
 
 
 // Nop!
-
+#define PURPLE_PLUGINS 1
 #define _
 #define N_
 
@@ -76,6 +76,7 @@
 #include "connection.h"
 #include "debug.h"
 #include "notify.h"
+#include "plugin.h"
 #include "privacy.h"
 #include "prpl.h"
 #include "roomlist.h"
