@@ -49,6 +49,7 @@
 #include <ctype.h>
 #include <msgpack.h>
 #include <assert.h>
+#include <errno.h>
 
 
 // Nop!
@@ -80,6 +81,7 @@
 #include "privacy.h"
 #include "prpl.h"
 #include "roomlist.h"
+#include "sslconn.h"
 #include "status.h"
 #include "util.h"
 #include "version.h"
@@ -114,9 +116,13 @@
 #define OFFLINE 3
 #define BUSY 4
 #define SERVER 5
-static void motmot_login_cb(gpointer data, gint source, const gchar *error_message);
-void motmot_parse(char *buffer, int len, PurpleConnection *gc);
 
+static void motmot_parse(char *buffer, int len, PurpleConnection *gc);
+static void
+motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
+		gpointer data);
+
+static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond);
 #define NULLPRPL_ID "prpl-motmot"
 static PurplePlugin *_null_protocol = NULL;
 
@@ -430,7 +436,6 @@ static void nullprpl_login(PurpleAccount *acct)
 	}
 
   gc -> proto_data = conn = g_new0(motmot_conn, 1); 
-  conn -> fd = g_io_channel_unix_new(-1);
   conn -> account = acct;
   
   userparts = g_strsplit(username, "@", 2);
@@ -445,12 +450,8 @@ static void nullprpl_login(PurpleAccount *acct)
                                     2);  /* total number of steps */
 
   /* no ssl support yet */
-  if (purple_proxy_connect(gc, acct, conn->server, port, motmot_login_cb, gc)
-    == NULL){
-    purple_connection_error_reason (gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
-    _("Unable to connect"));
-    return;
-  }
+  conn -> gsc = purple_ssl_connect(acct, conn -> server, port, motmot_login_cb,
+  (PurpleSslErrorFunction)  motmot_login_failure, gc);
 
 
 
@@ -545,30 +546,28 @@ void motmot_parse(char *buffer, int len, PurpleConnection *gc){
 
 /* read in data, parse, undertake appropriate action */
 
-static void motmot_input_cb(gpointer *data, gint fd, PurpleInputCondition cond){
+static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInputCondition cond){
   PurpleConnection *gc = (PurpleConnection *) data;
   gsize l;
   char *buffer = g_malloc(512);
 
-  GError *err = g_error_new(0, 0, NULL);
-  GIOChannel *f = g_io_channel_unix_new(fd); 
-  GIOStatus s = g_io_channel_read_to_end(f, &buffer, &l, &err);
-  if(s == G_IO_STATUS_AGAIN){
-     return;
-  }
-
-  else if (s != G_IO_STATUS_NORMAL){
-		purple_connection_error_reason (gc,
-			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, _("network error"));
+  l = purple_ssl_read(gsc, buffer, 512);
+	if (l < 0 && errno == EAGAIN) {
+		/* Try again later */
 		return;
-  }
-
-  else if (l == 0){
+	} else if (l < 0) {
+		gchar *tmp = g_strdup_printf(_("Lost connection with server: %s"),
+				g_strerror(errno));
+		purple_connection_error_reason (gc,
+			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+		g_free(tmp);
+		return;
+	} else if (l == 0) {
 		purple_connection_error_reason (gc,
 			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
 			_("Server closed the connection"));
 		return;
-  }
+	}
 
   motmot_parse(buffer, l, gc);
   g_free(buffer);
@@ -576,25 +575,25 @@ static void motmot_input_cb(gpointer *data, gint fd, PurpleInputCondition cond){
 }
 
 
-static void motmot_login_cb(gpointer data, gint source, const gchar *error_message){
+static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond){
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc -> proto_data;
-
-	if (source < 0) {
-		gchar *tmp = g_strdup_printf(_("Unable to connect: %s"),
-			error_message);
-		purple_connection_error_reason (gc,
-			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
-		g_free(tmp);
-		return;
-	}
-
 	if (do_login(gc)) {
-		gc->inpa = purple_input_add(source, PURPLE_INPUT_READ, motmot_input_cb, gc);
+		purple_ssl_input_add(gsc, motmot_input_cb, gc);
 	}
-  conn -> fd = g_io_channel_unix_new(source);
 }
 
+
+static void
+motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
+		gpointer data)
+{
+	PurpleConnection *gc = data;
+	motmot_conn *motmot = gc->proto_data;
+
+	motmot->gsc = NULL;
+
+	purple_connection_ssl_error (gc, error);
+}
 
 
 
