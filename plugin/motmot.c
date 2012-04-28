@@ -198,6 +198,7 @@ static const char *deser_get_string(msgpack_object_array ar, int i){
 
 // libmotmot-related functions: function callbacks necessary to init motmot
 // TODO finish these
+// also declare them non-implicitly oops
 
 GIOChannel * connect_motmot(const void *handle, size_t len)
 {
