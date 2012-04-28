@@ -7,12 +7,14 @@ from gevent import queue
 import msgpack
 import time
 import socket as bSock
+import sys
 
 import motmot
 from pprint import pprint as pp
 
 RM = motmot.RemoteMethods
 sendQ = queue.Queue()
+
 
 class sendGreenlet(Greenlet):
 
@@ -51,13 +53,66 @@ class recvGreenlet(Greenlet):
                 pp(o)
 
                 respList = [RM.PUSH_CLIENT_STATUS, RM.PUSH_FRIEND_ACCEPT]
-                if o[0] in respList:
-                    sVal = [60 , "Success"]
-                    print sVal
-                    sendQ.put(sVal)
+                if o:
+                    if o[0] in respList:
+                        sVal = [60 , "Success"]
+                        print sVal
+                        sendQ.put(sVal)
 
 
+# testing for the authentication functionality
+def test_auth(tPass):
+    if tPass=='True':
+        sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    else:
+        sendQ.put([RM.AUTHENTICATE_USER,"badUser","12345"])
+        sendQ.put([RM.AUTHENTICATE_USER,2339290,";insert into users(userName,password) values ('owned','owned'); --"])
+        sendQ.put([RM.AUTHENTICATE_USER,"badUser"])
 
+# testing for the friend registering functionality 
+def test_friend(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    if tPass=='True':
+        sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing.com"])
+    else:
+        sendQ.put([RM.REGISTER_FRIEND, "baduser@bensing.com"])
+        sendQ.put([RM.REGISTER_FRIEND, ";insert into users(userName,password) values ('owned','owned'); --"])
+        sendQ.put([RM.REGISTER_FRIEND, ])
+
+# tests unfriending 
+def test_unfriend(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    if tPass=='True':
+        sendQ.put([RM.UNREGISTER_FRIEND, "ej2@bensing.com"])
+    else:
+        sendQ.put([RM.UNREGISTER_FRIEND, "baduser@bensing.com"])
+        sendQ.put([RM.UNREGISTER_FRIEND, ";insert into users(userName,password) values ('owned','owned'); --"])
+        sendQ.put([RM.UNREGISTER_FRIEND, ])
+
+
+# tests unfriending 
+def test_accept(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    sendQ.put([RM.UNREGISTER_FRIEND, "ej2@bensing.com"])
+    if tPass=='True':
+        sendQ.put([RM.ACCEPT_FRIEND, "ej2@bensing.com"])
+    else:
+        sendQ.put([RM.ACCEPT_FRIEND, "baduser@bensing.com"])
+        sendQ.put([RM.ACCEPT_FRIEND, ";insert into users(userName,password) values ('owned','owned'); --"])
+        sendQ.put([RM.ACCEPT_FRIEND, ])
+
+# used for listening for push notifications to server
+def test_listener(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej2@bensing.com","12345"])
+
+
+testMap = {
+    'auth':     test_auth,
+    'friend':   test_friend,
+    'unfriend': test_unfriend,
+    'accept':   test_accept,
+    'listener': test_listener,
+}
 
 if __name__ == '__main__':
 
@@ -66,15 +121,17 @@ if __name__ == '__main__':
     sock = socket.socket()
     sock = ssl.wrap_socket(sock)
     sock.connect(address)
-    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
-    #sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing.com"])
+    if sys.argv[1] in testMap:
+        func = testMap[sys.argv[1]]
+        func(sys.argv[2])
+    #sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
     #sendQ.put([RM.UNREGISTER_FRIEND, "test@bensing.com"])
     #sendQ.put([RM.REGISTER_STATUS, motmot.status.AWAY])
     #sendQ.put([RM.ACCEPT_FRIEND, "ej2@bensing.com"])
     #sendQ.put([RM.REGISTER_FRIEND, "ej2@bensing22.com"])
     #sendQ.put([RM.GET_ALL_STATUSES])
-    cert = open('cert/motmot.crt').read()
-    sendQ.put([RM.SIGN_CERT_REQUEST, cert])
+    #cert = open('cert/motmot.crt').read()
+    #sendQ.put([RM.SIGN_CERT_REQUEST, cert])
 
     recv = recvGreenlet(sock)
     recv.start()
@@ -82,39 +139,5 @@ if __name__ == '__main__':
     send.start()
     recv.join()
 
-    """
-    test = [1,3,"bob@bensing.com"]
-
-    sock.sendall(msgpack.packb(test))
-
-    rVal = sock.recv(4096)
-    print msgpack.unpackb(rVal)
-
-    test = [1,5,2]
-
-    sock.sendall(msgpack.packb(test))
-
-    rVal = msgpack.unpackb(sock.recv(4096))
-    print rVal
-
-    sock.close()
-
-    sock2 = socket.socket()
-    sock2.connect(address)
 
 
-    test = [1,1,"bob@bensing.com", "12345"]
-
-    sock2.sendall(msgpack.packb(test))
-
-    rVal = msgpack.unpackb(sock2.recv(4096))
-    print rVal
-
-
-    test = [1,6,"ej@bensing.com"]
-
-    sock2.sendall(msgpack.packb(test))
-
-    rVal = msgpack.unpackb(sock2.recv(4096))
-    print rVal
-    """

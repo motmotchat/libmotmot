@@ -44,6 +44,8 @@ class RemoteMethods:
     FRIEND_SERVER_DOWN=91
     SIGN_CERT_REQUEST=8
     SIGN_CERT_RESP=67
+    BAD_MESSAGE=92
+    USER_NOT_FOUND=93
 
 RM = RemoteMethods
 
@@ -53,6 +55,10 @@ def nop(conn, *args):
     print "Message from %s:%d" % conn.address
     pp(args)
     return {'ack': args}
+
+
+def noResp(conn, *args):
+    print "Response Recieved"
 
 # this is an enum for the different statuses
 class status:
@@ -64,6 +70,10 @@ class status:
 
 # generally RPC error
 class RPCError(Exception):
+    pass
+
+# user not found
+class UserNotFound(Exception):
     pass
 
 # this is the global dictionary of currently connected, 
@@ -141,12 +151,22 @@ def doAuthServer(conn, hostName):
 def auth(conn):
     return conn.address in authList
 
+# checks to see if a user exists
+def user_exists(userName):
+
+    q = "SELECT count(userId) FROM users WHERE userName=?"
+    cnt = execute_query(q, (userName,))
+    if cnt[0] != 1:
+        raise UserNotFound
+
 
 #registers a friend request
 def registerFriend(conn, friend, un=None):
     if not auth(conn):
         return DENIED
     
+    user_exists(friend)
+
     userName = un
     if un == None:
         userName = authList[conn.address][0]
@@ -183,8 +203,15 @@ def registerFriend(conn, friend, un=None):
             sock.sendall(msgpack.packb([RM.SERVER_SEND_FRIEND, userName, friend]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            if rVal[0] != RM.SUCCESS:
+            if rVal[0] == RM.USER_NOT_FOUND:
+                delq = "DELETE from friends WHERE userName=? AND friend=?;"
+                execute_query(delq, (userName, friend))
+                sock.close()
+                raise UserNotFound
+            elif rVal[0] != RM.SUCCESS:
+                sock.close()
                 raise RPCError
+
             sock.close()
 
     else:
@@ -213,6 +240,7 @@ def unregisterFriend(conn, friend, un=None):
     if not auth(conn):
         return DENIED
     
+    user_exists(friend)
     userName = un
     if un == None:
         userName = authList[conn.address][0]

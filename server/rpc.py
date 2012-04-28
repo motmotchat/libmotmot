@@ -19,7 +19,7 @@ dispatch_table = {
     RM.SERVER_SEND_STATUS_CHANGED:  motmot.serverStatusChange,
     RM.GET_ALL_STATUSES:            motmot.getAllFriendStatuses,
     RM.SERVER_GET_STATUS:           motmot.serverGetStatus,
-    RM.SUCCESS:                     motmot.nop,
+    RM.SUCCESS:                     motmot.noResp,
     RM.SIGN_CERT_REQUEST:           motmot.signClientCert,
 }
 
@@ -41,6 +41,12 @@ def writeback(conn, fn, args):
     except cryptomot.CertNameMismatch, e:
         print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
         rVal = [RM.CERT_DENIED,"Username on cert does not match current user"]
+    except TypeError, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.BAD_MESSAGE,"Error in Message"]
+    except motmot.UserNotFound, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.USER_NOT_FOUND,"Specified User Could Not Be Found"]
     finally:
         conn.send(rVal)
 
