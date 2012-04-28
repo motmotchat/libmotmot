@@ -196,6 +196,26 @@ static const char *deser_get_string(msgpack_object_array ar, int i){
   return x.via.raw.ptr;
 }
 
+// libmotmot-related functions: function callbacks necessary to init motmot
+// TODO finish these
+
+GIOChannel * connect_motmot(const void *handle, size_t len)
+{
+  return NULL;
+}
+int print_chat_motmot(const void *buf, size_t len)
+{
+  return 0;
+}
+int print_join_motmot(const void *buf, size_t len)
+{
+  return 0;
+}
+int print_part_motmot(const void *buf, size_t len)
+{
+  return 0;
+}
+
 
 static PurpleConnection *get_nullprpl_gc(const char *username) {
   PurpleAccount *acct = purple_accounts_find(username, NULLPRPL_ID);
@@ -467,6 +487,11 @@ static void nullprpl_login(PurpleAccount *acct)
   purple_debug_info("nullprpl", "logging in %s\n", acct->username);
 
   /* MOTMOT! */
+
+  // initialize paxos functions
+  // right now this does nothing, since these are do-nothing functions:
+  // TODO fill out later
+  motmot_init(connect_motmot, print_chat_motmot, print_join_motmot, print_part_motmot);
 
 	if (strpbrk(username, " \t\v\r\n") != NULL) {
 		purple_connection_error_reason (gc,
