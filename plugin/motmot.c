@@ -157,6 +157,44 @@ typedef struct {
 /*
  * helpers
  */
+
+static msgpack_object_array deser_get_array(char *buffer, int len){
+  bool success;
+  msgpack_unpacked msg;
+  msgpack_unpacked_init(&msg);
+  success = msgpack_unpack_next(&msg, buffer, len, NULL);
+
+  assert(success);
+  assert((msg.data).type == MSGPACK_OBJECT_ARRAY);
+
+  msgpack_object_array ar = msg.data.via.array;
+
+  return ar;
+}
+/* 
+ * gets a positive int in index i of an object array 
+ */
+static uint64_t deser_get_pos_int(msgpack_object_array ar, int i){
+  assert(ar.size >= i + 1);
+  msgpack_object x = (ar.ptr)[i];
+
+  assert(x.type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  return x.via.u64;
+}
+
+/* 
+ * gets a string 
+ */
+static const char *deser_get_string(msgpack_object_array ar, int i){
+  assert(ar.size >= i + 1);
+  msgpack_object x = (ar.ptr)[i];
+
+  assert(x.type == MSGPACK_OBJECT_RAW);
+
+  return x.via.raw.ptr;
+}
+
+
 static PurpleConnection *get_nullprpl_gc(const char *username) {
   PurpleAccount *acct = purple_accounts_find(username, NULLPRPL_ID);
   if (acct && purple_account_is_connected(acct))
@@ -489,43 +527,44 @@ static void nullprpl_login(PurpleAccount *acct)
 }
 
 static gboolean do_login(PurpleConnection *gc){
+  msgpack_sbuffer *buffer = msgpack_sbuffer_new(); 
+  motmot_conn *conn = gc -> proto_data;
+  PurpleAccount *a = conn -> account;
+
+  msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
+
+  msgpack_pack_array(pk, 3);
+  msgpack_pack_int(pk, AUTHENTICATE_USER);
+
+  const char *username = purple_account_get_username(a);
+  const char *pass = purple_account_get_password(a);
+  msgpack_pack_raw(pk, strlen(username) + 1);
+  msgpack_pack_raw_body(pk, username, strlen(username) + 1);
+
+  msgpack_pack_raw(pk, strlen(pass) + 1);
+  msgpack_pack_raw_body(pk, pass, strlen(pass) + 1);
+
+  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size); 
   return TRUE;
 }
 
 void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   const char *friend_name;
   int status;
-  gboolean success;
   int opcode;
-  msgpack_object data;
-  msgpack_unpacked msg;
+
+  motmot_conn *conn = gc -> proto_data;
+  PurpleAccount *a = conn -> account;
+
+  msgpack_object_array ar = deser_get_array(buffer, len);
+
+  opcode = deser_get_pos_int(ar, 0);
   
-  PurpleAccount *a = gc -> account;
-
-  msgpack_unpacked_init(&msg);
-
-  success = msgpack_unpack_next(&msg, buffer, len, NULL);
-  assert(success);
-  data = msg.data;
- 
-  assert(data.type == MSGPACK_OBJECT_NEGATIVE_INTEGER);
-  opcode = (data.via).i64;
-
   switch (opcode) {
     case PUSH_CLIENT_STATUS:
-      success = msgpack_unpack_next(&msg, buffer, len, NULL);
-      assert(success);
-      data = msg.data;
-      assert(data.type == MSGPACK_OBJECT_RAW);
-      friend_name = data.via.raw.ptr;
+      friend_name = deser_get_string(ar, 1);
 
-
-      success = msgpack_unpack_next(&msg, buffer, len, NULL);
-      assert(success);
-      data = msg.data;
-      assert(data.type == MSGPACK_OBJECT_NEGATIVE_INTEGER);
-      status = data.via.i64;
-
+      status = deser_get_pos_int(ar, 2);
       switch (status){
         case ONLINE: 
           purple_prpl_got_user_status(a, friend_name, NULL_STATUS_ONLINE, NULL); 
@@ -538,8 +577,12 @@ void motmot_parse(char *buffer, int len, PurpleConnection *gc){
         default:
           return;
       }
+    case ACCESS_DENIED:
+    case AUTH_FAILED:
+     purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_AUTHENTICATION_FAILED, _("Authentication failed, please check that your username and password are correct"));
     default:
       return;
+    
   }
 }
 
