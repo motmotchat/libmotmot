@@ -21,8 +21,7 @@ motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part)
   learn.part = part;
 
   paxos_init(connect, &learn);
-  // XXX: Uncomment when sync works.
-  // g_timeout_add_seconds(1, paxos_sync, NULL);
+  g_timeout_add_seconds(1, paxos_sync, NULL);
 }
 
 /**

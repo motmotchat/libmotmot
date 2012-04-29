@@ -106,6 +106,9 @@ int acceptor_last(struct paxos_header *hdr)
 {
   struct paxos_yak py;
 
+  // Modify the header opcode.
+  hdr->ph_opcode = OP_LAST;
+
   // Pack and send the response.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
