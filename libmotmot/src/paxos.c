@@ -247,7 +247,11 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_SYNC:
-      retval = proposer_ack_sync(hdr, o);
+      // Invalid system state; kill the offender.
+      retval = proposer_force_kill(source);
+      break;
+    case OP_LAST:
+      retval = proposer_ack_last(hdr, o);
       break;
     case OP_TRUNCATE:
       // Invalid system state; kill the offender.
@@ -310,6 +314,9 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 
     case OP_SYNC:
       retval = acceptor_ack_sync(hdr);
+      break;
+    case OP_LAST:
+      // Ignore lasts.
       break;
     case OP_TRUNCATE:
       retval = acceptor_ack_truncate(hdr, o);

@@ -47,6 +47,7 @@ typedef enum paxos_opcode {
 
   /* Log synchronization. */
   OP_SYNC,              // sync up ilists in preparation for a truncate
+  OP_LAST,              // give the proposer our sync information
   OP_TRUNCATE,          // order acceptors to truncate their ilists
 } paxop_t;
 
@@ -83,9 +84,9 @@ struct paxos_header {
    *
    * - OP_REJECT: The instance number of the decree.
    *
-   * - OP_SYNC, OP_TRUNCATE: The ID of the sync as determined by the proposer;
-   *   this is used only by the proposer and is simply echoed across all
-   *   messages in the sync operation.
+   * - OP_SYNC, OP_LAST, OP_TRUNCATE: The ID of the sync as determined by the
+   *   proposer; this is used only by the proposer and is simply echoed across
+   *   all messages in the sync operation.
    *
    * Note that ALL of our ID's start counting at 1; 0 is always a sentinel
    * value.
@@ -120,7 +121,7 @@ struct paxos_header {
  * - OP_REJECT: None.
  *
  * - OP_SYNC: None.
- * - OP_SYNCREPLY: The "hole" instance number requested for the sync.
+ * - OP_LAST: The instance number of the acceptor's last contiguous commit.
  * - OP_TRUNCATE: The new starting point of the instance log.
  *
  * The message formats of the various Paxos structures can be found in
@@ -196,7 +197,7 @@ struct paxos_sync {
   unsigned ps_total;      // number of acceptors syncing
   unsigned ps_acks;       // number of sync acks
   unsigned ps_skips;      // number of times we skipped starting a new sync
-  paxid_t ps_hole;        // inum of the first hole among all acceptors
+  paxid_t ps_last;        // the last contiguous commit across the system
 };
 
 /* Client callbacks. */
@@ -247,5 +248,6 @@ void paxos_register_connection(GIOChannel *);
 void paxos_drop_connection(struct paxos_peer *);
 int paxos_request(dkind_t, const void *, size_t len);
 int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
+int paxos_sync(void *);
 
 #endif /* __PAXOS_H__ */

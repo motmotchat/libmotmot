@@ -12,21 +12,42 @@
 #include <assert.h>
 #include <glib.h>
 
-#define SYNC_SKIP_THRESH  100
+#define SYNC_SKIP_THRESH  30
+
+/**
+ * paxos_sync - GEvent-friendly wrapper around proposer_sync.
+ */
+int paxos_sync(void *data)
+{
+  if (is_proposer()) {
+    proposer_sync();
+  }
+
+  return TRUE;
+}
 
 /**
  * proposer_sync - Send a sync command to all acceptors.
  *
- * For a sync to succeed, all acceptors need to tell us the location of the
- * first hole in their (hopefully mostly contiguous) list of committed
- * Paxos instances.  We take the minimum of these values and then command
- * everyone to truncate everything before the collective system's first hole.
+ * For a sync to succeed, all acceptors need to tell us the instance number
+ * of their last contiguous commit.  We take the minimum of these values
+ * and then command everyone to truncate everything before this minimum.
  */
 int
 proposer_sync()
 {
   struct paxos_header hdr;
   struct paxos_yak py;
+
+  // If we haven't finished preparing as the proposer, don't sync.
+  if (pax.prep != NULL) {
+    return 1;
+  }
+
+  // If not everyone is live, we should delay syncing.
+  if (pax.live_count != LIST_COUNT(&pax.alist)) {
+    return 1;
+  }
 
   // If we're already syncing, increment the skip counter.
   if (pax.sync != NULL) {
@@ -41,8 +62,9 @@ proposer_sync()
   // Create a new sync.
   pax.sync = g_malloc0(sizeof(*(pax.sync)));
   pax.sync->ps_total = LIST_COUNT(&pax.alist);
-  pax.sync->ps_acks = 1; // Including ourselves.
+  pax.sync->ps_acks = 1;  // Including ourselves.
   pax.sync->ps_skips = 0;
+  pax.sync->ps_last = 0;
 
   // Initialize a header.
   hdr.ph_ballot.id = pax.ballot.id;
@@ -62,17 +84,32 @@ proposer_sync()
 /**
  * acceptor_ack_sync - Respond to the sync request of a proposer.
  *
- * We respond by sending our the first hole in our instance list.
+ * We treat the sync like a decree and respond only if it has the appropriate
+ * ballot number.
  */
 int
 acceptor_ack_sync(struct paxos_header *hdr)
+{
+  // Respond only if the ballot number matches ours.
+  if (ballot_compare(hdr->ph_ballot, pax.ballot) == 0) {
+    return acceptor_last(hdr);
+  } else {
+    return 0;
+  }
+}
+
+/**
+ * acceptor_last - Send the instance number of our last contiguous commit to
+ * the proposer.
+ */
+int acceptor_last(struct paxos_header *hdr)
 {
   struct paxos_yak py;
 
   // Pack and send the response.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
-  paxos_paxid_pack(&py, pax.ihole);
+  paxos_paxid_pack(&py, pax.ihole - 1);
   paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
 
@@ -80,22 +117,22 @@ acceptor_ack_sync(struct paxos_header *hdr)
 }
 
 /**
- * proposer_ack_sync - Update sync state based on acceptor's reply.
+ * proposer_ack_last - Update sync state based on acceptor's reply.
  */
 int
-proposer_ack_sync(struct paxos_header *hdr, msgpack_object *o)
+proposer_ack_last(struct paxos_header *hdr, msgpack_object *o)
 {
-  paxid_t hole;
+  paxid_t last;
 
   // Ignore replies to older sync commands.
   if (hdr->ph_inum != pax.sync_id) {
     return 0;
   }
 
-  // Update our knowledge of the first commit hole.
-  paxos_paxid_unpack(&hole, o);
-  if (hole < pax.sync->ps_hole) {
-    pax.sync->ps_hole = hole;
+  // Update our knowledge of the system's last contiguous commit.
+  paxos_paxid_unpack(&last, o);
+  if (last < pax.sync->ps_last || pax.sync->ps_last == 0) {
+    pax.sync->ps_last = last;
   }
 
   // Increment acks and command a truncate if the sync is over.
@@ -115,30 +152,23 @@ proposer_ack_sync(struct paxos_header *hdr, msgpack_object *o)
 static void
 ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
 {
-  struct paxos_instance *it, *prev;
+  struct paxos_instance *it;
   struct paxos_request *req;
 
-  prev = NULL;
-  LIST_FOREACH(it, ilist, pi_le) {
-    if (prev != NULL) {
-      req = request_find(&pax.rcache, prev->pi_val.pv_reqid);
-      LIST_REMOVE(&pax.rcache, req, pr_le);
-      request_destroy(req);
-      LIST_REMOVE(ilist, prev, pi_le);
-      instance_destroy(prev);
-    }
+  for (it = LIST_FIRST(ilist); it != (void *)ilist; it = LIST_FIRST(ilist)) {
+    // Break if we've hit the desired stopping point.
     if (it->pi_hdr.ph_inum >= inum) {
       break;
     }
-    prev = it;
-  }
 
-  if (it == (void *)ilist) {
-    req = request_find(&pax.rcache, prev->pi_val.pv_reqid);
-    LIST_REMOVE(&pax.rcache, req, pr_le);
-    request_destroy(req);
-    LIST_REMOVE(ilist, prev, pi_le);
-    instance_destroy(prev);
+    // Free the instance and its associated request.
+    req = request_find(&pax.rcache, it->pi_val.pv_reqid);
+    if (req != NULL) {
+      LIST_REMOVE(&pax.rcache, req, pr_le);
+      request_destroy(req);
+    }
+    LIST_REMOVE(ilist, it, pi_le);
+    instance_destroy(it);
   }
 }
 
@@ -151,16 +181,15 @@ proposer_truncate(struct paxos_header *hdr)
 {
   struct paxos_yak py;
 
-  // Obtain our own first instance hole.
-  if (pax.ihole < pax.sync->ps_hole) {
-    pax.sync->ps_hole = pax.ihole;
+  // Obtain our own last contiguous commit.
+  if (pax.ihole - 1 < pax.sync->ps_last) {
+    pax.sync->ps_last = pax.ihole - 1;
   }
 
-  // Make the instance before this hole our new ibase, so as not to break
-  // pax.istart and to ensure that our ilist always has at least one
-  // committed instance.
-  assert(pax.sync->ps_hole >= pax.ibase);
-  pax.ibase = pax.sync->ps_hole - 1;
+  // Make this instance our new ibase; this ensures that our list always has
+  // at least one committed instance.
+  assert(pax.sync->ps_last >= pax.ibase);
+  pax.ibase = pax.sync->ps_last;
 
   // Do the truncate (< pax.ibase).
   ilist_truncate_prefix(&pax.ilist, pax.ibase);

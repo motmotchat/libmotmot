@@ -55,7 +55,8 @@ int proposer_ack_reject(struct paxos_header *);
 /* Log sync protocol. */
 int proposer_sync(void);
 int acceptor_ack_sync(struct paxos_header *);
-int proposer_ack_sync(struct paxos_header *, msgpack_object *);
+int acceptor_last(struct paxos_header *);
+int proposer_ack_last(struct paxos_header *, msgpack_object *);
 int proposer_truncate(struct paxos_header *);
 int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
 

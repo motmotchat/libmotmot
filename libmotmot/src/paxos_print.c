@@ -49,6 +49,9 @@ paxop_print(paxop_t op)
     case OP_SYNC:
       printf("OP_SYNC\n");
       break;
+    case OP_LAST:
+      printf("OP_LAST\n");
+      break;
     case OP_TRUNCATE:
       printf("OP_TRUNCATE\n");
       break;
