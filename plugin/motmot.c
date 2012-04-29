@@ -132,6 +132,11 @@ static PurplePlugin *_null_protocol = NULL;
 #define NULL_STATUS_AWAY     "away"
 #define NULL_STATUS_OFFLINE  "offline"
 
+typedef struct {
+  const char *name;
+  int status;
+} buddy_tuple;
+
 typedef void (*GcFunc)(PurpleConnection *from,
                        PurpleConnection *to,
                        gpointer userdata);
@@ -502,7 +507,7 @@ static void nullprpl_login(PurpleAccount *acct)
   // initialize paxos functions
   // right now this does nothing, since these are do-nothing functions:
   // TODO fill out later
-  motmot_init(connect_motmot, print_chat_motmot, print_join_motmot, print_part_motmot);
+  // motmot_init(connect_motmot, print_chat_motmot, print_join_motmot, print_part_motmot);
 
 	if (strpbrk(username, " \t\v\r\n") != NULL) {
 		purple_connection_error_reason (gc,
@@ -653,6 +658,7 @@ static void deny_cb(void *data){
 }
 
 
+
 static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   char *friend_name;
   int status;
@@ -663,6 +669,7 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   msgpack_object_array tuple;
   motmot_conn *conn = gc -> proto_data;
   PurpleAccount *a = conn -> account;
+  PurpleBuddy *bud;
 
   msgpack_object_array ar = deser_get_array(buffer, len);
   if(ar.size <= 0){
@@ -682,8 +689,16 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
         tuple = get_array2((ar2.ptr)[i]);
         friend_name = deser_get_string(tuple, 0);
         status = deser_get_pos_int(tuple, 1);
-        update_remote_status(a, friend_name, status);
-        g_free(friend_name);
+        bud = purple_find_buddy(a, friend_name);
+        if(bud == NULL){
+          bud = purple_buddy_new(a, friend_name, NULL);
+          purple_blist_add_buddy(bud, NULL, NULL, NULL);
+          update_remote_status(a, friend_name, status);
+        }
+        else{
+          update_remote_status(a, friend_name, status);
+          g_free(friend_name);
+        }
       }
       break;
     case PUSH_FRIEND_ACCEPT:
@@ -1054,8 +1069,20 @@ static void nullprpl_add_buddies(PurpleConnection *gc, GList *buddies,
 static void nullprpl_remove_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
                                   PurpleGroup *group)
 {
-  purple_debug_info("nullprpl", "removing %s from %s's buddy list\n",
-                    buddy->name, gc->account->username);
+  const char *name = purple_buddy_get_name(buddy);
+  motmot_conn *conn = gc -> proto_data;
+  msgpack_sbuffer *buffer = msgpack_sbuffer_new();
+  msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
+  msgpack_pack_array(pk, 2);
+  msgpack_pack_int(pk, UNREGISTER_FRIEND);
+
+  msgpack_pack_raw(pk, strlen(name));
+  msgpack_pack_raw_body(pk, name, strlen(name));
+
+  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
+ 
+  msgpack_sbuffer_free(buffer);
+  msgpack_packer_free(pk);
 }
 
 static void nullprpl_remove_buddies(PurpleConnection *gc, GList *buddies,
