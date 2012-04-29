@@ -110,6 +110,8 @@
 #define SUCCESS 60
 #define ACCESS_DENIED 63
 #define FRIEND_SERVER_DOWN 91
+#define GET_USER_STATUS 8
+#define GET_STATUS_RESP 68
 
 #define ONLINE 1
 #define AWAY 2
@@ -164,6 +166,23 @@ typedef struct {
 /*
  * helpers
  */
+
+static void query_status(const char *username, motmot_conn *conn){
+  msgpack_sbuffer *buffer = msgpack_sbuffer_new();
+  msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
+
+  msgpack_pack_array(pk, 2);
+  msgpack_pack_int(pk, GET_USER_STATUS);
+
+  msgpack_pack_raw(pk, strlen(username) );
+  msgpack_pack_raw_body(pk, username, strlen(username) );
+
+  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size); 
+
+  msgpack_sbuffer_free(buffer);
+  msgpack_packer_free(pk);
+}
+  
 
 static msgpack_object_array deser_get_array(char *buffer, int len){
   bool success;
@@ -701,6 +720,13 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
         }
       }
       break;
+    case GET_STATUS_RESP:
+      tuple = get_array2((ar.ptr)[1]);
+      friend_name = deser_get_string(tuple, 0);
+      status = deser_get_pos_int(tuple, 1);
+      update_remote_status(a, friend_name, status);
+      g_free(friend_name);
+      break;
     case PUSH_FRIEND_ACCEPT:
     case PUSH_CLIENT_STATUS:
       friend_name = deser_get_string(ar, 1);
@@ -1003,11 +1029,14 @@ static void nullprpl_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
     msgpack_pack_raw_body(pk, name, strlen(name));
 
     purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
+    query_status(name, conn);
 
     msgpack_sbuffer_free(buffer);
     msgpack_packer_free(pk);
     conn -> acceptance_list = g_list_remove(conn -> acceptance_list, name);
     g_free(name);
+    
+    query_status(purple_buddy_get_name(buddy), conn);
     return;
   }
   
@@ -1022,8 +1051,6 @@ static void nullprpl_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
 
-  // buddy is "offline" until friend request is accepted. 
-  update_remote_status(conn -> account,purple_buddy_get_name(buddy), OFFLINE);
 /*
   const char *username = gc->account->username;
   PurpleConnection *buddy_gc = get_nullprpl_gc(buddy->name);
