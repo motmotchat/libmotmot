@@ -406,6 +406,8 @@ def getAllFriendStatuses(conn):
                 if friend[0] in conn.connTbl:
                     key = conn.connTbl[friend[0]].address 
                     rList.append(authList[key])
+                else:
+                    rList.append((friend[0], status.OFFLINE))
             else:
                 # we first sort the friends into lists on a domain by domain basis
                 if splt[1] in frByDom:
@@ -502,6 +504,8 @@ def serverGetStatus(conn, users):
         # if the user is online, get status and add to return list
         if user in conn.connTbl:
             rList.append(authList[conn.connTbl[user].address])
+        else:
+            rList.append((user, status.OFFLINE))
 
     return [RM.SERVER_GET_STATUS_RESP, rList]
 

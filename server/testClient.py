@@ -105,13 +105,22 @@ def test_accept(tPass):
 def test_listener(tPass):
     sendQ.put([RM.AUTHENTICATE_USER,"ej2@bensing.com","12345"])
 
+def test_getAllStatus(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    if tPass=='True':
+        sendQ.put([RM.GET_ALL_STATUSES])
+    else:
+        sendQ.put([RM.GET_ALL_STATUSES, "baduser@bensing.com"])
+        sendQ.put([RM.GET_ALL_STATUSES, ";insert into users(userName,password) values ('owned','owned'); --"])
+
 
 testMap = {
-    'auth':     test_auth,
-    'friend':   test_friend,
-    'unfriend': test_unfriend,
-    'accept':   test_accept,
-    'listener': test_listener,
+    'auth':         test_auth,
+    'friend':       test_friend,
+    'unfriend':     test_unfriend,
+    'accept':       test_accept,
+    'listener':     test_listener,
+    'getAllStat':   test_getAllStatus,
 }
 
 if __name__ == '__main__':
