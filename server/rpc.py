@@ -21,6 +21,7 @@ dispatch_table = {
     RM.SERVER_GET_STATUS:           motmot.serverGetStatus,
     RM.SUCCESS:                     motmot.noResp,
     RM.SIGN_CERT_REQUEST:           motmot.signClientCert,
+    RM.GET_USER_STATUS:             motmot.getUserStatus,
 }
 
 def writeback(conn, fn, args):
@@ -47,6 +48,9 @@ def writeback(conn, fn, args):
     except motmot.UserNotFound, e:
         print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
         rVal = [RM.USER_NOT_FOUND,"Specified User Could Not Be Found"]
+    except motmot.InvalidUserName, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.USER_NOT_FOUND,"Invalid Username"]
     finally:
         conn.send(rVal)
 

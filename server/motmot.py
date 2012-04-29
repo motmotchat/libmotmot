@@ -46,6 +46,8 @@ class RemoteMethods:
     SIGN_CERT_RESP=67
     BAD_MESSAGE=92
     USER_NOT_FOUND=93
+    GET_USER_STATUS=8
+    USER_STATUS_RESP=68
 
 RM = RemoteMethods
 
@@ -74,6 +76,10 @@ class RPCError(Exception):
 
 # user not found
 class UserNotFound(Exception):
+    pass
+
+# raised when userName is improperly formed
+class InvalidUserName(Exception):
     pass
 
 # this is the global dictionary of currently connected, 
@@ -159,6 +165,10 @@ def user_exists(userName):
     if cnt[0] != 1:
         raise UserNotFound
 
+# do name validation here... regex probably too complicated for real usage
+def validate_name(userName):
+    if "@" not in userName:
+        raise InvalidUserName
 
 #registers a friend request
 def registerFriend(conn, friend, un=None):
@@ -520,3 +530,47 @@ def signClientCert(conn, certStr):
     signedCert = cryptomot.signCert('cert/', certStr, userName)
 
     return [RM.SIGN_CERT_RESP, signedCert]
+
+# gets the status of the specified user
+def getUserStatus(conn, userName):
+    if not auth(conn):
+        return DENIED
+    
+    
+    validate_name(userName) 
+    splt = userName.split('@')
+    rMsg = [RM.USER_STATUS_RESP,]
+    if splt[1] == conn.domain:
+        user_exists(userName)
+        if userName in conn.connTbl:
+           rMsg.append(authList[conn.connTbl[userName].address])
+        else:
+            rMsg.append((userName, status.OFFLINE))
+
+    else:
+
+        # if the user is not from this domain, send a message to the appropriate server
+        address = (bSock.gethostbyname(splt[1]), 8888)
+        sock = socket.socket()
+        sock = ssl.wrap_socket(sock)
+        sock.connect(address)
+
+        sock.sendall(msgpack.packb([RM.AUTHENTICATE_SERVER, conn.domain]))
+        rVal = sock.recv(4096)
+        rVal = msgpack.unpackb(rVal)
+        if rVal[0] != RM.AUTHENTICATED:
+            raise RPCError
+
+        sock.sendall(msgpack.packb([RM.GET_USER_STATUS, userName]))
+        rVal = sock.recv(4096)
+        rVal = msgpack.unpackb(rVal)
+        if rVal[0] == RM.USER_NOT_FOUND:
+            raise UserNotFound
+        elif rVal[0] == RM.USER_STATUS_RESP:
+            rMsg.append(rVal[1])
+        else:
+            raise RPCError
+
+        sock.close()
+
+    return rMsg

@@ -105,6 +105,7 @@ def test_accept(tPass):
 def test_listener(tPass):
     sendQ.put([RM.AUTHENTICATE_USER,"ej2@bensing.com","12345"])
 
+# testing get all status functionality
 def test_getAllStatus(tPass):
     sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
     if tPass=='True':
@@ -112,6 +113,15 @@ def test_getAllStatus(tPass):
     else:
         sendQ.put([RM.GET_ALL_STATUSES, "baduser@bensing.com"])
         sendQ.put([RM.GET_ALL_STATUSES, ";insert into users(userName,password) values ('owned','owned'); --"])
+
+# testing user status function
+def test_getUserStatus(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    if tPass=='True':
+        sendQ.put([RM.GET_USER_STATUS,"ej2@bensing.com"])
+    else:
+        sendQ.put([RM.GET_USER_STATUS, "baduser@bensing.com"])
+        sendQ.put([RM.GET_USER_STATUS, ";insert into users(userName,password) values ('owned','owned'); --"])
 
 
 testMap = {
@@ -121,6 +131,7 @@ testMap = {
     'accept':       test_accept,
     'listener':     test_listener,
     'getAllStat':   test_getAllStatus,
+    'getStatus':    test_getUserStatus,
 }
 
 if __name__ == '__main__':
