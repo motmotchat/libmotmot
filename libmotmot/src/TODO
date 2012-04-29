@@ -1,6 +1,8 @@
 Things left to do:
 - implement RETRY to obtain missing commits; this will probably just be
   done through the SYNC protocol
+- maybe don't truncate until some particular time has elapsed, but also
+  whatever
 - make request cache retrieves more robust; figure out who to ask that
   isn't the request originator
 - lots and lots of error-handling
