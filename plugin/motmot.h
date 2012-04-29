@@ -8,5 +8,6 @@ typedef struct{
   char *port;
   PurpleAccount *account;
   PurpleSslConnection *gsc;
-  const char *data;
+  GList *acceptance_list;
+  void *data;
 } motmot_conn;
