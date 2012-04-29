@@ -46,8 +46,9 @@ class RemoteMethods:
     SIGN_CERT_RESP=67
     BAD_MESSAGE=92
     USER_NOT_FOUND=93
-    GET_USER_STATUS=8
+    GET_USER_STATUS=9
     USER_STATUS_RESP=68
+    CERT_DENIED=94
 
 RM = RemoteMethods
 
@@ -523,7 +524,7 @@ def serverGetStatus(conn, users):
 def signClientCert(conn, certStr):
     if not auth(conn):
         return DENIED
-
+    
     # carl said something about needing to store the client cert?
     userName = authList[conn.address][0]
 

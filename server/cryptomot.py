@@ -58,6 +58,7 @@ def signCert(cert_dir, certStr, userName):
     
     # load certificate into X509 instance
     cert = crypto.load_certificate(crypto.FILETYPE_PEM, certStr)
+    
     if cert.get_subject().CN == userName:
         # sign it
         cert.sign(pk, 'sha1')

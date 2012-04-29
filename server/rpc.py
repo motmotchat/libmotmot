@@ -3,6 +3,10 @@ import motmot
 import socket as bSock
 import cryptomot
 
+import Crypto
+
+from OpenSSL import crypto
+
 RM = motmot.RemoteMethods
 
 dispatch_table = {
@@ -51,6 +55,9 @@ def writeback(conn, fn, args):
     except motmot.InvalidUserName, e:
         print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
         rVal = [RM.USER_NOT_FOUND,"Invalid Username"]
+    except crypto.Error, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.CERT_DENIED,"Bad Certificate"]
     finally:
         conn.send(rVal)
 

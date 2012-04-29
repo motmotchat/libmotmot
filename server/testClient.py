@@ -10,6 +10,7 @@ import socket as bSock
 import sys
 
 import motmot
+import cryptomot
 from pprint import pprint as pp
 
 RM = motmot.RemoteMethods
@@ -122,6 +123,20 @@ def test_getUserStatus(tPass):
     else:
         sendQ.put([RM.GET_USER_STATUS, "baduser@bensing.com"])
         sendQ.put([RM.GET_USER_STATUS, ";insert into users(userName,password) values ('owned','owned'); --"])
+        sendQ.put([RM.GET_USER_STATUS, ])
+
+def test_cert(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    if tPass=='True':
+        cryptomot.create_self_signed_cert('test',"ej@bensing.com")
+        cert = open('ctest/motmot.crt').read()
+        sendQ.put([RM.SIGN_CERT_REQUEST, cert])
+    else:
+        sendQ.put([RM.SIGN_CERT_REQUEST, "baduser@bensing.com"])
+        sendQ.put([RM.SIGN_CERT_REQUEST, ";insert into users(userName,password) values ('owned','owned'); --"])
+        sendQ.put([RM.SIGN_CERT_REQUEST, ])
+        cert = open('cert/motmot.crt').read()
+        sendQ.put([RM.SIGN_CERT_REQUEST, cert])
 
 
 testMap = {
@@ -132,6 +147,7 @@ testMap = {
     'listener':     test_listener,
     'getAllStat':   test_getAllStatus,
     'getStatus':    test_getUserStatus,
+    'cert':         test_cert,
 }
 
 if __name__ == '__main__':
