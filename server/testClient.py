@@ -138,6 +138,28 @@ def test_cert(tPass):
         cert = open('cert/motmot.crt').read()
         sendQ.put([RM.SIGN_CERT_REQUEST, cert])
 
+def test_multiServer_sender(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    if tPass=='True':
+        sendQ.put([RM.REGISTER_FRIEND, "ej@bensing2.com"])
+        sendQ.put([RM.ACCEPT_FRIEND, "ej@bensing2.com"])
+        sendQ.put([RM.REGISTER_STATUS, status.BUSY])
+        sendQ.put([RM.GET_USER_STATUS, "ej@bensing2.com"])
+    else:
+        sendQ.put([RM.REGISTER_FRIEND, "baduser@bensing2.com"])
+        sendQ.put([RM.ACCEPT_FRIEND, "baduser@bensing2.com"])
+        sendQ.put([RM.REGISTER_STATUS, 99])
+        sendQ.put([RM.GET_USER_STATUS, "baduser@bensing2.com"])
+
+        sendQ.put([RM.REGISTER_FRIEND, ";insert into users(userName,password) values ('owned','owned'); --@bensing2.com"])
+        sendQ.put([RM.ACCEPT_FRIEND, ";insert into users(userName,password) values ('owned','owned'); --@bensing2.com"])
+        sendQ.put([RM.REGISTER_STATUS, 99])
+        sendQ.put([RM.GET_USER_STATUS, ";insert into users(userName,password) values ('owned','owned'); --@bensing2.com"])
+
+
+def test_multiServer_listen(tPass):
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing2.com","12345"])
+
 
 testMap = {
     'auth':         test_auth,
@@ -148,6 +170,8 @@ testMap = {
     'getAllStat':   test_getAllStatus,
     'getStatus':    test_getUserStatus,
     'cert':         test_cert,
+    'ms_send':      test_multiServer_sender,
+    'ms_listen':    test_multiServer_listen,
 }
 
 if __name__ == '__main__':

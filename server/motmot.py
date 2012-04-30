@@ -15,8 +15,8 @@ from pprint import pprint as pp # For debugging
 
 # TODO: <s>Make auth push out status update when user comes online</s>
 #      <s> add error handling for when server cannot connect to remote domains socket.gaierror, probably need to catch a couple other errors </s>
-#       add SSL support
-#       add certificate signing function
+#      <s> add SSL support</s>
+#      <s> add certificate signing function</s>
 
 class RemoteMethods:
     AUTHENTICATE_USER=1
