@@ -9,7 +9,9 @@
 void
 paxid_print(paxid_t paxid, const char *lead, const char *trail)
 {
+  printf("%s", lead);
   printf("%u", paxid);
+  printf("%s", trail);
 }
 
 void
@@ -97,7 +99,8 @@ dkind_print(dkind_t dkind, const char *lead, const char *trail)
 }
 
 void
-paxos_header_print(struct paxos_header *hdr, const char *lead, const char *trail)
+paxos_header_print(struct paxos_header *hdr, const char *lead,
+    const char *trail)
 {
   printf("%s", lead);
   paxop_print(hdr->ph_opcode, "", " ");
@@ -107,7 +110,8 @@ paxos_header_print(struct paxos_header *hdr, const char *lead, const char *trail
 }
 
 void
-paxos_value_print(struct paxos_value *val, const char *lead, const char *trail)
+paxos_value_print(struct paxos_value *val, const char *lead,
+    const char *trail)
 {
   printf("%s", lead);
   dkind_print(val->pv_dkind, "", " ");
@@ -117,7 +121,8 @@ paxos_value_print(struct paxos_value *val, const char *lead, const char *trail)
 }
 
 void
-paxos_acceptor_print(struct paxos_acceptor *acc, const char *lead, const char *trail)
+paxos_acceptor_print(struct paxos_acceptor *acc, const char *lead,
+    const char *trail)
 {
   printf("%s", lead);
   paxid_print(acc->pa_paxid, "", ": ");
@@ -126,7 +131,8 @@ paxos_acceptor_print(struct paxos_acceptor *acc, const char *lead, const char *t
 }
 
 void
-paxos_instance_print(struct paxos_instance *inst, const char *lead, const char *trail)
+paxos_instance_print(struct paxos_instance *inst, const char *lead,
+    const char *trail)
 {
   paxos_header_print(&inst->pi_hdr, lead, "\n");
   paxos_value_print(&inst->pi_val, lead, "\n");
@@ -135,7 +141,8 @@ paxos_instance_print(struct paxos_instance *inst, const char *lead, const char *
 }
 
 void
-paxos_request_print(struct paxos_request *req, const char *lead, const char *trail)
+paxos_request_print(struct paxos_request *req, const char *lead,
+    const char *trail)
 {
   paxos_value_print(&req->pr_val, lead, "\n");
   printf("%*s", (int)req->pr_size, (char *)req->pr_data);

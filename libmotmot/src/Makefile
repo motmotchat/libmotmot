@@ -5,6 +5,10 @@ LDFLAGS = `pkg-config --libs glib-2.0` -lmsgpack
 DEPDIR = .deps/
 SRC = $(wildcard *.c)
 
+ifdef DEBUG
+	CFLAGS += -DDEBUG
+endif
+
 all: motmot
 
 motmot: $(SRC:.c=.o)

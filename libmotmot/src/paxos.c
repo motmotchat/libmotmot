@@ -199,6 +199,10 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 {
   int retval = 0;
 
+#ifdef DEBUG
+  paxos_header_print(hdr, "P: ", "\n");
+#endif
+
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
       // Invalid system state; kill the offender.
@@ -272,6 +276,10 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
   int retval = 0;
+
+#ifdef DEBUG
+  paxos_header_print(hdr, "A: ", "\n");
+#endif
 
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
