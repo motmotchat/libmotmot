@@ -12,7 +12,7 @@
 #include <assert.h>
 #include <glib.h>
 
-extern void ilist_insert(struct paxos_instance *);
+extern void instance_insert_and_upstart(struct paxos_instance *);
 
 /**
  * acceptor_ack_prepare - Prepare for a new proposer.
@@ -134,13 +134,14 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   // See if we have seen this instance for another ballot.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
   if (inst == NULL) {
-    // We haven't seen this instance, so initialize a new one.
+    // We haven't seen this instance, so initialize a new one.  Our commit
+    // flags are all zeroed so we don't need to initialize them.
     inst = g_malloc0(sizeof(*inst));
     memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
     memcpy(&inst->pi_val, &val, sizeof(val));
 
-    // Insert into the ilist, marking uncommitted and updating istart.
-    ilist_insert(inst);
+    // Insert into the ilist and update istart.
+    instance_insert_and_upstart(inst);
 
     // Accept the decree.
     return acceptor_accept(hdr);
@@ -204,11 +205,12 @@ acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
   inst = instance_find(&pax.ilist, hdr->ph_inum);
 
   // The instance may not exist if we didn't get the original decree, but
-  // we can trust the majority and commit anyway.
+  // we can trust the majority and commit anyway.  Our commit flags are
+  // all zeroed so we don't need to initialize them.
   if (inst == NULL) {
     inst = g_malloc0(sizeof(*inst));
     memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
-    ilist_insert(inst);
+    instance_insert_and_upstart(inst);
   }
 
   // If we committed already, we know that a quorum has the same value that

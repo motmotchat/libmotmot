@@ -12,7 +12,7 @@
 #include <assert.h>
 #include <glib.h>
 
-extern void ilist_insert(struct paxos_instance *);
+extern void instance_insert_and_upstart(struct paxos_instance *);
 
 /**
  * acceptor_retry - Ask the proposer to give us a commit we are missing.
@@ -96,11 +96,12 @@ int acceptor_ack_recommit(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
-  // Initialize a new instance if necessary.
+  // Initialize a new instance if necessary.  Our commit flags are all
+  // zeroed so we don't need to initialize them.
   if (inst == NULL) {
     inst = g_malloc0(sizeof(*inst));
     memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
-    ilist_insert(inst);
+    instance_insert_and_upstart(inst);
   } else {
     memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
   }

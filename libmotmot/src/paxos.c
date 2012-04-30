@@ -15,8 +15,8 @@
 // Local protocol state
 struct paxos_state pax;
 
-int proposer_broadcast_ihv(struct paxos_instance *);
-void ilist_insert(struct paxos_instance *);
+void instance_insert_and_upstart(struct paxos_instance *);
+int proposer_broadcast_instance(struct paxos_instance *);
 int proposer_decree_part(struct paxos_acceptor *);
 int proposer_force_kill(struct paxos_peer *);
 
@@ -401,11 +401,27 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 //
 
 /**
- * paxos_broadcast_ihv - Pack the header and value of an instance and
+ * instance_insert_and_upstart - Insert a newly allocated instance into the
+ * ilist and update istart.
+ */
+void
+instance_insert_and_upstart(struct paxos_instance *inst)
+{
+  // Insert into the ilist.
+  instance_insert(&pax.ilist, inst);
+
+  // Update istart if we just instantiated the hole.
+  if (inst->pi_hdr.ph_inum == pax.ihole) {
+    pax.istart = inst;
+  }
+}
+
+/**
+ * paxos_broadcast_instance - Pack the header and value of an instance and
  * broadcast.
  */
 int
-paxos_broadcast_ihv(struct paxos_instance *inst)
+paxos_broadcast_instance(struct paxos_instance *inst)
 {
   int r;
   struct paxos_yak py;
@@ -420,31 +436,7 @@ paxos_broadcast_ihv(struct paxos_instance *inst)
 }
 
 /**
- * ilist_insert - Insert a newly allocated instance into the ilist, marking
- * it as uncommitted (with one vote) and updating the hole.
- */
-void
-ilist_insert(struct paxos_instance *inst)
-{
-  // Initialize our vote counts and flags.
-  inst->pi_committed = false;
-  inst->pi_cached = false;
-  inst->pi_learned = false;
-
-  inst->pi_votes = 1;
-  inst->pi_rejects = 0;
-
-  // Insert into the ilist.
-  instance_insert(&pax.ilist, inst);
-
-  // Update istart if we just instantiated the hole.
-  if (inst->pi_hdr.ph_inum == pax.ihole) {
-    pax.istart = inst;
-  }
-}
-
-/**
- * proposer_decree_part - Decree a part.
+ * proposer_decree_part - Decree a part, deferring as necessary.
  */
 int
 proposer_decree_part(struct paxos_acceptor *acc)

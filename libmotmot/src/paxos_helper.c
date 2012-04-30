@@ -127,6 +127,22 @@ reqid_compare(reqid_t x, reqid_t y)
 
 ///////////////////////////////////////////////////////////////////////////
 //
+//  Initializer routines.
+//
+
+void
+instance_reset_metadata(struct paxos_instance *inst)
+{
+  inst->pi_committed = false;
+  inst->pi_cached = false;
+  inst->pi_learned = false;
+  inst->pi_votes = 1;
+  inst->pi_rejects = 0;
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//
 //  Destructor routines.
 //
 

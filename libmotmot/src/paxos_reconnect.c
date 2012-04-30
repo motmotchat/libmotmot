@@ -15,7 +15,7 @@
 
 #define DEATH_ADJUSTED(n) ((n) + (LIST_COUNT(&pax.alist) - pax.live_count))
 
-extern int paxos_broadcast_ihv(struct paxos_instance *);
+extern int paxos_broadcast_instance(struct paxos_instance *);
 
 /**
  * paxos_redirect - Tell the sender of the message either that we are not the
@@ -276,15 +276,11 @@ proposer_ack_reject(struct paxos_header *hdr)
       inst->pi_val.pv_extra = 0;
     }
 
-    // Reset the instance metadata.
-    inst->pi_committed = false;
-    inst->pi_cached = false;
-    inst->pi_learned = false;
-    inst->pi_votes = 1;
-    inst->pi_rejects = 0;
+    // Reset the instance metadata, marking one vote.
+    instance_reset_metadata(inst);
 
     // Decree null if the reconnect succeeded, else redecree the part.
-    return paxos_broadcast_ihv(inst);
+    return paxos_broadcast_instance(inst);
   }
 
   // If we have heard back from everyone but the accepts and rejects are tied,
@@ -292,7 +288,7 @@ proposer_ack_reject(struct paxos_header *hdr)
   if (inst->pi_votes < majority() &&
       DEATH_ADJUSTED(inst->pi_rejects) < majority() &&
       inst->pi_votes + inst->pi_rejects == pax.live_count) {
-    return paxos_broadcast_ihv(inst);
+    return paxos_broadcast_instance(inst);
   }
 
   return 0;

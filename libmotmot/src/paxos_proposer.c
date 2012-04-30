@@ -20,9 +20,9 @@ swap(void **p1, void **p2)
   *p2 = tmp;
 }
 
-extern void ilist_insert(struct paxos_instance *);
+extern void instance_insert_and_upstart(struct paxos_instance *);
 extern int proposer_decree_part(struct paxos_acceptor *);
-extern int paxos_broadcast_ihv(struct paxos_instance *);
+extern int paxos_broadcast_instance(struct paxos_instance *);
 
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.
@@ -254,16 +254,10 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_hdr.ph_ballot.id = pax.ballot.id;
       inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
       inst->pi_hdr.ph_opcode = OP_DECREE;
-
-      inst->pi_committed = false;
-      inst->pi_cached = false;
-      inst->pi_learned = false;
-
-      inst->pi_votes = 1;
-      inst->pi_rejects = 0;
+      instance_reset_metadata(inst);
 
       // Pack and broadcast the decree.
-      ERR_RET(r, paxos_broadcast_ihv(inst));
+      ERR_RET(r, paxos_broadcast_instance(inst));
     }
   }
 
@@ -305,11 +299,14 @@ proposer_decree(struct paxos_instance *inst)
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_inum = next_instance();
 
-  // Insert into the ilist, updating our votes, flags, and pax.istart.
-  ilist_insert(inst);
+  // Zero out the metadata and mark one vote.
+  instance_reset_metadata(inst);
+
+  // Insert into the ilist, updating istart.
+  instance_insert_and_upstart(inst);
 
   // Pack and broadcast the decree.
-  ERR_RET(r, paxos_broadcast_ihv(inst));
+  ERR_RET(r, paxos_broadcast_instance(inst));
 
   // Do we constitute a majority ourselves?  If so, commit!
   if (inst->pi_votes >= majority()) {
@@ -367,7 +364,7 @@ proposer_commit(struct paxos_instance *inst)
   inst->pi_hdr.ph_opcode = OP_COMMIT;
 
   // Pack and broadcast the commit.
-  ERR_RET(r, paxos_broadcast_ihv(inst));
+  ERR_RET(r, paxos_broadcast_instance(inst));
 
   // Commit and learn the value ourselves.
   return paxos_commit(inst);
