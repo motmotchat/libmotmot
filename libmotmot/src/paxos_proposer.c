@@ -144,14 +144,19 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // Loop through all the vote information.  Note that we assume the votes
   // are sorted by instance number.
   for (; p != pend; ++p) {
-    // Allocate and unpack a instance.  We don't care whether any of the
-    // acceptors have already committed; we can safely ask them to recommit
-    // without violating correctness.
-    // TODO: Figure out a pretty way to deallocate less.
-    inst = g_malloc0(sizeof(*inst));
+    // Allocate an instance if necessary and unpack into it.  Note that if
+    // paxos_instance contained any pointers which required deallocation,
+    // we would need to destroy it each iteration.
+    if (inst == NULL) {
+      inst = g_malloc0(sizeof(*inst));
+    }
     paxos_instance_unpack(inst, p);
-    inst->pi_votes = 1;     // Mark uncommitted.
-    inst->pi_rejects = 0;   // Doesn't matter.
+
+    // Mark everything uncommitted.  We don't care whether any acceptors
+    // have already committed; we can safely ask them to recommit without
+    // violating correctness.
+    inst->pi_votes = 1;
+    inst->pi_rejects = 0; // Doesn't matter.
 
     // Get the closest instance with lesser or equal instance number.  After
     // starting Paxos, our instance list is guaranteed to always be nonempty,
@@ -168,19 +173,20 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       if (inst->pi_hdr.ph_inum == pax.ihole) {
         pax.istart = inst;
       }
+
+      // We need to allocate a new scratch instance in the next iteration.
+      inst = NULL;
     } else {
       // We found an instance of the same number.  If the existing instance
       // is NOT a commit, and if the new instance has a higher ballot number,
       // switch the new one in.
       if (it->pi_votes != 0 &&
           ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 0) {
+        // Perform the switch; reuse the old allocation in the next iteration.
         LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
         LIST_REMOVE(&pax.ilist, it, pi_le);
         swap((void **)&inst, (void **)&it);
       }
-
-      // Destroy whichever instance we aren't keeping.
-      instance_destroy(inst);
     }
   }
 
