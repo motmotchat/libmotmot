@@ -55,16 +55,24 @@ paxos_commit(struct paxos_instance *inst)
   // We should already have committed and learned everything before the hole.
   assert(inst->pi_hdr.ph_inum >= pax.ihole);
 
-  // Check if we just committed the hole.  If not, we can't learn yet since
-  // we want our learns to be totally ordered.  If the hole is waiting on a
-  // retrieve, we just return; however, if we have not encountered it at all
-  // or if it is not committed, we issue a retry.
+  // Since we want our learns to be totally ordered, if we didn't just fill
+  // the hole, we cannot learn.
   if (inst->pi_hdr.ph_inum != pax.ihole) {
-    if (pax.istart->pi_hdr.ph_inum != pax.ihole || !pax.istart->pi_committed) {
-      return acceptor_retry(pax.ihole);
-    } else {
+    // If we're the proposer, we have to just wait it out.
+    if (is_proposer()) {
       return 0;
     }
+
+    // If the hole has committed but is just waiting on a retrieve, we'll learn
+    // when we receive the resend.
+    if (pax.istart->pi_hdr.ph_inum == pax.ihole && pax.istart->pi_committed) {
+      assert(!pax.istart->pi_cached);
+      return 0;
+    }
+
+    // The hole is either missing or uncommitted and we are not the proposer,
+    // so issue a retry.
+    return acceptor_retry(pax.ihole);
   }
 
   // Set pax.istart to point to the instance numbered pax.ihole.
