@@ -108,7 +108,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   // no action.  Importantly, the proposer doesn't keep track of who has
   // responded to prepares, and hence if we respond to both the proposer's
   // (higher) ballot and our (lower) ballot, we could break correctness
-  // guarantees by responding to more decrees for the lower ballot.
+  // guarantees if we responded to any more decrees for the lower ballot.
   if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
     return 0;
   }
@@ -129,7 +129,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
     // We haven't seen this instance, so initialize a new one.
     inst = g_malloc0(sizeof(*inst));
     memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
-    paxos_value_unpack(&inst->pi_val, o);
+    memcpy(&inst->pi_val, &val, sizeof(val));
 
     // Insert into the ilist, marking uncommitted and updating istart.
     ilist_insert(inst);
@@ -137,15 +137,21 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
     // Accept the decree.
     return acceptor_accept(hdr);
   } else {
-    // We found an instance of the same number.  If the existing instance
-    // is NOT a commit, and if the new instance has an equal or higher
-    // ballot number, switch the new one in.
-    if (inst->pi_votes != 0 &&
-        ballot_compare(hdr->ph_ballot, inst->pi_hdr.ph_ballot) >= 0) {
-      memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
-      paxos_value_unpack(&inst->pi_val, o);
+    // We found an instance of the same number.
+    if (inst->pi_votes == 0) {
+      // If we have already committed, assert that the new values matches,
+      // then just accept.
+      assert(inst->pi_val.pv_dkind == val.pv_dkind);
+      assert(inst->pi_val.pv_reqid.id == val.pv_reqid.id);
+      assert(inst->pi_val.pv_reqid.gen == val.pv_reqid.gen);
 
-      // Accept the decree.
+      return acceptor_accept(hdr);
+    } else if (ballot_compare(hdr->ph_ballot, inst->pi_hdr.ph_ballot) >= 0) {
+      // Otherwise, if the decree has a ballot number equal to or higher than
+      // that of our instance, switch the new value in and accept.
+      memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
+      memcpy(&inst->pi_val, &val, sizeof(val));
+
       return acceptor_accept(hdr);
     }
   }
