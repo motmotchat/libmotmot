@@ -7,53 +7,137 @@
 #include <stdio.h>
 
 void
-paxop_print(paxop_t op)
+paxid_print(paxid_t paxid, const char *lead, const char *trail)
 {
+  printf("%u", paxid);
+}
+
+void
+ppair_print(ppair_t pp, const char *lead, const char *trail)
+{
+  printf("%s", lead);
+  paxid_print(pp.id, "(", ", ");
+  paxid_print(pp.gen, "", ")");
+  printf("%s", trail);
+}
+
+void
+paxop_print(paxop_t op, const char *lead, const char *trail)
+{
+  printf("%s", lead);
   switch (op) {
     case OP_PREPARE:
-      printf("OP_PREPARE\n");
+      printf("OP_PREPARE ");
       break;
     case OP_PROMISE:
-      printf("OP_PROMISE\n");
+      printf("OP_PROMISE ");
       break;
     case OP_DECREE:
-      printf("OP_DECREE\n");
+      printf("OP_DECREE  ");
       break;
     case OP_ACCEPT:
-      printf("OP_ACCEPT\n");
+      printf("OP_ACCEPT  ");
       break;
     case OP_COMMIT:
-      printf("OP_COMMIT\n");
+      printf("OP_COMMIT  ");
       break;
     case OP_WELCOME:
-      printf("OP_WELCOME\n");
+      printf("OP_WELCOME ");
       break;
     case OP_HELLO:
-      printf("OP_HELLO\n");
+      printf("OP_HELLO   ");
       break;
     case OP_REQUEST:
-      printf("OP_REQUEST\n");
+      printf("OP_REQUEST ");
       break;
     case OP_RETRIEVE:
-      printf("OP_RETRIEVE\n");
+      printf("OP_RETRIEVE");
       break;
     case OP_RESEND:
-      printf("OP_RESEND\n");
+      printf("OP_RESEND  ");
       break;
     case OP_REDIRECT:
-      printf("OP_REDIRECT\n");
+      printf("OP_REDIRECT");
       break;
     case OP_REJECT:
-      printf("OP_REJECT\n");
+      printf("OP_REJECT  ");
       break;
     case OP_SYNC:
-      printf("OP_SYNC\n");
+      printf("OP_SYNC    ");
       break;
     case OP_LAST:
-      printf("OP_LAST\n");
+      printf("OP_LAST    ");
       break;
     case OP_TRUNCATE:
-      printf("OP_TRUNCATE\n");
+      printf("OP_TRUNCATE");
       break;
   }
+  printf("%s", trail);
+}
+
+void
+dkind_print(dkind_t dkind, const char *lead, const char *trail)
+{
+  printf("%s", lead);
+  switch (dkind) {
+    case DEC_NULL:
+      printf("DEC_NULL");
+      break;
+    case DEC_CHAT:
+      printf("DEC_CHAT");
+      break;
+    case DEC_JOIN:
+      printf("DEC_JOIN");
+      break;
+    case DEC_PART:
+      printf("DEC_PART");
+      break;
+  }
+  printf("%s", trail);
+}
+
+void
+paxos_header_print(struct paxos_header *hdr, const char *lead, const char *trail)
+{
+  printf("%s", lead);
+  paxop_print(hdr->ph_opcode, "", " ");
+  ppair_print(hdr->ph_ballot, "", " ");
+  paxid_print(hdr->ph_inum, "", "\n");
+  printf("%s", trail);
+}
+
+void
+paxos_value_print(struct paxos_value *val, const char *lead, const char *trail)
+{
+  printf("%s", lead);
+  dkind_print(val->pv_dkind, "", " ");
+  ppair_print(val->pv_reqid, "", " ");
+  paxid_print(val->pv_extra, "", "\n");
+  printf("%s", trail);
+}
+
+void
+paxos_acceptor_print(struct paxos_acceptor *acc, const char *lead, const char *trail)
+{
+  printf("%s", lead);
+  paxid_print(acc->pa_paxid, "", ": ");
+  printf("%*s\n", (int)acc->pa_size, (char *)acc->pa_desc);
+  printf("%s", trail);
+}
+
+void
+paxos_instance_print(struct paxos_instance *inst, const char *lead, const char *trail)
+{
+  paxos_header_print(&inst->pi_hdr, lead, "\n");
+  paxos_value_print(&inst->pi_val, lead, "\n");
+  printf("votes: %u / rejects: %u", inst->pi_votes, inst->pi_rejects);
+  printf("%s", trail);
+}
+
+void
+paxos_request_print(struct paxos_request *req, const char *lead, const char *trail)
+{
+  paxos_value_print(&req->pr_val, lead, "\n");
+  printf("%*s", (int)req->pr_size, (char *)req->pr_data);
+  printf("%s", trail);
 }
