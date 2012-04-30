@@ -192,9 +192,14 @@ paxos_retrieve(struct paxos_instance *inst)
   paxos_paxid_pack(&py, pax.self_id);
   paxos_value_pack(&py, &inst->pi_val);
 
-  // Determine the request originator and send.
+  // Determine the request originator and send.  If we are no longer connected
+  // to the request originator, broadcast the retrieve instead.
   acc = acceptor_find(&pax.alist, inst->pi_val.pv_reqid.id);
-  paxos_send(acc, UNYAK(&py));
+  if (acc == NULL || acc->pa_peer == NULL) {
+    paxos_broadcast(UNYAK(&py));
+  } else {
+    paxos_send(acc, UNYAK(&py));
+  }
   paxos_payload_destroy(&py);
 
   return 0;
@@ -219,18 +224,20 @@ int paxos_ack_retrieve(struct paxos_header *hdr, msgpack_object *o)
   p = o->via.array.ptr;
 
   // Unpack the retriever's ID and the value being retrieved.
-  paxos_paxid_unpack(&paxid, p);
-  paxos_value_unpack(&val, p + 1);
+  paxos_paxid_unpack(&paxid, p++);
+  paxos_value_unpack(&val, p++);
 
   // Retrieve the request.
   assert(request_needs_cached(val.pv_dkind));
   req = request_find(&pax.rcache, val.pv_reqid);
-
-  // Look up the acceptor.
-  acc = acceptor_find(&pax.alist, paxid);
-
-  // Resend it.
-  return paxos_resend(acc, hdr, req);
+  if (req != NULL) {
+    // If we have the request, look up the recipient and resend.
+    acc = acceptor_find(&pax.alist, paxid);
+    return paxos_resend(acc, hdr, req);
+  } else {
+    // If we don't have the request either, just return.
+    return 0;
+  }
 }
 
 /**
@@ -266,21 +273,28 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_instance *inst;
   struct paxos_request *req;
 
-  // Grab the instance for which we wanted the request.
+  // Grab the instance for which we wanted the request.  If we find that it
+  // has already been committed since we began our retrieval, we can just
+  // return.
+  //
+  // Note also that an instance should only be NULL if it was committed and
+  // then truncated in a sync operation.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
-
-  // See if the instance's associated request was received in the time since
-  // we sent our retrieve out.
-  req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
-
-  if (req == NULL) {
-    // If not, allocate a request and unpack it.
-    req = g_malloc0(sizeof(*req));
-    paxos_request_unpack(req, o);
-
-    // Insert it to our request cache.
-    request_insert(&pax.rcache, req);
+  if (inst == NULL || inst->pi_votes == 0) {
+    return 0;
   }
+
+  // If we had already obtained the request, we would have committed, so
+  // let's ensure that we haven't.
+  req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
+  assert(req == NULL);
+
+  // Allocate a request and unpack it.
+  req = g_malloc0(sizeof(*req));
+  paxos_request_unpack(req, o);
+
+  // Insert it to our request cache.
+  request_insert(&pax.rcache, req);
 
   // Actually commit, now that we have the associated request.
   return paxos_commit(inst);
