@@ -19,7 +19,9 @@ class MotMot
     # XXX: this is gross
     `echo attach #{pid} > /tmp/#{pid}`
     `echo continue >> /tmp/#{pid}`
+    sleep 0.05
     `screen gdb #{pid} -x /tmp/#{pid}`
+    sleep 0.05
     `sleep 1 && rm /tmp/#{pid} &`
   end
 
@@ -68,7 +70,8 @@ class MotMotPool < Hash
               next
             end
             if chat.match /^CHAT/
-              puts chat, r.pid
+              print '.'
+              print "\n" if rand < 0.001
               output[offsets[r.pid]] ||= chat
               if output[offsets[r.pid]] != chat
                 puts "OUT OF ORDER CHAT! PID: #{r.pid}, CHAT: #{chat}"
