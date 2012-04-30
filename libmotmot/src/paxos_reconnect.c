@@ -122,10 +122,13 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
     acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
 
     if (acc->pa_peer != NULL) {
-      // If the reconnect succeeds, relinquish proposership and reintroduce
-      // ourselves to the proposer.
+      // If the reconnect succeeds, relinquish proposership, clear our defer
+      // list, and reintroduce ourselves to the proposer.
       pax.proposer = acc;
       pax.live_count++;
+
+      instance_list_destroy(&pax.idefer);
+
       return paxos_hello(acc);
     } else {
       // If the reconnect fails, try preparing again.
