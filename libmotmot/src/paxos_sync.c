@@ -49,6 +49,12 @@ proposer_sync()
     return 1;
   }
 
+  // If our local last contiguous commit is the same as the previous sync
+  // point, we don't need to sync.
+  if (pax.ihole - 1 == pax.sync_prev) {
+    return 0;
+  }
+
   // If we're already syncing, increment the skip counter.
   if (pax.sync != NULL) {
     // Resync if we've waited too long for the sync to finish.
@@ -188,6 +194,9 @@ proposer_truncate(struct paxos_header *hdr)
   if (pax.ihole - 1 < pax.sync->ps_last) {
     pax.sync->ps_last = pax.ihole - 1;
   }
+
+  // Record the sync point.
+  pax.sync_prev = pax.sync->ps_last;
 
   // Make this instance our new ibase; this ensures that our list always has
   // at least one committed instance.

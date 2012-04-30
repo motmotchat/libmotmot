@@ -33,15 +33,17 @@ paxos_init(connect_t connect, struct learn_table *learn)
   pax.proposer = NULL;
   pax.ballot.id = 0;
   pax.ballot.gen = 0;
-  pax.gen_high = 0;
 
   pax.ibase = 0;
   pax.ihole = 0;
   pax.istart = NULL;
 
+  pax.gen_high = 0;
   pax.prep = NULL;
-  pax.sync = NULL;
+
   pax.sync_id = 0;
+  pax.sync_prev = 0;
+  pax.sync = NULL;
 
   pax.live_count = 0;
   LIST_INIT(&pax.alist);

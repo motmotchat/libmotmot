@@ -223,8 +223,10 @@ struct paxos_state {
 
   paxid_t gen_high;                   // high water mark of ballots we've seen
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
-  struct paxos_sync *sync;            // sync state; NULL if not syncing
+
   paxid_t sync_id;                    // locally-unique sync ID
+  paxid_t sync_prev;                  // sync point of the last sync
+  struct paxos_sync *sync;            // sync state; NULL if not syncing
 
   unsigned live_count;                // number of acceptors we think are live
   struct acceptor_list alist;         // list of all Paxos participants
