@@ -328,7 +328,11 @@ proposer_ack_accept(struct paxos_header *hdr)
   assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
 
   // Find the decree of the correct instance and increment the vote count.
+  // Ignore the vote if we've already committed.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
+  if (inst->pi_votes == 0) {
+    return 0;
+  }
   inst->pi_votes++;
 
   // If we have a majority, send a commit message.
