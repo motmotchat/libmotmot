@@ -19,7 +19,7 @@ motmot: $(SRC:.c=.o)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPDIR)$(<:.c=.d) -c $< -o $@
 
 tags:
-	ctags -R
+	-ctags -R
 
 clean: disconn
 	-rm -rf $(DEPDIR) $(SRC:.c=.o) motmot
