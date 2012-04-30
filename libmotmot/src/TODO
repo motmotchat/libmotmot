@@ -1,4 +1,5 @@
 Things left to do:
+- get rid of the three remaining XXX's
 - support multiple sessions; this may involve adding a global acceptor list,
   but besides that is basically just s/pax./pax->/g and setting pax whenever
   paxos_dispatch is called
