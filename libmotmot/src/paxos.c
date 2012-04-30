@@ -219,10 +219,6 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       retval = proposer_ack_accept(hdr);
       break;
     case OP_COMMIT:
-      // XXX: Commit and relinquish presidency if the ballot is higher,
-      // otherwise check if we have a decree of the given instance.  If
-      // we do and /are not preparing/, redirect; otherwise (if we don't
-      // or we do but we are preparing), commit it.
       // Invalid system state; kill the offender.
       retval = proposer_force_kill(source);
       break;
@@ -445,7 +441,7 @@ proposer_force_kill(struct paxos_peer *source)
   struct paxos_acceptor *acc;
 
   // Cry.
-  g_critical("paxos_dispatch: Two live proposers detected.\n");
+  g_critical("paxos_dispatch: Two live proposers detected.");
 
   // Find our acceptor object.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
