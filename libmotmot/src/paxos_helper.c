@@ -253,20 +253,11 @@ request_destroy(struct paxos_request *req)
   void                                                                \
   name##_list_destroy(struct name##_list *head)                       \
   {                                                                   \
-    struct paxos_##name *it, *prev;                                   \
+    struct paxos_##name *it;                                          \
                                                                       \
-    prev = NULL;                                                      \
-    LIST_FOREACH(it, head, le_field) {                                \
-      if (prev != NULL) {                                             \
-        LIST_REMOVE(head, prev, le_field);                            \
-        destroy(prev);                                                \
-      }                                                               \
-      prev = it;                                                      \
-    }                                                                 \
-                                                                      \
-    if (prev != NULL) {                                               \
-      LIST_REMOVE(head, prev, le_field);                              \
-      destroy(prev);                                                  \
+    LIST_WHILE_FIRST(it, head) {                                      \
+      LIST_REMOVE(head, it, le_field);                                \
+      destroy(it);                                                    \
     }                                                                 \
   }
 

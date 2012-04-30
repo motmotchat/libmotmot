@@ -47,6 +47,16 @@
          (var) != (void *)(head);               \
          (var) = (var)->field.le_prev)
 
+#define LIST_WHILE_FIRST(var, head)             \
+    for ((var) = (head)->lh_first;              \
+         (var) != (void *)(head);               \
+         (var) = (head)->lh_first)
+
+#define LIST_WHILE_LAST(var, head)              \
+    for ((var) = (head)->lh_last;               \
+         (var) != (void *)(head);               \
+         (var) = (head)->lh_last)
+
 #define LIST_INIT(head) do {                    \
         (head)->lh_first = (void *)(head);      \
         (head)->lh_last = (void *)(head);       \
