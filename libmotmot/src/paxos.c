@@ -150,16 +150,19 @@ paxos_end()
 }
 
 /**
- * paxos_register - Register a channel with Paxos.
+ * paxos_register_connection - Register a channel with Paxos.
  *
- * This function is called by a new client each time an acceptor first
- * initiates a connection with it.
+ * This function is called whenever somebody tries to connect to us.
  */
-void
+int
 paxos_register_connection(GIOChannel *chan)
 {
   // Just initialize a peer object.
-  paxos_peer_init(chan);
+  if (paxos_peer_init(chan) == NULL) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 /**
@@ -168,7 +171,7 @@ paxos_register_connection(GIOChannel *chan)
  * We mark the acceptor as unavailable, "elect" the new president locally,
  * and start a prepare phase if necessary.
  */
-void
+int
 paxos_drop_connection(struct paxos_peer *source)
 {
   int was_proposer;
@@ -189,8 +192,7 @@ paxos_drop_connection(struct paxos_peer *source)
 
   // If we are the proposer, decree a part for the acceptor.
   if (was_proposer) {
-    proposer_decree_part(acc);
-    return;
+    return proposer_decree_part(acc);
   }
 
   // Oh noes!  Did we lose the proposer?
@@ -200,9 +202,11 @@ paxos_drop_connection(struct paxos_peer *source)
 
     // If we're the new proposer, send a prepare.
     if (!was_proposer && is_proposer()) {
-      proposer_prepare();
+      return proposer_prepare();
     }
   }
+
+  return 0;
 }
 
 /**
