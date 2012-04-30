@@ -15,6 +15,7 @@ class MotMot
     @unix = CONN_PATH + rand(100000).to_s
     @proxy = IO.popen [PROXY_PATH, proxy, unix, 'quiet'], 'w+'
     @sock = IO.popen ([MOTMOT_PATH, unix] + connect), 'w+'
+    sleep 0.2
     # XXX: this is gross
     `echo attach #{pid} > /tmp/#{pid}`
     `echo continue >> /tmp/#{pid}`
