@@ -12,6 +12,8 @@
 #include <assert.h>
 #include <glib.h>
 
+extern void ilist_insert(struct paxos_instance *);
+
 /**
  * acceptor_retry - Ask the proposer to give us a commit we are missing.
  */
@@ -51,7 +53,7 @@ proposer_ack_retry(struct paxos_header *hdr)
   assert(inst != NULL);
 
   // Recommit if it's been committed; otherwise, just don't respond.
-  if (inst->pi_votes == 0) {
+  if (inst->pi_committed) {
     return proposer_recommit(hdr, inst);
   } else {
     return 0;
@@ -90,17 +92,20 @@ int acceptor_ack_recommit(struct paxos_header *hdr, msgpack_object *o)
   // Check if we've already committed since we sent the retry.  If we have,
   // just return.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
-  if (inst != NULL && inst->pi_votes == 0) {
+  if (inst != NULL && inst->pi_committed) {
     return 0;
   }
 
   // Initialize a new instance if necessary.
   if (inst == NULL) {
     inst = g_malloc0(sizeof(*inst));
+    memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
+    ilist_insert(inst);
+  } else {
+    memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
   }
 
-  // Set up the instance.
-  memcpy(&inst->pi_hdr, hdr, sizeof(*hdr));
+  // Unpack the value.
   paxos_value_unpack(&inst->pi_val, o);
 
   // Commit it.

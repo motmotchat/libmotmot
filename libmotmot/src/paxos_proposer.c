@@ -164,8 +164,9 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     // Mark everything uncommitted.  We don't care whether any acceptors
     // have already committed; we can safely ask them to recommit without
     // violating correctness.
-    inst->pi_votes = 1;
-    inst->pi_rejects = 0; // Doesn't matter.
+    inst->pi_committed = false;
+    inst->pi_cached = false;
+    inst->pi_learned = false;
 
     // Get the closest instance with lesser or equal instance number.  After
     // starting Paxos, our instance list is guaranteed to always be nonempty,
@@ -186,10 +187,10 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       // We need to allocate a new scratch instance in the next iteration.
       inst = NULL;
     } else {
-      // We found an instance of the same number.  If the existing instance
-      // is NOT a commit, and if the new instance has a higher ballot number,
+      // We found an instance of the same number.  If we have not committed
+      // this instance, and if the new instance has a higher ballot number,
       // switch the new one in.
-      if (it->pi_votes != 0 &&
+      if (!it->pi_committed &&
           ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 0) {
         // Perform the switch; reuse the old allocation in the next iteration.
         LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
@@ -241,10 +242,10 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       if (inst->pi_hdr.ph_inum == pax.ihole) {
         pax.istart = inst;
       }
-    } else if (it->pi_votes != 0) {
-      // The quorum has seen this instance before, but it has not been
-      // committed.  By the first part of ack_promise, the vote we have here
-      // is the highest-ballot vote of a majority, so decree it again.
+    } else if (!it->pi_committed) {
+      // The quorum has seen this instance before, but we have not committed
+      // it.  By the first part of ack_promise, the vote we have here is the
+      // highest-ballot vote of a majority, so decree it again.
       inst = it;
     }
 
@@ -253,6 +254,10 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_hdr.ph_ballot.id = pax.ballot.id;
       inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
       inst->pi_hdr.ph_opcode = OP_DECREE;
+
+      inst->pi_committed = false;
+      inst->pi_cached = false;
+      inst->pi_learned = false;
 
       inst->pi_votes = 1;
       inst->pi_rejects = 0;
@@ -300,7 +305,7 @@ proposer_decree(struct paxos_instance *inst)
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_inum = next_instance();
 
-  // Insert into the ilist, updating pi_votes and pax.istart.
+  // Insert into the ilist, updating our votes, flags, and pax.istart.
   ilist_insert(inst);
 
   // Pack and broadcast the decree.
@@ -331,12 +336,13 @@ proposer_ack_accept(struct paxos_header *hdr)
   assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
 
   // Find the decree of the correct instance and increment the vote count.
-  // Ignore the vote if we've already committed.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
-  if (inst->pi_votes == 0) {
+  inst->pi_votes++;
+
+  // Ignore the vote if we've already committed.
+  if (inst->pi_committed) {
     return 0;
   }
-  inst->pi_votes++;
 
   // If we have a majority, send a commit message.
   if (inst->pi_votes >= majority()) {

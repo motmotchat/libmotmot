@@ -31,9 +31,12 @@
 int
 paxos_commit(struct paxos_instance *inst)
 {
-  int err;
+  int r;
   struct paxos_request *req = NULL;
   struct paxos_instance *it;
+
+  // Mark the commit.
+  inst->pi_committed = true;
 
   // Pull the request from the request cache if applicable.
   if (request_needs_cached(inst->pi_val.pv_dkind)) {
@@ -46,26 +49,29 @@ paxos_commit(struct paxos_instance *inst)
     }
   }
 
-  // Mark the commit.
-  inst->pi_votes = 0;
+  // Mark the cache.
+  inst->pi_cached = true;
 
   // We should already have committed and learned everything before the hole.
   assert(inst->pi_hdr.ph_inum >= pax.ihole);
 
-  // Check if we just committed the hole.  If we didn't, send a retry for the hole.
+  // Check if we just committed the hole.  If not, we can't learn yet since
+  // we want our learns to be totally ordered.  If the hole is waiting on a
+  // retrieve, we just return; however, if we have not encountered it at all
+  // or if it is not committed, we issue a retry.
   if (inst->pi_hdr.ph_inum != pax.ihole) {
-    return acceptor_retry(pax.ihole);
-  }
-
-  // If we did just fill in the hole, learn it.
-  if ((err = paxos_learn(inst, req))) {
-    return err;
+    if (pax.istart->pi_hdr.ph_inum != pax.ihole || !pax.istart->pi_committed) {
+      return acceptor_retry(pax.ihole);
+    } else {
+      return 0;
+    }
   }
 
   // Set pax.istart to point to the instance numbered pax.ihole.
-  while (pax.istart->pi_hdr.ph_inum != pax.ihole) {
+  if (pax.istart->pi_hdr.ph_inum != pax.ihole) {
     pax.istart = LIST_NEXT(pax.istart, pi_le);
   }
+  assert(pax.istart->pi_hdr.ph_inum == pax.ihole);
 
   // Now learn as many contiguous commits as we can.  This function is the
   // only path by which we learn commits, and we always learn in contiguous
@@ -73,15 +79,10 @@ paxos_commit(struct paxos_instance *inst)
   // instances numbered lower than pax.ihole are learned and committed, and
   // none of the instances geq to pax.ihole are learned (although some may
   // be committed).
-
-  // Our first comparison will be between the next instance number after
-  // pax.ihole and the next instance after pax.istart.
-  it = LIST_NEXT(pax.istart, pi_le);
-  ++pax.ihole;
-
-  // Iterate over the instance list, detecting and breaking if we find a hole
-  // and learning whenever we don't.
-  for (; ; it = LIST_NEXT(it, pi_le), ++pax.ihole) {
+  //
+  // We iterate over the instance list, detecting and breaking if we find a
+  // hole and learning whenever we don't.
+  for (it = pax.istart; ; it = LIST_NEXT(it, pi_le), ++pax.ihole) {
     // If we reached the end of the list, set pax.istart to the last existing
     // instance.
     if (it == (void *)&pax.ilist) {
@@ -96,15 +97,18 @@ paxos_commit(struct paxos_instance *inst)
       break;
     }
 
-    // If we found an uncommitted instance, set pax.istart to it.
-    if (it->pi_votes != 0) {
+    // If we found an uncommitted or uncached instance, set pax.istart to it.
+    if (!it->pi_committed || !it->pi_cached) {
       pax.istart = it;
       break;
     }
 
-    // Otherwise, we've found a previously unlearned but committed instance.
-    // Locate its associated request.  Note that an instance only commits if
-    // its associated request object was cached.
+    // By our invariant, since we are past our original hole, no instance
+    // should be learned.
+    assert(!it->pi_learned);
+
+    // Grab its associated request.  This is guaranteed to exist because we
+    // have checked that pi_cached holds.
     req = NULL;
     if (request_needs_cached(it->pi_val.pv_dkind)) {
       req = request_find(&pax.rcache, it->pi_val.pv_reqid);
@@ -112,9 +116,7 @@ paxos_commit(struct paxos_instance *inst)
     }
 
     // Learn the value.
-    if ((err = paxos_learn(it, req))) {
-      return err;
-    }
+    ERR_RET(r, paxos_learn(it, req));
   }
 
   return 0;
@@ -131,6 +133,9 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 {
   int was_proposer;
   struct paxos_acceptor *acc;
+
+  // Mark the learn.
+  inst->pi_learned = true;
 
   // Act on the decree (e.g., display chat, record acceptor list changes).
   switch (inst->pi_val.pv_dkind) {

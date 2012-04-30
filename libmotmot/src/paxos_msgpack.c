@@ -185,7 +185,7 @@ paxos_instance_pack(struct paxos_yak *py, struct paxos_instance *inst)
 {
   msgpack_pack_array(py->pk, 3);
   paxos_header_pack(py, &inst->pi_hdr);
-  msgpack_pack_paxid(py->pk, inst->pi_votes);
+  inst->pi_committed ? msgpack_pack_true(py->pk) : msgpack_pack_false(py->pk);
   paxos_value_pack(py, &inst->pi_val);
 }
 
@@ -200,12 +200,15 @@ paxos_instance_unpack(struct paxos_instance *inst, msgpack_object *o)
 
   p = o->via.array.ptr;
 
-  // Unpack the header, vote count, and value.
+  // Unpack the header, committed flag, and value.
   paxos_header_unpack(&inst->pi_hdr, p++);
-  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  inst->pi_votes = (p++)->via.u64;
+  assert(p->type == MSGPACK_OBJECT_BOOLEAN);
+  inst->pi_committed = (p++)->via.boolean;
   paxos_value_unpack(&inst->pi_val, p++);
 
-  // Set reject count to 0; it is never meaningful when transmitted.
+  // Set everything else to 0.
+  inst->pi_cached = false;
+  inst->pi_learned = false;
+  inst->pi_votes = 0;
   inst->pi_rejects = 0;
 }

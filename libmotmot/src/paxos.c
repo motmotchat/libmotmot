@@ -88,7 +88,12 @@ paxos_start(const void *desc, size_t size)
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_inum = 1;
 
-  inst->pi_votes = 0;
+  inst->pi_committed = true;
+  inst->pi_cached = true;
+  inst->pi_learned = true;
+
+  inst->pi_votes = 1;
+  inst->pi_rejects = 0;
 
   inst->pi_val.pv_dkind = DEC_JOIN;
   inst->pi_val.pv_reqid.id = pax.self_id;
@@ -408,7 +413,11 @@ paxos_broadcast_ihv(struct paxos_instance *inst)
 void
 ilist_insert(struct paxos_instance *inst)
 {
-  // Initialize our vote counts.
+  // Initialize our vote counts and flags.
+  inst->pi_committed = false;
+  inst->pi_cached = false;
+  inst->pi_learned = false;
+
   inst->pi_votes = 1;
   inst->pi_rejects = 0;
 

@@ -245,12 +245,13 @@ proposer_ack_reject(struct paxos_header *hdr)
   assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
 
   // Find the decree of the correct instance and increment the reject count.
-  // Ignore the vote if we've already committed.
   inst = instance_find(&pax.ilist, hdr->ph_inum);
-  if (inst->pi_votes == 0) {
+  inst->pi_rejects++;
+
+  // Ignore the vote if we've already committed.
+  if (inst->pi_committed) {
     return 0;
   }
-  inst->pi_rejects++;
 
   // We only reject parts.
   assert(inst->pi_val.pv_dkind == DEC_PART);
@@ -271,11 +272,16 @@ proposer_ack_reject(struct paxos_header *hdr)
 
       // Nullify the instance.
       inst->pi_hdr.ph_opcode = OP_DECREE;
-      inst->pi_votes = 1;
-      inst->pi_rejects = 0;
       inst->pi_val.pv_dkind = DEC_NULL;
       inst->pi_val.pv_extra = 0;
     }
+
+    // Reset the instance metadata.
+    inst->pi_committed = false;
+    inst->pi_cached = false;
+    inst->pi_learned = false;
+    inst->pi_votes = 1;
+    inst->pi_rejects = 0;
 
     // Decree null if the reconnect succeeded, else redecree the part.
     return paxos_broadcast_ihv(inst);

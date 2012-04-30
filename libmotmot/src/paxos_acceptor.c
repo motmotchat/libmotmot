@@ -146,7 +146,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
     return acceptor_accept(hdr);
   } else {
     // We found an instance of the same number.
-    if (inst->pi_votes == 0) {
+    if (inst->pi_committed) {
       // If we have already committed, assert that the new values matches,
       // then just accept.
       assert(inst->pi_val.pv_dkind == val.pv_dkind);
@@ -214,7 +214,7 @@ acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
   // If we committed already, we know that a quorum has the same value that
   // we do, which means any other decree for the same instance will share
   // this same value.  So just return.
-  if (inst->pi_votes == 0) {
+  if (inst->pi_committed) {
     return 0;
   }
 

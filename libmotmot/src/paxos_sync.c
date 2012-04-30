@@ -30,7 +30,7 @@ int paxos_sync(void *data)
  * proposer_sync - Send a sync command to all acceptors.
  *
  * For a sync to succeed, all acceptors need to tell us the instance number
- * of their last contiguous commit.  We take the minimum of these values
+ * of their last contiguous learn.  We take the minimum of these values
  * and then command everyone to truncate everything before this minimum.
  */
 int
@@ -50,7 +50,7 @@ proposer_sync()
     return 1;
   }
 
-  // If our local last contiguous commit is the same as the previous sync
+  // If our local last contiguous learn is the same as the previous sync
   // point, we don't need to sync.
   if (pax.ihole - 1 == pax.sync_prev) {
     return 0;
@@ -106,7 +106,7 @@ acceptor_ack_sync(struct paxos_header *hdr)
 }
 
 /**
- * acceptor_last - Send the instance number of our last contiguous commit to
+ * acceptor_last - Send the instance number of our last contiguous learn to
  * the proposer.
  */
 int acceptor_last(struct paxos_header *hdr)
@@ -140,7 +140,7 @@ proposer_ack_last(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
-  // Update our knowledge of the system's last contiguous commit.
+  // Update our knowledge of the system's last contiguous learn.
   paxos_paxid_unpack(&last, o);
   if (last < pax.sync->ps_last || pax.sync->ps_last == 0) {
     pax.sync->ps_last = last;
@@ -185,7 +185,7 @@ ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
 
 /**
  * proposer_truncate - Command all acceptors to drop the contiguous prefix
- * of Paxos instances for which every participant has committed.
+ * of Paxos instances for which every participant has learned.
  */
 int
 proposer_truncate(struct paxos_header *hdr)
@@ -193,7 +193,7 @@ proposer_truncate(struct paxos_header *hdr)
   int r;
   struct paxos_yak py;
 
-  // Obtain our own last contiguous commit.
+  // Obtain our own last contiguous learn.
   if (pax.ihole - 1 < pax.sync->ps_last) {
     pax.sync->ps_last = pax.ihole - 1;
   }

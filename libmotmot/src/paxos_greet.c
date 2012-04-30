@@ -184,10 +184,14 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     }
 
     // If we found an uncommitted instance, set pax.istart to it.
-    if (inst->pi_votes != 0) {
+    if (!inst->pi_committed) {
       pax.istart = inst;
       break;
     }
+
+    // For now, we no-op learns of old commits when we join the system.
+    inst->pi_cached = 1;
+    inst->pi_learned = 1;
   }
 
   return 0;

@@ -6,6 +6,7 @@
 
 #include "list.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <msgpack.h>
@@ -130,7 +131,7 @@ struct paxos_header {
  * - OP_COMMIT: The paxos_value of the commit.
  *
  * - OP_SYNC: None.
- * - OP_LAST: The instance number of the acceptor's last contiguous commit.
+ * - OP_LAST: The instance number of the acceptor's last contiguous learn.
  * - OP_TRUNCATE: The new starting point of the instance log.
  *
  * The message formats of the various Paxos structures can be found in
@@ -178,8 +179,11 @@ LIST_HEAD(acceptor_list, paxos_acceptor);
 /* An instance of the "synod" algorithm. */
 struct paxos_instance {
   struct paxos_header pi_hdr;         // Paxos header identifying the instance
-  unsigned pi_votes;                  // number of accepts -OR- 0 if committed
-  unsigned pi_rejects;                // number of rejects; not sent over wire
+  bool pi_committed;                  // true if a commit has been received
+  bool pi_cached;                     // true if the request is cached; not sent
+  bool pi_learned;                    // true if learned; not sent
+  unsigned pi_votes;                  // number of accepts; not sent
+  unsigned pi_rejects;                // number of rejects; not sent
   LIST_ENTRY(paxos_instance) pi_le;   // sorted linked list of instances
   struct paxos_value pi_val;          // value of the decree
 };
@@ -206,7 +210,7 @@ struct paxos_sync {
   unsigned ps_total;      // number of acceptors syncing
   unsigned ps_acks;       // number of sync acks
   unsigned ps_skips;      // number of times we skipped starting a new sync
-  paxid_t ps_last;        // the last contiguous commit across the system
+  paxid_t ps_last;        // the last contiguous learn across the system
 };
 
 /* Client callbacks. */

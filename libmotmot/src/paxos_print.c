@@ -142,7 +142,8 @@ paxos_instance_print(struct paxos_instance *inst, const char *lead,
 {
   paxos_header_print(&inst->pi_hdr, lead, "\n");
   paxos_value_print(&inst->pi_val, lead, "\n");
-  printf("votes: %u / rejects: %u", inst->pi_votes, inst->pi_rejects);
+  printf("[%d/%d/%d] votes: %u / rejects: %u", inst->pi_committed,
+      inst->pi_cached, inst->pi_learned, inst->pi_votes, inst->pi_rejects);
   printf("%s", trail);
 }
 
