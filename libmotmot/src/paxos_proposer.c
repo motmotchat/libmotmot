@@ -40,8 +40,9 @@ extern int paxos_broadcast_ihv(struct paxos_instance *);
  *
  * If the cycle terminates in success, we will be the proposer until we drop
  * out of the system (or lose connection to a majority, which is equivalent).
- * If it terminates in failure, if the proposer actually dies, we may end up
- * next in line and therefore may begin another cycle of prepares.
+ * If it terminates in failure, we may be next in line for proposership, and
+ * if at some later time the proposer actually dies, we will at that point
+ * begin another cycle of prepares.
  */
 int
 proposer_prepare()
@@ -53,6 +54,13 @@ proposer_prepare()
   // prepare again.
   assert(pax.prep == NULL);
 
+  // If a majority of acceptors are disconnected, we should just give up and
+  // quit the session.
+  if (pax.live_count < majority()) {
+    paxos_end();
+    return 1;
+  }
+
   // Start a new prepare.
   pax.prep = g_malloc0(sizeof(*pax.prep));
 
@@ -62,8 +70,6 @@ proposer_prepare()
 
   // Initialize our counters.  Our only initial acceptor is ourselves, and no
   // one initially redirects.
-  // XXX: If a majority of acceptors are disconnected, we should probably
-  // just end the chat.
   pax.prep->pp_acks = 1;
   pax.prep->pp_redirects = 0;
 
@@ -220,13 +226,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       // so make a null decree.
       inst = g_malloc0(sizeof(*inst));
 
-      inst->pi_hdr.ph_ballot.id = pax.ballot.id;
-      inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
-      inst->pi_hdr.ph_opcode = OP_DECREE;
       inst->pi_hdr.ph_inum = inum;
-
-      inst->pi_votes = 1;
-      inst->pi_rejects = 0;
 
       inst->pi_val.pv_dkind = DEC_NULL;
       inst->pi_val.pv_reqid.id = pax.self_id;
@@ -241,20 +241,23 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     } else if (it->pi_votes != 0) {
       // The quorum has seen this instance before, but it has not been
       // committed.  By the first part of ack_promise, the vote we have here
-      // is the highest-ballot vote, so decree it again.
+      // is the highest-ballot vote of a majority, so decree it again.
       inst = it;
-      inst->pi_hdr.ph_ballot.id = pax.ballot.id;
-      inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
-      inst->pi_hdr.ph_opcode = OP_DECREE;
-      inst->pi_votes = 1;
-      inst->pi_rejects = 0;
     }
 
     // XXX: Maybe we should commit everything again to avoid hitting the (as
     // yet unimplemented) retry protocol.
 
-    // Pack and broadcast the decree.
     if (inst != NULL) {
+      // Do initialization common to both above paths.
+      inst->pi_hdr.ph_ballot.id = pax.ballot.id;
+      inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
+      inst->pi_hdr.ph_opcode = OP_DECREE;
+
+      inst->pi_votes = 1;
+      inst->pi_rejects = 0;
+
+      // Pack and broadcast the decree.
       paxos_broadcast_ihv(inst);
     }
   }
@@ -263,7 +266,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   g_free(pax.prep);
   pax.prep = NULL;
 
-  // Forceably PART any dropped acceptors we have in our acceptor list, making
+  // Forceably part any dropped acceptors we have in our acceptor list, making
   // sure to skip ourselves since we have no pa_peer.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
     if (acc->pa_peer == NULL && acc->pa_paxid != pax.self_id) {
@@ -272,15 +275,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // Decree ALL the deferred things!
-  inst = NULL;
-  LIST_FOREACH(it, &pax.idefer, pi_le) {
-    if (inst != NULL) {
-      LIST_REMOVE(&pax.idefer, inst, pi_le);
-      proposer_decree(inst);
-    }
-    inst = it;
-  }
-  if (inst != NULL) {
+  LIST_WHILE_FIRST(inst, &pax.idefer) {
     LIST_REMOVE(&pax.idefer, inst, pi_le);
     proposer_decree(inst);
   }
@@ -297,6 +292,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 int
 proposer_decree(struct paxos_instance *inst)
 {
+  int r;
+
   // Update the header.
   inst->pi_hdr.ph_ballot.id = pax.ballot.id;
   inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
@@ -307,7 +304,9 @@ proposer_decree(struct paxos_instance *inst)
   ilist_insert(inst);
 
   // Pack and broadcast the decree.
-  paxos_broadcast_ihv(inst);
+  if ((r = paxos_broadcast_ihv(inst))) {
+    return r;
+  }
 
   // Do we constitute a majority ourselves?  If so, commit!
   if (inst->pi_votes >= majority()) {
@@ -358,11 +357,15 @@ proposer_ack_accept(struct paxos_header *hdr)
 int
 proposer_commit(struct paxos_instance *inst)
 {
+  int r;
+
   // Modify the instance header.
   inst->pi_hdr.ph_opcode = OP_COMMIT;
 
   // Pack and broadcast the commit.
-  paxos_broadcast_ihv(inst);
+  if ((r = paxos_broadcast_ihv(inst))) {
+    return r;
+  }
 
   // Commit and learn the value ourselves.
   return paxos_commit(inst);
