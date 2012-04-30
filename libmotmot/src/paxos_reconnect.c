@@ -13,6 +13,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#define DEATH_ADJUSTED(n) ((n) + (LIST_COUNT(&pax.alist) - pax.live_count))
+
 extern int paxos_broadcast_ihv(struct paxos_instance *);
 
 /**
@@ -23,6 +25,7 @@ extern int paxos_broadcast_ihv(struct paxos_instance *);
 int
 paxos_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
 {
+  int r;
   struct paxos_header hdr;
   struct paxos_yak py;
 
@@ -42,10 +45,10 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
   paxos_header_pack(&py, orig_hdr);
 
   // Send the payload.
-  paxos_peer_send(source, UNYAK(&py));
+  r = paxos_peer_send(source, UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -144,8 +147,8 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 }
 
 /**
- * acceptor_ack_redirect - Resolve an acceptor's (possibly the proposer's)
- * claim that we do not know the true proposer.
+ * acceptor_ack_redirect - Resolve an acceptor's claim that we do not know
+ * the true proposer.
  *
  * If we send a request to someone who is not the proposer, but identifying
  * them as the proposer, we will receive a redirect.  Since the correctness
@@ -204,6 +207,7 @@ acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 int
 acceptor_reject(struct paxos_header *hdr)
 {
+  int r;
   struct paxos_yak py;
 
   // Pack a header.
@@ -212,10 +216,10 @@ acceptor_reject(struct paxos_header *hdr)
   paxos_header_pack(&py, hdr);
 
   // Send the payload.
-  paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -229,6 +233,7 @@ acceptor_reject(struct paxos_header *hdr)
 int
 proposer_ack_reject(struct paxos_header *hdr)
 {
+  int r;
   struct paxos_instance *inst;
   struct paxos_acceptor *acc;
 
@@ -259,7 +264,7 @@ proposer_ack_reject(struct paxos_header *hdr)
       pax.live_count++;
 
       // Reintroduce ourselves to the acceptor.
-      paxos_hello(acc);
+      ERR_RET(r, paxos_hello(acc));
 
       // Nullify the instance.
       inst->pi_hdr.ph_opcode = OP_DECREE;
