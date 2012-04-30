@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0`
+CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0` -O2
 LDFLAGS = `pkg-config --libs glib-2.0` -lmsgpack
 
 DEPDIR = .deps/
