@@ -108,7 +108,7 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
   // Read in a line.
   status = g_io_channel_read_line(channel, &msg, NULL, &eol, &gerr);
   if (status != G_IO_STATUS_NORMAL) {
-    g_error("Error reading from stdin.\n");
+    g_error("input_loop: Error reading from stdin.");
     return FALSE;
   }
 

@@ -64,7 +64,7 @@ paxos_peer_destroy(struct paxos_peer *peer)
   // Flush and destroy the GIOChannel.
   status = g_io_channel_shutdown(peer->pp_channel, TRUE, &error);
   if (status != G_IO_STATUS_NORMAL) {
-    g_warning("paxos_peer_destroy: Trouble destroying peer.\n");
+    g_warning("paxos_peer_destroy: Trouble destroying peer.");
   }
 
   // Free the peer structure itself.
@@ -100,7 +100,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
         &error);
 
     if (status == G_IO_STATUS_ERROR) {
-      g_warning("paxos_peer_read: Read from socket failed.\n");
+      g_warning("paxos_peer_read: Read from socket failed.");
     }
 
     // Inform the msgpack_unpacker how much of the buffer we actually consumed.
@@ -111,7 +111,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
     // then something has gone terribly wrong and we should abort.
     while (msgpack_unpacker_next(&peer->pp_unpacker, &result)) {
       if (paxos_dispatch(peer, &result.data) != 0 && pax.self_id != 0) {
-        g_warning("paxos_read_peer: Dispatch failed.\n");
+        g_warning("paxos_read_peer: Dispatch failed.");
         retval = FALSE;
         break;
       }
@@ -153,7 +153,7 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
       peer->pp_write_buffer.length, &bytes_written, &error);
 
   if (status == G_IO_STATUS_ERROR) {
-    g_warning("paxos_peer_write: Write to socket failed.\n");
+    g_warning("paxos_peer_write: Write to socket failed.");
   }
 
   // XXX: This is really awful.
@@ -175,7 +175,7 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
   // Flush the channel.
   error = NULL;
   if (g_io_channel_flush(peer->pp_channel, &error) == G_IO_STATUS_ERROR) {
-    g_critical("paxos_peer_write: Could not flush channel.\n");
+    g_critical("paxos_peer_write: Could not flush channel.");
   }
 
   if (status == G_IO_STATUS_EOF) {
