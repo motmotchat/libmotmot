@@ -294,17 +294,16 @@ XLIST_DESTROY_IMPL(request, pr_le, request_destroy);
 int
 paxos_broadcast(const char *buffer, size_t length)
 {
+  int r;
   struct paxos_acceptor *acc;
-  int retval;
 
   LIST_FOREACH(acc, &(pax.alist), pa_le) {
     if (acc->pa_peer == NULL) {
       continue;
     }
 
-    retval = paxos_peer_send(acc->pa_peer, buffer, length);
-    if (retval) {
-      return retval;
+    if ((r = paxos_peer_send(acc->pa_peer, buffer, length))) {
+      return r;
     }
   }
 

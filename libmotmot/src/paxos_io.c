@@ -80,7 +80,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
   struct paxos_peer *peer;
   msgpack_unpacked result;
   size_t bytes_read;
-  int retval = TRUE;
+  int r = TRUE;
 
   GIOStatus status;
   GError *error = NULL;
@@ -112,7 +112,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
     while (msgpack_unpacker_next(&peer->pp_unpacker, &result)) {
       if (paxos_dispatch(peer, &result.data) != 0 && pax.self_id != 0) {
         g_warning("paxos_read_peer: Dispatch failed.");
-        retval = FALSE;
+        r = FALSE;
         break;
       }
     }
@@ -120,14 +120,14 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
     // Drop the connection if we're at the end.
     if (status == G_IO_STATUS_EOF) {
       paxos_drop_connection(peer);
-      retval = FALSE;
+      r = FALSE;
       break;
     }
 
   } while (g_io_channel_get_buffer_condition(channel) & G_IO_IN);
 
   msgpack_unpacked_destroy(&result);
-  return retval;
+  return r;
 }
 
 /**

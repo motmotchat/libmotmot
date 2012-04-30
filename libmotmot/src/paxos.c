@@ -197,7 +197,7 @@ static int
 proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
-  int retval = 0;
+  int r = 0;
 
 #ifdef DEBUG
   paxos_header_print(hdr, "P: ", "\n");
@@ -206,62 +206,62 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
       // Invalid system state; kill the offender.
-      retval = proposer_force_kill(source);
+      r = proposer_force_kill(source);
       break;
     case OP_PROMISE:
-      retval = proposer_ack_promise(hdr, o);
+      r = proposer_ack_promise(hdr, o);
       break;
     case OP_DECREE:
       // Invalid system state; kill the offender.
-      retval = proposer_force_kill(source);
+      r = proposer_force_kill(source);
       break;
     case OP_ACCEPT:
-      retval = proposer_ack_accept(hdr);
+      r = proposer_ack_accept(hdr);
       break;
     case OP_COMMIT:
       // Invalid system state; kill the offender.
-      retval = proposer_force_kill(source);
+      r = proposer_force_kill(source);
       break;
 
     case OP_REQUEST:
-      retval = proposer_ack_request(source, hdr, o);
+      r = proposer_ack_request(source, hdr, o);
       break;
     case OP_RETRIEVE:
-      retval = paxos_ack_retrieve(hdr, o);
+      r = paxos_ack_retrieve(hdr, o);
       break;
     case OP_RESEND:
-      retval = paxos_ack_resend(hdr, o);
+      r = paxos_ack_resend(hdr, o);
       break;
 
     case OP_WELCOME:
       // Invalid system state; kill the offender.
-      retval = proposer_force_kill(source);
+      r = proposer_force_kill(source);
       break;
     case OP_HELLO:
-      retval = paxos_ack_hello(source, hdr);
+      r = paxos_ack_hello(source, hdr);
       break;
 
     case OP_REDIRECT:
-      retval = proposer_ack_redirect(hdr, o);
+      r = proposer_ack_redirect(hdr, o);
       break;
     case OP_REJECT:
-      retval = proposer_ack_reject(hdr);
+      r = proposer_ack_reject(hdr);
       break;
 
     case OP_SYNC:
       // Invalid system state; kill the offender.
-      retval = proposer_force_kill(source);
+      r = proposer_force_kill(source);
       break;
     case OP_LAST:
-      retval = proposer_ack_last(hdr, o);
+      r = proposer_ack_last(hdr, o);
       break;
     case OP_TRUNCATE:
       // Invalid system state; kill the offender.
-      retval = proposer_force_kill(source);
+      r = proposer_force_kill(source);
       break;
   }
 
-  return retval;
+  return r;
 }
 
 /**
@@ -271,7 +271,7 @@ static int
 acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     struct msgpack_object *o)
 {
-  int retval = 0;
+  int r = 0;
 
 #ifdef DEBUG
   paxos_header_print(hdr, "A: ", "\n");
@@ -279,53 +279,53 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 
   switch (hdr->ph_opcode) {
     case OP_PREPARE:
-      retval = acceptor_ack_prepare(source, hdr);
+      r = acceptor_ack_prepare(source, hdr);
       break;
     case OP_PROMISE:
       // Ignore promises.
       break;
     case OP_DECREE:
-      retval = acceptor_ack_decree(hdr, o);
+      r = acceptor_ack_decree(hdr, o);
       break;
     case OP_ACCEPT:
       // Ignore accepts.
       break;
     case OP_COMMIT:
-      retval = acceptor_ack_commit(hdr, o);
+      r = acceptor_ack_commit(hdr, o);
       break;
 
     case OP_REQUEST:
-      retval = acceptor_ack_request(source, hdr, o);
+      r = acceptor_ack_request(source, hdr, o);
       break;
     case OP_RETRIEVE:
-      retval = paxos_ack_retrieve(hdr, o);
+      r = paxos_ack_retrieve(hdr, o);
       break;
     case OP_RESEND:
-      retval = paxos_ack_resend(hdr, o);
+      r = paxos_ack_resend(hdr, o);
       break;
 
     case OP_WELCOME:
-      retval = acceptor_ack_welcome(source, hdr, o);
+      r = acceptor_ack_welcome(source, hdr, o);
       break;
     case OP_HELLO:
-      retval = paxos_ack_hello(source, hdr);
+      r = paxos_ack_hello(source, hdr);
       break;
 
     case OP_REDIRECT:
-      retval = acceptor_ack_redirect(hdr, o);
+      r = acceptor_ack_redirect(hdr, o);
       break;
     case OP_REJECT:
       // Ignore rejects.
       break;
 
     case OP_SYNC:
-      retval = acceptor_ack_sync(hdr);
+      r = acceptor_ack_sync(hdr);
       break;
     case OP_LAST:
       // Ignore lasts.
       break;
     case OP_TRUNCATE:
-      retval = acceptor_ack_truncate(hdr, o);
+      r = acceptor_ack_truncate(hdr, o);
       break;
   }
 
@@ -338,7 +338,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
 int
 paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 {
-  int retval;
+  int r;
   struct paxos_header *hdr;
 
   assert(o->type == MSGPACK_OBJECT_ARRAY);
@@ -351,13 +351,13 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 
   // Switch on the type of message received.
   if (is_proposer()) {
-    retval = proposer_dispatch(source, hdr, o->via.array.ptr + 1);
+    r = proposer_dispatch(source, hdr, o->via.array.ptr + 1);
   } else {
-    retval = acceptor_dispatch(source, hdr, o->via.array.ptr + 1);
+    r = acceptor_dispatch(source, hdr, o->via.array.ptr + 1);
   }
 
   g_free(hdr);
-  return retval;
+  return r;
 }
 
 
@@ -373,15 +373,16 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 int
 paxos_broadcast_ihv(struct paxos_instance *inst)
 {
+  int r;
   struct paxos_yak py;
 
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &(inst->pi_hdr));
   paxos_value_pack(&py, &(inst->pi_val));
-  paxos_broadcast(UNYAK(&py));
+  r = paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
