@@ -26,7 +26,7 @@ module DelayProxy
     @rcb = lambda do |data|
       # We push a nil "bubble" through the pipeline to indicate that we should
       # close it
-      return @nq.push if data == nil
+      return @nq.push nil if data == nil
 
       # Let's sniff the wire
       @unpacker.feed data
@@ -41,7 +41,9 @@ module DelayProxy
         @nq.push [now, e.pack('c*')]
       end
       # Schedule ourselves again
-      @rq.pop &@rcb
+      EM::next_tick do
+        @rq.pop &@rcb
+      end
     end
 
     # Net callback. This is responsible for limiting the data rate and
@@ -52,11 +54,15 @@ module DelayProxy
       now = Time.now
       if now - time > @lag
         proxy data
-        @nq.pop &@ncb
+        EM::next_tick do
+          @nq.pop &@ncb
+        end
       else
         EM::add_timer Time.now - time + (rand / 100) do
           proxy data
-          @nq.pop &@ncb
+          EM::next_tick do
+            @nq.pop &@ncb
+          end
         end
       end
     end
@@ -65,7 +71,9 @@ module DelayProxy
     @scb = lambda do |data|
       return close_connection if data == nil
       send_data data
-      @sq.pop &@scb
+      EM::next_tick do
+        @sq.pop &@scb
+      end
     end
 
     init_hook *args
