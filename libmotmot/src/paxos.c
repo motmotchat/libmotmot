@@ -249,6 +249,14 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       r = proposer_ack_reject(hdr);
       break;
 
+    case OP_RETRY:
+      r = proposer_ack_retry(hdr);
+      break;
+    case OP_RECOMMIT:
+      // Invalid system state; kill the offender.
+      r = proposer_force_kill(source);
+      break;
+
     case OP_SYNC:
       // Invalid system state; kill the offender.
       r = proposer_force_kill(source);
@@ -317,6 +325,13 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
     case OP_REJECT:
       // Ignore rejects.
+      break;
+
+    case OP_RETRY:
+      // Ignore retries.
+      break;
+    case OP_RECOMMIT:
+      r = acceptor_ack_recommit(hdr, o);
       break;
 
     case OP_SYNC:

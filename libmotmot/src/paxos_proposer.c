@@ -247,9 +247,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst = it;
     }
 
-    // XXX: Maybe we should commit everything again to avoid hitting the (as
-    // yet unimplemented) retry protocol.
-
     if (inst != NULL) {
       // Do initialization common to both above paths.
       inst->pi_hdr.ph_ballot.id = pax.ballot.id;

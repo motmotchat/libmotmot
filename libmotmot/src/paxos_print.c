@@ -64,6 +64,12 @@ paxop_print(paxop_t op, const char *lead, const char *trail)
     case OP_REJECT:
       printf("OP_REJECT  ");
       break;
+    case OP_RETRY:
+      printf("OP_RETRY   ");
+      break;
+    case OP_RECOMMIT:
+      printf("OP_RECOMMIT");
+      break;
     case OP_SYNC:
       printf("OP_SYNC    ");
       break;

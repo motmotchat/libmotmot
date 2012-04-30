@@ -52,9 +52,9 @@ paxos_commit(struct paxos_instance *inst)
   // We should already have committed and learned everything before the hole.
   assert(inst->pi_hdr.ph_inum >= pax.ihole);
 
-  // Check if we just committed the hole, returning if we didn't.
+  // Check if we just committed the hole.  If we didn't, send a retry for the hole.
   if (inst->pi_hdr.ph_inum != pax.ihole) {
-    return 0;
+    return acceptor_retry(pax.ihole);
   }
 
   // If we did just fill in the hole, learn it.

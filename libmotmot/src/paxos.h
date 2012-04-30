@@ -45,6 +45,10 @@ typedef enum paxos_opcode {
   OP_REDIRECT,          // suggests the true identity of the proposer
   OP_REJECT,            // reject a part decree due to live connection
 
+  /* Retry protocol. */
+  OP_RETRY,             // obtain a missing commit
+  OP_RECOMMIT,          // resend a commit
+
   /* Log synchronization. */
   OP_SYNC,              // sync up ilists in preparation for a truncate
   OP_LAST,              // give the proposer our sync information
@@ -84,6 +88,8 @@ struct paxos_header {
    *
    * - OP_REJECT: The instance number of the decree.
    *
+   * - OP_RETRY, OP_RECOMMIT: The instance number of the decree.
+   *
    * - OP_SYNC, OP_LAST, OP_TRUNCATE: The ID of the sync as determined by the
    *   proposer; this is used only by the proposer and is simply echoed across
    *   all messages in the sync operation.
@@ -105,7 +111,7 @@ struct paxos_header {
  * - OP_PROMISE: A variable-length array of packed paxos_instance objects.
  * - OP_DECREE: The paxos_value of the decree.
  * - OP_ACCEPT: None.
- * - OP_COMMIT: The paxos_value of the decree.
+ * - OP_COMMIT: The paxos_value of the commit.
  *
  * - OP_WELCOME: An array consisting of the starting instance number (which
  *   respects truncation), the alist, and the ilist of the proposer, used
@@ -119,6 +125,9 @@ struct paxos_header {
  *
  * - OP_REDIRECT: The header of the message that resulted in our redirecting.
  * - OP_REJECT: None.
+ *
+ * - OP_RETRY: None.
+ * - OP_COMMIT: The paxos_value of the commit.
  *
  * - OP_SYNC: None.
  * - OP_LAST: The instance number of the acceptor's last contiguous commit.

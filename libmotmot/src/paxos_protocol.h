@@ -51,6 +51,12 @@ int acceptor_ack_redirect(struct paxos_header *, msgpack_object *);
 int acceptor_reject(struct paxos_header *);
 int proposer_ack_reject(struct paxos_header *);
 
+/* Retry protocol. */
+int acceptor_retry(paxid_t);
+int proposer_ack_retry(struct paxos_header *);
+int proposer_recommit(struct paxos_header *, struct paxos_instance *);
+int acceptor_ack_recommit(struct paxos_header *, msgpack_object *);
+
 /* Log sync protocol. */
 int proposer_sync(void);
 int acceptor_ack_sync(struct paxos_header *);
