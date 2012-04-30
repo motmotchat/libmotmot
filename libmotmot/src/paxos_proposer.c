@@ -151,6 +151,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
   // Loop through all the vote information.  Note that we assume the votes
   // are sorted by instance number.
+  inst = NULL;
   for (; p != pend; ++p) {
     // Allocate an instance if necessary and unpack into it.  Note that if
     // paxos_instance contained any pointers which required deallocation,
