@@ -105,7 +105,7 @@ paxos_header_print(struct paxos_header *hdr, const char *lead,
   printf("%s", lead);
   paxop_print(hdr->ph_opcode, "", " ");
   ppair_print(hdr->ph_ballot, "", " ");
-  paxid_print(hdr->ph_inum, "", "\n");
+  paxid_print(hdr->ph_inum, "", "");
   printf("%s", trail);
 }
 
@@ -116,7 +116,7 @@ paxos_value_print(struct paxos_value *val, const char *lead,
   printf("%s", lead);
   dkind_print(val->pv_dkind, "", " ");
   ppair_print(val->pv_reqid, "", " ");
-  paxid_print(val->pv_extra, "", "\n");
+  paxid_print(val->pv_extra, "", "");
   printf("%s", trail);
 }
 
@@ -126,7 +126,7 @@ paxos_acceptor_print(struct paxos_acceptor *acc, const char *lead,
 {
   printf("%s", lead);
   paxid_print(acc->pa_paxid, "", ": ");
-  printf("%*s\n", (int)acc->pa_size, (char *)acc->pa_desc);
+  printf("%*s", (int)acc->pa_size, (char *)acc->pa_desc);
   printf("%s", trail);
 }
 
