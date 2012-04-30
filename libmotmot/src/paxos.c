@@ -224,7 +224,7 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_REQUEST:
-      r = proposer_ack_request(source, hdr, o);
+      r = proposer_ack_request(hdr, o);
       break;
     case OP_RETRIEVE:
       r = paxos_ack_retrieve(hdr, o);
@@ -420,7 +420,12 @@ proposer_decree_part(struct paxos_acceptor *acc)
   inst->pi_val.pv_reqid.gen = (++pax.req_id);
   inst->pi_val.pv_extra = acc->pa_paxid;
 
-  return proposer_decree(inst);
+  if (pax.prep != NULL) {
+    LIST_INSERT_TAIL(&pax.idefer, inst, pi_le);
+    return 0;
+  } else {
+    return proposer_decree(inst);
+  }
 }
 
 /**

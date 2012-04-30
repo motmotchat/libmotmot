@@ -35,8 +35,7 @@ int paxos_hello(struct paxos_acceptor *);
 int paxos_ack_hello(struct paxos_peer *, struct paxos_header *);
 
 /* Out-of-band request protocol. */
-int proposer_ack_request(struct paxos_peer *, struct paxos_header *,
-    msgpack_object *);
+int proposer_ack_request(struct paxos_header *, msgpack_object *);
 int acceptor_ack_request(struct paxos_peer *, struct paxos_header *,
     msgpack_object *);
 int paxos_retrieve(struct paxos_instance *);

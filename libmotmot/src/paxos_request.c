@@ -12,7 +12,7 @@
 #include <assert.h>
 #include <glib.h>
 
-extern int proposer_force_kill(struct paxos_peer *);
+extern int proposer_decree_part(struct paxos_acceptor *);
 
 /**
  * proposer_decree_request - Helper function for proposers to decree requests.
@@ -116,22 +116,29 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
  * proposer_ack_request - Dispatch a request as a decree.
  */
 int
-proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
-    msgpack_object *o)
+proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
 {
   struct paxos_request *req;
-
-  // The requester overloads ph_inst to the ID of the acceptor it believes
-  // to be the proposer.  If the requester has a live connection to us but
-  // does not see that we are the highest-ranked acceptor (and hence the
-  // proposer), kill them.
-  if (hdr->ph_inum != pax.self_id) {
-    return proposer_force_kill(source);
-  }
+  struct paxos_acceptor *acc;
 
   // Allocate a request and unpack into it.
   req = g_malloc0(sizeof(*req));
   paxos_request_unpack(req, o);
+
+  // The requester overloads ph_inst to the ID of the acceptor it believes
+  // to be the proposer.  If the requester has a live connection to us but
+  // thinks that a lower-ranked acceptor is the proposer, kill them for
+  // having inconsistent state.
+  //
+  // It is possible that a higher-ranked acceptor is identified as the
+  // proposer.  This should occur only in the case that we are preparing but
+  // have lost our connection to the true proposer.  If we indeed are not the
+  // proposer, our prepare will fail, and we will be redirected at that point.
+  if (hdr->ph_inum > pax.self_id) {
+    acc = acceptor_find(&pax.alist, req->pr_val.pv_reqid.id);
+    request_destroy(req);
+    return proposer_decree_part(acc);
+  }
 
   // Add it to the request cache if needed.
   if (request_needs_cached(req->pr_val.pv_dkind)) {
