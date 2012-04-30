@@ -69,8 +69,9 @@ paxos_init(connect_t connect, struct learn_table *learn)
 void
 paxos_start(const void *desc, size_t size)
 {
-  struct paxos_acceptor *acc;
+  struct paxos_request *req;
   struct paxos_instance *inst;
+  struct paxos_acceptor *acc;
 
   // Give ourselves ID 1.
   pax.self_id = 1;
@@ -79,6 +80,18 @@ paxos_start(const void *desc, size_t size)
   pax.ballot.id = pax.self_id;
   pax.ballot.gen = 1;
   pax.gen_high = 1;
+
+  // Submit a join request to the cache.
+  req = g_malloc0(sizeof(*req));
+
+  req->pr_val.pv_dkind = DEC_JOIN;
+  req->pr_val.pv_reqid.id = pax.self_id;
+  req->pr_val.pv_reqid.gen = (++pax.req_id);
+
+  req->pr_size = size;
+  req->pr_data = g_memdup(desc, size);
+
+  LIST_INSERT_TAIL(&pax.rcache, req, pr_le);
 
   // Artificially generate an initial commit, without learning.
   inst = g_malloc0(sizeof(*inst));
@@ -95,14 +108,10 @@ paxos_start(const void *desc, size_t size)
   inst->pi_votes = 1;
   inst->pi_rejects = 0;
 
-  inst->pi_val.pv_dkind = DEC_JOIN;
-  inst->pi_val.pv_reqid.id = pax.self_id;
-  inst->pi_val.pv_reqid.gen = (++pax.req_id);
+  memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
 
-  // Add it to our ilist to mark our JOIN.
   LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
 
-  // Mark the start of the instance list.
   pax.ibase = 1;
 
   // Set up the learn protocol parameters to start at the next instance.
