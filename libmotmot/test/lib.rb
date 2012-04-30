@@ -6,55 +6,128 @@ ROOT = File.dirname(__FILE__) + '/../'
 
 MOTMOT_PATH = ROOT + 'src/motmot'
 CONN_PATH = 'conn/'
+PROXY_PATH = ROOT + 'test/netproxy.rb'
 
-class MotMotPool < Array
-  def spawn n = 1
-    n.times do
-      self << IO.popen([MOTMOT_PATH], 'w+')
-    end
+class MotMot
+  attr_reader :unix, :sock
+
+  def initialize connect=[]
+    @unix = CONN_PATH + rand(100000).to_s
+    @proxy = IO.popen [PROXY_PATH, proxy, unix, 'quiet'], 'w+'
+    @sock = IO.popen ([MOTMOT_PATH, unix] + connect), 'w+'
+    # XXX: this is gross
+    `echo attach #{pid} > /tmp/#{pid}`
+    `echo continue >> /tmp/#{pid}`
+    `screen gdb #{pid} -x /tmp/#{pid}`
+    `sleep 1 && rm /tmp/#{pid} &`
   end
 
-  def kill n = 1
-    # TODO(carl): fix this
-    self.sort_by!{rand}.pop(n).each do |p|
-      Process.kill 'TERM', p.pid
-      p.close
+  def kill
+    Process.kill 'TERM', @sock.pid
+    Process.kill 'TERM', @proxy.pid
+    @sock.close
+    @proxy.close
+    FileUtils.rm_f unix
+    FileUtils.rm_f proxy
+  end
+
+  def proxy
+    @unix + 'p'
+  end
+
+  # Proxy all other methods to the socket
+  def method_missing method, *args, &block
+    @sock.send method, *args, &block
+  end
+end
+
+class MotMotPool < Hash
+  attr_reader :reaper
+  def initialize n=1
+    n.times do
+      spawn
+      sleep 0.1
     end
+    @reaper = Thread.new do
+      puts "REAPER"
+      output = []
+      offsets = Hash.new 0
+      begin
+        loop do
+          sockets = values.compact.map &:sock
+          sockets.delete_if &:closed?
+          break unless sockets.size
+          rs, = IO.select sockets, [], [], 10
+          break if rs.nil?
+
+          for r in rs
+            chat = r.gets
+            if chat.nil?
+              delete r.pid
+              next
+            end
+            if chat.match /^CHAT/
+              puts chat, r.pid
+              output[offsets[r.pid]] ||= chat
+              if output[offsets[r.pid]] != chat
+                puts "OUT OF ORDER CHAT! PID: #{r.pid}, CHAT: #{chat}"
+                kill_all
+              end
+              offsets[r.pid] += 1
+            end
+          end
+        end
+      rescue
+        # Do nothing
+      end
+    end
+  end
+  def spawn
+    if size == 1
+      # If there's only one person in the pool, make the new instance the
+      # president and connect to the existing instance
+      _, old = self.first
+      m = MotMot.new [old.proxy]
+    else
+      m = MotMot.new
+      if size > 1
+        # Tell a random person to invite us
+        whom = keys[rand size]
+        sleep 0.1
+        self[whom].write "/invite #{m.proxy}\n"
+      end
+    end
+    self[m.pid] = m
   end
 
   def kill_all
-    self.each do |p|
-      Process.kill 'TERM', p.pid
-      p.close
-    end
-    self.replace []
+    self.values.each &:kill
   end
 
-  def pump timeout=1
-    loop do
-      rs, = IO.select self, [], [], timeout
-      return if rs.nil?
+  def random
+    self[keys[rand size]]
+  end
 
-      for r in rs
-        puts "PID %06d said: %s" % [r.pid, r.gets]
-      end
-    end
+  def kill
+    k = keys[rand size]
+    k.kill
+    delete k
   end
 end
 
 module Kernel
-  def spawn n
+  def spawn n=4
     FileUtils.mkdir_p CONN_PATH
 
-    clients = MotMotPool.new
+    clients = MotMotPool.new n
 
     begin
-      clients.spawn n
-      sleep 2 # Wait for initial processes to pick each other up
       yield clients
     ensure
-      # Burn them ALL with FIRE
+      # Kill them all with FIRE
       clients.kill_all
+      clients.reaper.join
+      #clients.reaper.raise "get outta there"
     end
   end
 end

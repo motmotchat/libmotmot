@@ -5,6 +5,7 @@ require 'msgpack'
 
 # This connection has a "base" lag
 $basedelay = rand(5..300)
+$quiet = ARGV[2] == 'quiet'
 
 module DelayProxy
   def initialize *args
@@ -30,7 +31,7 @@ module DelayProxy
       # Let's sniff the wire
       @unpacker.feed data
       @unpacker.each do |obj|
-        p obj
+        p obj unless $quiet
       end
 
       # We want to chunk up the data into random sized chunks. We somewhat
@@ -88,8 +89,8 @@ module DelayProxy
   def unbind
     unless @unbound
       @unbound = true
-      p 'unbind'
-      p type
+      p 'unbind' unless $quiet
+      p type unless $quiet
       @rq.push nil
     end
   end
