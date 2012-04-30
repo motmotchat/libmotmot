@@ -203,8 +203,8 @@ proposer_truncate(struct paxos_header *hdr)
   assert(pax.sync->ps_last >= pax.ibase);
   pax.ibase = pax.sync->ps_last;
 
-  // Do the truncate (< pax.ibase).
-  ilist_truncate_prefix(&pax.ilist, pax.ibase);
+  // Modify the header.
+  hdr->ph_opcode = OP_TRUNCATE;
 
   // Pack and broadcast a truncate command.
   paxos_payload_init(&py, 2);
@@ -212,6 +212,9 @@ proposer_truncate(struct paxos_header *hdr)
   paxos_paxid_pack(&py, pax.ibase);
   paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
+
+  // Do the truncate (< pax.ibase).
+  ilist_truncate_prefix(&pax.ilist, pax.ibase);
 
   // End the sync.
   g_free(pax.sync);
