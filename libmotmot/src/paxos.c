@@ -126,6 +126,7 @@ paxos_end()
 {
   // Wipe all our lists.
   acceptor_list_destroy(&pax.alist);
+  acceptor_list_destroy(&pax.adefer);
   instance_list_destroy(&pax.ilist);
   instance_list_destroy(&pax.idefer);
   request_list_destroy(&pax.rcache);
