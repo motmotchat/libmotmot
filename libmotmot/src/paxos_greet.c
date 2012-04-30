@@ -245,31 +245,33 @@ paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
     return 0;
   }
 
-  if (acc->pa_peer != NULL && hdr->ph_inum < pax.self_id) {
-    // If our acceptor already has a peer attached, both we and the acceptor
-    // attempted to reconnect concurrently and succeeded.  In this case, we
-    // keep the peer created by the higher-ranking (i.e., lower-ID) acceptor.
-    paxos_peer_destroy(acc->pa_peer);
-    acc->pa_peer = source;
-  } else if (acc->pa_peer == NULL) {
+  if (acc->pa_peer == NULL) {
     // If there is no peer, just attach it.
     acc->pa_peer = source;
     pax.live_count++;
+  } else if (hdr->ph_inum < pax.self_id) {
+    // If our acceptor already has a peer attached, both we and the acceptor
+    // attempted to reconnect concurrently and succeeded.  In this case, we
+    // keep the peer created by the higher-ranking (i.e., lower-ID) acceptor,
+    // so if our rank is lower, switch in the correct peer.
+    paxos_peer_destroy(acc->pa_peer);
+    acc->pa_peer = source;
   }
 
   // Suppose the source of the hello is the proposer.  The proposer only says
-  // hello when a part was rejected and our connection was reestablished.  We
-  // claim that, in this case, we can reset our ballot blindly without fear of
-  // inconsistency.  We have three cases to consider:
+  // hello when it attempts to part us, is rejected, and then successfully
+  // reestablishes a connection.  We claim that, in this case, we can reset
+  // our ballot blindly without fear of inconsistency.  We have three cases
+  // to consider:
   //
   // 1. Our ballot numbers are equal.  Resetting is a no-op.
   //
-  // 2. Our local ballot number is higher.  Someone else who was disconnected
-  // from the proposer must have prepared.  However, because the proposer was
-  // able to achieve a majority of responses rejecting the part decree, we
-  // know that, despite our local disconnect, the proposer is still supported
-  // by a majority, and hence the prepare for which we updated our ballot will
-  // fail.
+  // 2. Our local ballot number is higher.  This means that someone else who
+  // was disconnected from the proposer must have prepared.  However, because
+  // the proposer was able to achieve a majority of responses in rejecting the
+  // part decree, we know that, despite our local disconnect, the proposer is
+  // still supported by a majority, and hence the prepare for which we updated
+  // our ballot will fail.
   // XXX: Think about this case some more.
   //
   // 3. Our local ballot number is lower.  The proposer is past the prepare

@@ -105,13 +105,20 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 
   // Check the ballot on the message.  If it's not the most recent ballot
   // that we've prepared for, we do not agree with the decree and simply take
-  // no action.  Importantly, the proposer doesn't keep track of who has
-  // responded to prepares, and hence if we respond to both the proposer's
-  // (higher) ballot and our (lower) ballot, we could break correctness
-  // guarantees if we responded to any more decrees for the lower ballot.
+  // no action.
+  //
+  // We do this because the proposer doesn't keep track of who has responded
+  // to prepares.  Hence if we respond both to the proposer's higher ballot
+  // and our lower ballot, we could break correctness guarantees if we
+  // responded to any further decrees with the lower ballot number.
   if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
     return 0;
   }
+
+  // Our local notion of the ballot should match our notion of the proposer.
+  // Only when failover has just occurred but we have not yet received the new
+  // proposer's prepare is this not the case.
+  assert(pax.proposer->pa_paxid == pax.ballot.id);
 
   // Unpack the value and see if it decrees a part.  If so, but if the target
   // acceptor is still alive, reject the decree.
