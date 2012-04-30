@@ -47,6 +47,7 @@ extern int paxos_broadcast_ihv(struct paxos_instance *);
 int
 proposer_prepare()
 {
+  int r;
   struct paxos_header hdr;
   struct paxos_yak py;
 
@@ -82,10 +83,10 @@ proposer_prepare()
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  paxos_broadcast(UNYAK(&py));
+  r = paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -123,6 +124,7 @@ get_instance_glb(struct paxos_instance *it, struct instance_list *ilist,
 int
 proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 {
+  int r;
   msgpack_object *p, *pend;
   struct paxos_instance *inst, *it;
   paxid_t inum;
@@ -258,7 +260,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_rejects = 0;
 
       // Pack and broadcast the decree.
-      paxos_broadcast_ihv(inst);
+      ERR_RET(r, paxos_broadcast_ihv(inst));
     }
   }
 
@@ -270,14 +272,14 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // sure to skip ourselves since we have no pa_peer.
   LIST_FOREACH(acc, &pax.alist, pa_le) {
     if (acc->pa_peer == NULL && acc->pa_paxid != pax.self_id) {
-      proposer_decree_part(acc);
+      ERR_RET(r, proposer_decree_part(acc));
     }
   }
 
   // Decree ALL the deferred things!
   LIST_WHILE_FIRST(inst, &pax.idefer) {
     LIST_REMOVE(&pax.idefer, inst, pi_le);
-    proposer_decree(inst);
+    ERR_RET(r, proposer_decree(inst));
   }
 
   return 0;
@@ -304,9 +306,7 @@ proposer_decree(struct paxos_instance *inst)
   ilist_insert(inst);
 
   // Pack and broadcast the decree.
-  if ((r = paxos_broadcast_ihv(inst))) {
-    return r;
-  }
+  ERR_RET(r, paxos_broadcast_ihv(inst));
 
   // Do we constitute a majority ourselves?  If so, commit!
   if (inst->pi_votes >= majority()) {
@@ -363,9 +363,7 @@ proposer_commit(struct paxos_instance *inst)
   inst->pi_hdr.ph_opcode = OP_COMMIT;
 
   // Pack and broadcast the commit.
-  if ((r = paxos_broadcast_ihv(inst))) {
-    return r;
-  }
+  ERR_RET(r, paxos_broadcast_ihv(inst));
 
   // Commit and learn the value ourselves.
   return paxos_commit(inst);

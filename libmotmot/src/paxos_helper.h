@@ -9,6 +9,12 @@
 #include <glib.h>
 #include <msgpack.h>
 
+/* Error handling. */
+#define ERR_RET(r, cmd)   \
+  if ((r = cmd)) {        \
+    return r;             \
+  }
+
 /* Convenience functions. */
 inline int is_proposer(void);
 inline void reset_proposer(void);

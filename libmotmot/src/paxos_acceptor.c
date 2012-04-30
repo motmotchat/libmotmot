@@ -50,6 +50,7 @@ acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
 int
 acceptor_promise(struct paxos_header *hdr)
 {
+  int r;
   size_t count;
   struct paxos_instance *it;
   struct paxos_yak py;
@@ -83,10 +84,10 @@ acceptor_promise(struct paxos_header *hdr)
   }
 
   // Send off our payload.
-  paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -172,6 +173,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
 int
 acceptor_accept(struct paxos_header *hdr)
 {
+  int r;
   struct paxos_yak py;
 
   // Pack a header.
@@ -180,10 +182,10 @@ acceptor_accept(struct paxos_header *hdr)
   paxos_header_pack(&py, hdr);
 
   // Send the payload.
-  paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**

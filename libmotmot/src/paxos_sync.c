@@ -36,6 +36,7 @@ int paxos_sync(void *data)
 int
 proposer_sync()
 {
+  int r;
   struct paxos_header hdr;
   struct paxos_yak py;
 
@@ -81,10 +82,10 @@ proposer_sync()
   // Pack and broadcast the sync.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  paxos_broadcast(UNYAK(&py));
+  r = paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -110,6 +111,7 @@ acceptor_ack_sync(struct paxos_header *hdr)
  */
 int acceptor_last(struct paxos_header *hdr)
 {
+  int r;
   struct paxos_yak py;
 
   // Modify the header opcode.
@@ -119,10 +121,10 @@ int acceptor_last(struct paxos_header *hdr)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
   paxos_paxid_pack(&py, pax.ihole - 1);
-  paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -188,6 +190,7 @@ ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
 int
 proposer_truncate(struct paxos_header *hdr)
 {
+  int r;
   struct paxos_yak py;
 
   // Obtain our own last contiguous commit.
@@ -206,12 +209,17 @@ proposer_truncate(struct paxos_header *hdr)
   // Modify the header.
   hdr->ph_opcode = OP_TRUNCATE;
 
-  // Pack and broadcast a truncate command.
+  // Pack a truncate.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
   paxos_paxid_pack(&py, pax.ibase);
-  paxos_broadcast(UNYAK(&py));
+
+  // Broadcast it.
+  r = paxos_broadcast(UNYAK(&py));
   paxos_payload_destroy(&py);
+  if (r) {
+    return r;
+  }
 
   // Do the truncate (< pax.ibase).
   ilist_truncate_prefix(&pax.ilist, pax.ibase);

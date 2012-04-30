@@ -49,7 +49,7 @@ proposer_decree_request(struct paxos_request *req)
 int
 paxos_request(dkind_t dkind, const void *msg, size_t len)
 {
-  int needs_cached;
+  int r, needs_cached;
   struct paxos_header hdr;
   struct paxos_request *req;
   struct paxos_yak py;
@@ -93,12 +93,15 @@ paxos_request(dkind_t dkind, const void *msg, size_t len)
 
     // Broadcast only if it needs caching.
     if (!needs_cached) {
-      paxos_send_to_proposer(UNYAK(&py));
+      r = paxos_send_to_proposer(UNYAK(&py));
     } else {
-      paxos_broadcast(UNYAK(&py));
+      r = paxos_broadcast(UNYAK(&py));
     }
 
     paxos_payload_destroy(&py);
+    if (r) {
+      return r;
+    }
   }
 
   // Decree the request if we're the proposer; otherwise just return.
@@ -123,7 +126,7 @@ proposer_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   // does not see that we are the highest-ranked acceptor (and hence the
   // proposer), kill them.
   if (hdr->ph_inum != pax.self_id) {
-    proposer_force_kill(source);
+    return proposer_force_kill(source);
   }
 
   // Allocate a request and unpack into it.
@@ -146,13 +149,14 @@ int
 acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
+  int r;
   struct paxos_request *req;
 
   // The requester overloads ph_inst to the acceptor it believes to be the
   // proposer.  If we are incorrectly identified as the proposer (i.e., if
   // we believe someone higher-ranked is still live), send a redirect.
   if (hdr->ph_inum == pax.self_id) {
-    paxos_redirect(source, hdr);
+    r = paxos_redirect(source, hdr);
   }
 
   // Allocate a request and unpack into it.
@@ -162,7 +166,7 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   // Add it to the request cache.
   request_insert(&pax.rcache, req);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -175,6 +179,7 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
 int
 paxos_retrieve(struct paxos_instance *inst)
 {
+  int r;
   struct paxos_header hdr;
   struct paxos_acceptor *acc;
   struct paxos_yak py;
@@ -196,13 +201,13 @@ paxos_retrieve(struct paxos_instance *inst)
   // to the request originator, broadcast the retrieve instead.
   acc = acceptor_find(&pax.alist, inst->pi_val.pv_reqid.id);
   if (acc == NULL || acc->pa_peer == NULL) {
-    paxos_broadcast(UNYAK(&py));
+    r = paxos_broadcast(UNYAK(&py));
   } else {
-    paxos_send(acc, UNYAK(&py));
+    r = paxos_send(acc, UNYAK(&py));
   }
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -248,6 +253,7 @@ int
 paxos_resend(struct paxos_acceptor *acc, struct paxos_header *hdr,
     struct paxos_request *req)
 {
+  int r;
   struct paxos_yak py;
 
   // Modify the header.
@@ -257,10 +263,10 @@ paxos_resend(struct paxos_acceptor *acc, struct paxos_header *hdr,
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
   paxos_request_pack(&py, req);
-  paxos_send(acc, UNYAK(&py));
+  r = paxos_send(acc, UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**

@@ -40,6 +40,7 @@ extern int proposer_decree_part(struct paxos_acceptor *);
 int
 proposer_welcome(struct paxos_acceptor *acc)
 {
+  int r;
   struct paxos_header hdr;
   struct paxos_acceptor *acc_it;
   struct paxos_instance *inst_it;
@@ -84,10 +85,10 @@ proposer_welcome(struct paxos_acceptor *acc)
   }
 
   // Send the welcome.
-  paxos_send(acc, UNYAK(&py));
+  r = paxos_send(acc, UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
@@ -101,6 +102,7 @@ int
 acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
+  int r;
   msgpack_object *arr, *p, *pend;
   struct paxos_acceptor *acc;
   struct paxos_instance *inst;
@@ -145,7 +147,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
       acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
       if (acc->pa_peer != NULL) {
         pax.live_count++;
-        paxos_hello(acc);
+        ERR_RET(r, paxos_hello(acc));
       }
     }
   }
@@ -200,6 +202,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 int
 paxos_hello(struct paxos_acceptor *acc)
 {
+  int r;
   struct paxos_header hdr;
   struct paxos_yak py;
 
@@ -212,10 +215,10 @@ paxos_hello(struct paxos_acceptor *acc)
   // Pack and send the hello.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  paxos_send(acc, UNYAK(&py));
+  r = paxos_send(acc, UNYAK(&py));
   paxos_payload_destroy(&py);
 
-  return 0;
+  return r;
 }
 
 /**
