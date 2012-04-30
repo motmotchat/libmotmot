@@ -451,7 +451,7 @@ proposer_decree_part(struct paxos_acceptor *acc)
 {
   struct paxos_instance *inst;
 
-  inst = g_malloc(sizeof(*inst));
+  inst = g_malloc0(sizeof(*inst));
 
   inst->pi_val.pv_dkind = DEC_PART;
   inst->pi_val.pv_reqid.id = pax.self_id;
