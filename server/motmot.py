@@ -340,7 +340,7 @@ def statusChanged(conn, status):
                     rVal = msgpack.unpackb(rVal)
                     if rVal[0] != RM.AUTHENTICATED:
                         raise RPCError
-
+                    print "status {0}".format(status)
                     sock.sendall(msgpack.packb([RM.SERVER_SEND_STATUS_CHANGED, userName, status]))
                     rVal = sock.recv(4096)
                     rVal = msgpack.unpackb(rVal)
