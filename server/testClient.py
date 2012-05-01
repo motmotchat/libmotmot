@@ -178,7 +178,7 @@ testMap = {
 
 if __name__ == '__main__':
 
-    address = (bSock.gethostbyname('127.0.0.1'), 8888)
+    address = (bSock.gethostbyname(bSock.gethostbyname(sys.argv[3])), 8888)
 
     sock = socket.socket()
     sock = ssl.wrap_socket(sock)
