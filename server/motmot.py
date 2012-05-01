@@ -304,7 +304,7 @@ def statusChanged(conn, stat):
     if not auth(conn):
         return DENIED
     
-    if stat != status.ONLINE || stat != status.OFFLINE || stat != status.BUSY || stat != status.AWAY:
+    if stat != status.ONLINE or stat != status.OFFLINE or stat != status.BUSY or stat != status.AWAY:
         raise NotStatus
 
     userName = authList[conn.address][0]
