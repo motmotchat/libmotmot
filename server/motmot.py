@@ -243,6 +243,7 @@ def registerFriend(conn, friend, un=None):
             # this is to deal with cross domain stuff. this same function 
             # is used to the remote server. so this statement can only evalute true when the call
             # is made from a server
+            print "userName: {0},  un: {1}".format(userName, un)
             if userName in conn.connTbl and un != None:
                 conn.connTbl[userName].send([RM.PUSH_FRIEND_REQUEST, friend])
     
