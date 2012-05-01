@@ -180,9 +180,11 @@ def registerFriend(conn, friend, un=None):
         user_exists(friend)
     
     userName = un
-    print "passed initial {0} {1}".format(userName, friend)
     if un == None:
         userName = authList[conn.address][0]
+    
+    if conn.domain in userName:
+        user_exists(userName)
 
     cnt_q = "SELECT COUNT(friendId) from friends WHERE userName=? AND friend=?;"
     cnt = execute_query(cnt_q, (userName, friend))
@@ -216,7 +218,6 @@ def registerFriend(conn, friend, un=None):
             sock.sendall(msgpack.packb([RM.SERVER_SEND_FRIEND, userName, friend]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
-            print rVal
             if rVal[0] == RM.USER_NOT_FOUND:
                 delq = "DELETE from friends WHERE userName=? AND friend=?;"
                 execute_query(delq, (userName, friend))
