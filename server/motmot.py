@@ -372,6 +372,9 @@ def acceptFriend(conn, friend):
     if not auth(conn):
         return DENIED
     
+    if conn.domain in friend:
+        user_exists(friend)
+
     acceptor = authList[conn.address]
     # flip the accept bit for the user that accepted the request
     upd_q = "UPDATE friends SET accepted='true' WHERE userName=? AND friend=?;"
@@ -481,6 +484,9 @@ def serverAcceptFriend(conn, userName, friend, status):
     if not auth(conn):
         return DENIED
     
+    if conn.domain in userName:
+        user_exists(userName)
+
     # update the accepted bit
     upd_q = "UPDATE friends SET accepted='true' WHERE userName=? AND friend=?"
     execute_query(upd_q, (userName, friend))
