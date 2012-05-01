@@ -176,8 +176,10 @@ def registerFriend(conn, friend, un=None):
     if not auth(conn):
         return DENIED
     
-    user_exists(friend)
-
+    if conn.domain in friend:
+        user_exists(friend)
+    
+    print "passed initial"
     userName = un
     if un == None:
         userName = authList[conn.address][0]
@@ -214,6 +216,7 @@ def registerFriend(conn, friend, un=None):
             sock.sendall(msgpack.packb([RM.SERVER_SEND_FRIEND, userName, friend]))
             rVal = sock.recv(4096)
             rVal = msgpack.unpackb(rVal)
+            print rVal
             if rVal[0] == RM.USER_NOT_FOUND:
                 delq = "DELETE from friends WHERE userName=? AND friend=?;"
                 execute_query(delq, (userName, friend))
@@ -251,7 +254,9 @@ def unregisterFriend(conn, friend, un=None):
     if not auth(conn):
         return DENIED
     
-    user_exists(friend)
+    if conn.domain in friend:
+        user_exists(friend)
+    
     userName = un
     if un == None:
         userName = authList[conn.address][0]
