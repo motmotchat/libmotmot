@@ -179,8 +179,8 @@ def registerFriend(conn, friend, un=None):
     if conn.domain in friend:
         user_exists(friend)
     
-    print "passed initial"
     userName = un
+    print "passed initial {0} {1}".format(userName, friend)
     if un == None:
         userName = authList[conn.address][0]
 
@@ -227,6 +227,12 @@ def registerFriend(conn, friend, un=None):
                 raise RPCError
 
             sock.close()
+        else:
+            # this is to deal with cross domain stuff. this same function 
+            # is used to the remote server. so this statement can only evalute true when the call
+            # is made from a server
+            if userName in conn.connTbl and un != None:
+                conn.connTbl[userName].send([RM.PUSH_FRIEND_REQUEST, friend])
 
     else:
         # since friends are bi-directional, 
@@ -240,12 +246,6 @@ def registerFriend(conn, friend, un=None):
             # send a message
             if friend in conn.connTbl:
                 conn.connTbl[friend].send([RM.PUSH_FRIEND_REQUEST, userName])
-            # this is to deal with cross domain stuff. this same function 
-            # is used to the remote server. so this statement can only evalute true when the call
-            # is made from a server
-            print "userName: {0},  un: {1}".format(userName, un)
-            if userName in conn.connTbl and un != None:
-                conn.connTbl[userName].send([RM.PUSH_FRIEND_REQUEST, friend])
     
     return [RM.SUCCESS, "Friend Registered"]
 
