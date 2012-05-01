@@ -139,7 +139,7 @@ def test_cert(tPass):
         sendQ.put([RM.SIGN_CERT_REQUEST, cert])
 
 def test_multiServer_sender(tPass):
-    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
+    sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing1.com","12345"])
     if tPass=='True':
         sendQ.put([RM.REGISTER_FRIEND, "ej@bensing2.com"])
         sendQ.put([RM.ACCEPT_FRIEND, "ej@bensing2.com"])
