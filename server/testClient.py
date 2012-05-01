@@ -142,7 +142,7 @@ def test_multiServer_sender(tPass):
     sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing1.com","12345"])
     if tPass=='True':
         sendQ.put([RM.REGISTER_FRIEND, "ej@bensing2.com"])
-        #sendQ.put([RM.ACCEPT_FRIEND, "ej@bensing2.com"])
+        sendQ.put([RM.ACCEPT_FRIEND, "ej@bensing2.com"])
         #sendQ.put([RM.REGISTER_STATUS, motmot.status.BUSY])
         #sendQ.put([RM.GET_USER_STATUS, "ej@bensing2.com"])
         #time.sleep(5)
