@@ -49,6 +49,7 @@ class RemoteMethods:
     GET_USER_STATUS=9
     USER_STATUS_RESP=68
     CERT_DENIED=94
+    BAD_STATUS=95
 
 RM = RemoteMethods
 
@@ -81,6 +82,10 @@ class UserNotFound(Exception):
 
 # raised when userName is improperly formed
 class InvalidUserName(Exception):
+    pass
+
+# raised if an unknown status is given
+class NotStatus(Exception):
     pass
 
 # this is the global dictionary of currently connected, 
@@ -295,12 +300,15 @@ def unregisterFriend(conn, friend, un=None):
     return [RM.SUCCESS, "Friend Unregistered"]
 
 # this is the function that handles status changes
-def statusChanged(conn, status):
+def statusChanged(conn, stat):
     if not auth(conn):
         return DENIED
     
+    if stat != status.ONLINE || stat != status.OFFLINE || stat != status.BUSY || stat != status.AWAY:
+        raise NotStatus
+
     userName = authList[conn.address][0]
-    authList[conn.address][1] = status
+    authList[conn.address][1] = stat
 
     con = None
     try:
@@ -320,7 +328,7 @@ def statusChanged(conn, status):
             # an update message to their send Queue if they are.
             if splt[1] == conn.domain:
                 if friend[0] in conn.connTbl:
-                    conn.connTbl[friend[0]].send([RM.PUSH_CLIENT_STATUS, userName, status])
+                    conn.connTbl[friend[0]].send([RM.PUSH_CLIENT_STATUS, userName, stat])
             
             # if they are not from the same domain, 
             # then send the update off to the appropriate domain
@@ -341,8 +349,8 @@ def statusChanged(conn, status):
                     rVal = msgpack.unpackb(rVal)
                     if rVal[0] != RM.AUTHENTICATED:
                         raise RPCError
-                    print "status {0}".format(status)
-                    sock.sendall(msgpack.packb([RM.SERVER_SEND_STATUS_CHANGED, userName, status]))
+                    
+                    sock.sendall(msgpack.packb([RM.SERVER_SEND_STATUS_CHANGED, userName, stat]))
                     rVal = sock.recv(4096)
                     rVal = msgpack.unpackb(rVal)
                     if rVal[0] != RM.SUCCESS:

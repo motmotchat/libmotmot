@@ -58,6 +58,9 @@ def writeback(conn, fn, args):
     except crypto.Error, e:
         print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
         rVal = [RM.CERT_DENIED,"Bad Certificate"]
+    except motmot.NotStatus, e:
+        print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
+        rVal = [RM.BAD_STATUS,"Not a Valid Status Code"]
     finally:
         conn.send(rVal)
 
