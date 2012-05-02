@@ -8,7 +8,26 @@
 #include <stddef.h>
 #include <glib.h>
 
-#include "paxos.h"
+/**
+ * connect_t - Connection establishment callback type.
+ *
+ * @param handle    An opaque handle that uniquely specifies an individual to
+ *                  connect to.
+ * @param size      The size of that handle
+ * @returns         A GIOChannel connected to the given handle
+ */
+typedef GIOChannel *(*connect_t)(const void *handle, size_t size);
+
+/**
+ * learn_t - Learning callback type.
+ *
+ * @param message   The message to learn. For chats, this is the chat message
+ *                  itself. For joins and parts, this is a opaque handle
+ *                  representing the peer that has joined or parted
+ * @param size      The size of that message
+ * @returns         0 on success, nonzero on error
+ */
+typedef int (*learn_t)(const void *message, size_t size);
 
 /**
  * motmot_init - Initialize libmotmot.

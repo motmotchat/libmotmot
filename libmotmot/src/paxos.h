@@ -5,6 +5,7 @@
 #define __PAXOS_H__
 
 #include "list.h"
+#include "motmot.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -212,10 +213,6 @@ struct paxos_sync {
   unsigned ps_skips;      // number of times we skipped starting a new sync
   paxid_t ps_last;        // the last contiguous learn across the system
 };
-
-/* Client callbacks. */
-typedef GIOChannel *(*connect_t)(const void *, size_t);
-typedef int (*learn_t)(const void *, size_t);
 
 struct learn_table {
   learn_t chat;
