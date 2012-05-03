@@ -11,3 +11,8 @@ typedef struct{
   GList *acceptance_list;
   void *data;
 } motmot_conn;
+
+typedef struct{
+  char *addr;
+  int port;
+} motmot_buddy;

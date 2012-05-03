@@ -711,10 +711,21 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
         bud = purple_find_buddy(a, friend_name);
         if(bud == NULL){
           bud = purple_buddy_new(a, friend_name, NULL);
+          // hack until we get ip addresses working
+          motmot_buddy *proto = g_new0(motmot_buddy, 1);
+          proto -> addr = "127.0.0.1";
+          proto -> port = 8888;
+          bud -> proto_data = proto;
           purple_blist_add_buddy(bud, NULL, NULL, NULL);
           update_remote_status(a, friend_name, status);
         }
         else{
+          // HACK
+          motmot_buddy *proto = g_new0(motmot_buddy, 1);
+          proto -> addr = "127.0.0.1";
+          proto -> port = 8888;
+          bud -> proto_data = proto;
+          // /HACK
           update_remote_status(a, friend_name, status);
           g_free(friend_name);
         }
@@ -1016,6 +1027,12 @@ static void nullprpl_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   motmot_conn *conn = gc -> proto_data;
 
+  // HACK
+  motmot_buddy *proto = g_new0(motmot_buddy, 1);
+  proto -> addr = "127.0.0.1";
+  proto -> port = 8888;
+  buddy -> proto_data = proto;
+  // /HACK
 
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
   GList *el = g_list_find_custom(conn -> acceptance_list, 
