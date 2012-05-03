@@ -154,6 +154,21 @@ typedef struct {
  * (char *) to GList * of GOfflineMessages. initialized in nullprpl_init.
  */
 
+
+// JULIE
+// struct for passing data around to motmot callbacks
+typedef struct {
+  PurpleBuddy *buddy;
+  PurpleConnection *connection;
+  int id;
+  const char *message;
+  PurpleMessageFlags flags;
+  GHashTable components;
+} MotmotInfo;
+
+// global definition of aforementioned struct. motmot everrrrrywhere
+MotmotInfo motmot_info;
+
 GHashTable* goffline_messages = NULL;
 
 typedef struct {
@@ -233,21 +248,73 @@ static char *deser_get_string(msgpack_object_array ar, int i){
 // libmotmot-related functions: function callbacks necessary to init motmot
 // TODO finish these
 // also declare them non-implicitly oops
+// note: const void *handle refers to a PurpleBuddy *buddy
 
-GIOChannel * connect_motmot(const void *handle, size_t len)
+/*
+    so, the bigass info struct will take in:
+    - purplebuddy
+    - a purpleconnection
+    - an int_id
+    - a message
+    - flags
+    - ghashtable components
+
+    struct.buddy
+    struct.connection
+    struct.id
+    struct.message
+    struct.flags
+    struct.components
+
+    also, buddy->protodata is a struct
+    struct needs to have (at least) ip field
+*/
+
+// JULIE
+
+// returns discovery server connection info
+GIOChannel *connect_motmot(const char *info, size_t len)
 {
-  return NULL;
+  //gives us socket to buddy itself (yay peer-to-peer)
+  // TODO setup proto_data to do amusing things
+
+  // probably takes in a PurpleBuddy *buddy
+  motmot_buddy *temp = buddy->proto_data;
+
+  extra_buddy_info *info = info->buddy->proto_data.ip;
+  return g_io_channel_unix_new(temp->fd);
 }
-int print_chat_motmot(const void *buf, size_t len)
+
+//static int nullprpl_send_im(PurpleConnection *gc, const char *who,
+//                        const char *message, PurpleMessageFlags flags)
+
+int print_chat_motmot(const void *info, size_t len)
 {
+  //given identifying *info, extracts from,to,id,room_id,
+  MotmotInfo info = (MotmotInfo *)info;
+  from = info.from;
+  to = info.to;
+  id = info.id;
+  room = info.room;
+  message = info.message;
+  receive_chat_message(from,to,id,room,message);
   return 0;
 }
+
+//call when someone joins a chat—probably do this based on their sending a msg to chat
 int print_join_motmot(const void *buf, size_t len)
 {
+  //takes a PurpleConnection *gc and a GHashTable *components
+  PurpleConnection *gc = info.purpleconnection;
+  GHashTable *components = info.components;
+  nullprpl_join_chat(*gc,*components);
   return 0;
 }
+
+//call when someone leaves a chat—do based on logout/inaccessibility I guess
 int print_part_motmot(const void *buf, size_t len)
 {
+  left_chat_room();
   return 0;
 }
 
@@ -498,6 +565,9 @@ static GList *nullprpl_chat_info(PurpleConnection *gc) {
 
 static GHashTable *nullprpl_chat_info_defaults(PurpleConnection *gc,
                                                const char *room) {
+
+  //JULIE -> call motmot_session here?
+  // motmot_session(self,strlen(self));
   GHashTable *defaults;
 
   purple_debug_info("nullprpl", "returning chat default setting "
@@ -514,10 +584,14 @@ static void nullprpl_login(PurpleAccount *acct)
   motmot_conn *conn;
   int port;
 
+
+
 	const char *username = purple_account_get_username(acct);
 
   PurpleConnection *gc = purple_account_get_connection(acct);
   GList *offline_messages;
+
+  info.gc = gc;
 
   purple_debug_info("nullprpl", "logging in %s\n", acct->username);
 
@@ -1199,6 +1273,10 @@ static void joined_chat(PurpleConvChat *from, PurpleConvChat *to,
 }
 
 static void nullprpl_join_chat(PurpleConnection *gc, GHashTable *components) {
+  // JULIE
+  // to join chat, first call upon almighty paxos
+  print_join_motmot();
+
   const char *username = gc->account->username;
   const char *room = g_hash_table_lookup(components, "room");
   int chat_id = g_str_hash(room);
@@ -1278,6 +1356,7 @@ static void nullprpl_chat_invite(PurpleConnection *gc, int id,
   }
 }
 
+//JULIE
 static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
                            int id, const char *room, gpointer userdata) {
   if (from != to) {
@@ -1290,13 +1369,18 @@ static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
   }
 }
 
+// JULIE
 static void nullprpl_chat_leave(PurpleConnection *gc, int id) {
   PurpleConversation *conv = purple_find_chat(gc, id);
+  motmot_disconnect();
   purple_debug_info("nullprpl", "%s is leaving chat room %s\n",
                     gc->account->username, conv->name);
 
   /* tell everyone that we left */
+  // following should be unnecessary because motmot
+  /*
   foreach_gc_in_chat(left_chat_room, gc, id, NULL);
+  */
 }
 
 static PurpleCmdRet send_whisper(PurpleConversation *conv, const gchar *cmd,
@@ -1377,6 +1461,19 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
 
 static int nullprpl_chat_send(PurpleConnection *gc, int id, const char *message,
                               PurpleMessageFlags flags) {
+  // I don't get the distinction between a to convchat and a from convchat...
+  Motmotinfo *info;
+  *info.id=id;
+  *info.message=message;
+  *info.room='';          // room only matters for debug statements
+  PurpleConvChat *from = *purple_conversation_get_chat_data(purple_find_chat(*gc,id));
+
+  const void *pass_info = (const void *)info;
+
+  motmot_send(*pass_info,strlen(*pass_info));
+
+//shouldn't need the below for the function, because motmot
+/*
   const char *username = gc->account->username;
   PurpleConversation *conv = purple_find_chat(gc, id);
 
@@ -1385,7 +1482,7 @@ static int nullprpl_chat_send(PurpleConnection *gc, int id, const char *message,
                       "%s is sending message to chat room %s: %s\n", username,
                       conv->name, message);
 
-    /* send message to everyone in the chat room */
+    // send message to everyone in the chat room
     foreach_gc_in_chat(receive_chat_message, gc, id, (gpointer)message);
     
     return 0;
@@ -1396,7 +1493,10 @@ static int nullprpl_chat_send(PurpleConnection *gc, int id, const char *message,
                       username, id, message);
     return -1;
   }
+  */
+  return 0;
 }
+
 
 static void nullprpl_register_user(PurpleAccount *acct) {
  purple_debug_info("nullprpl", "registering account for %s\n",
