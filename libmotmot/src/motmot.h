@@ -44,6 +44,8 @@ void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part);
 /**
  * motmot_session - Start a new motmot chat.
  *
+ * @param id        Opaque pointer containing the client's identification
+ *                  information for the session
  * @param desc      Identifying descriptor of the chat initiator
  * @param size      Size of the descriptor object
  */
@@ -61,8 +63,8 @@ int motmot_watch(GIOChannel *channel);
  * motmot_invite - Add user to chat.
  *
  * @param handle    Object containing a handle recognized by the client's
- *                  connect callback
- * @param len       Length of the string
+ *                  connect callback, used to identify the invitee
+ * @param len       Size of the handle
  * @returns         0 on success, nonzero on error
  */
 int motmot_invite(const void *handle, size_t len);
