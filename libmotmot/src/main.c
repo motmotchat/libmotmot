@@ -183,7 +183,7 @@ main(int argc, char *argv[])
 
   // Start a new chat.
   if (argc > 2) {
-    motmot_session(argv[1], strlen(argv[1]));
+    motmot_session(NULL, argv[1], strlen(argv[1]));
   }
 
   // Invite our friends!

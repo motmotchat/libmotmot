@@ -47,7 +47,7 @@ void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part);
  * @param desc      Identifying descriptor of the chat initiator
  * @param size      Size of the descriptor object
  */
-void motmot_session(const void *desc, size_t size);
+void motmot_session(void *, const void *desc, size_t size);
 
 /**
  * motmot_watch - Watch a given channel for activity.
