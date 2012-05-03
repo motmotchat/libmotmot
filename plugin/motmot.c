@@ -1036,7 +1036,6 @@ static void nullprpl_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
     conn -> acceptance_list = g_list_remove(conn -> acceptance_list, name);
     g_free(name);
     
-    query_status(purple_buddy_get_name(buddy), conn);
     return;
   }
   
