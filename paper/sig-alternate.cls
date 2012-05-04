@@ -324,7 +324,7 @@
 \newfont{\auit}{phvro8t at 12pt}     % GM 2/4/2000
 \newfont{\affaddr}{phvr8t at 10pt}
 \newfont{\affaddrit}{phvro8t at 10pt} % GM 2/4/2000
-\newfont{\eaddfnt}{phvr8t at 12pt}
+\newfont{\eaddfnt}{phvr8t at 10pt}
 \newfont{\ixpt}{ptmr8t at 9pt}
 \newfont{\confname}{ptmri8t at 8pt}
 \newfont{\crnotice}{ptmr8t at 8pt}
@@ -1314,7 +1314,7 @@
          \advance\leftmargin\labelsep
          \advance\leftmargin\bibindent
          \parsep=0pt\itemsep=1pt % GM July 2000
-         \itemindent -\bibindent
+         \itemindent 0pt%\bibindent
          \listparindent \itemindent
          \usecounter{enumi}
      }%
