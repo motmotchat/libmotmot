@@ -8,6 +8,7 @@ spawn 5 do |clients|
     client = clients.random
     client.write "Message number #{i}\n"
     client.flush
+    sleep 0.0001
   end
   sleep 1
 end
