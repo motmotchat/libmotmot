@@ -20,6 +20,9 @@
  * In addition to supporting presence and chatting, the protocol interacts
  * with the UI through calls to libpurple functions.
  *
+ * In general functions that are documented with a javadoc style are
+ * functions we implemented. The rest are mostly functions from
+ * nullprpl.
  */
 
 #include <stdarg.h>
@@ -934,7 +937,13 @@ static void deny_cb(void *data){
   
 }
 
-
+/**
+ * motmot_parse - The main function for handling data sent from the discovery server.
+ *
+ * @param buffer The data from the discovery server.
+ * @param len The length of the buffer
+ * @param gc The connection
+ */
 
 static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   char *friend_name;
@@ -1166,11 +1175,18 @@ static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInpu
 		return;
 	}
 
-  motmot_parse(buffer, l, gc);
+  motmot_parse(buffer, read_bytes, gc);
   g_free(buffer);
   return;
 }
 
+/**
+ * motmot_login_cb - callback for successful connection
+ *
+ * @param data The connection
+ * @param gsc The ssl connection
+ * @param cond The input condition
+ */
 
 static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond){
   purple_debug_info("motmot", "connection achieved");
@@ -1187,6 +1203,13 @@ static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInput
 	}
 }
 
+/**
+ * motmot_login_failure - callback for a failed connection
+ *
+ * @param gsc The ssl connection
+ * @param error The error type
+ * @param data User supplied data (the connection)
+ */
 
 static void
 motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
@@ -1200,7 +1223,11 @@ motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
 	purple_connection_ssl_error (gc, error);
 }
 
-
+/**
+ * purplemot_close - called when libpurple shuts down an account
+ *
+ * @params gc The connection
+ */
 
 
 static void purplemot_close(PurpleConnection *gc)
@@ -1331,6 +1358,13 @@ static void purplemot_get_info(PurpleConnection *gc, const char *username) {
                          NULL);     /* userdata for callback */
 }
 
+/**
+ * motmot_report_status - report the status to the discovery server
+ *
+ * @param id The libpurple id for the status.
+ * @param conn A motmot_conn containing what we need to send the data.
+ */
+
 static void motmot_report_status(const char *id, motmot_conn *conn){
   int code;
   msgpack_sbuffer *buffer;
@@ -1361,6 +1395,11 @@ static void motmot_report_status(const char *id, motmot_conn *conn){
   msgpack_packer_free(pk);
 }
 
+/**
+ * purplemot_set_status - wrapper for motmot_report_status
+ * @param acct The account
+ * @param status The status
+ */
 static void purplemot_set_status(PurpleAccount *acct, PurpleStatus *status) {
   PurpleConnection *gc = purple_account_get_connection(acct);
   motmot_conn *conn = gc -> proto_data;
