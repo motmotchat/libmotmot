@@ -55,7 +55,16 @@ and message deniability.
 
 \section{libmotmot}
 
+Guaranteed delivery and total message ordering are perhaps the most fundamental
+chat features provided by \Motmot.  In order to obtain these properties, the
+clients participating in a chat must reach a consensus concerning the reception
+and order of chat events.  \Motmot assumes a benign failure model and uses a
+variant of the Paxos consensus protocol \cite{paxos}, which is the core of its
+client library \texttt{libmotmot}, in order to provide these guarantees.
+
 \subsection{Design}
+
+
 
 \subsection{Implementation}
 
@@ -74,10 +83,25 @@ Wheeee.
 \section{Acknowledgments}
 
 \thebibliography{2}{
+  \bibitem{paxlive}
+    T. Chandra, R. Griesemer, and J. Redstone.
+    Paxos made live---an engineering perspective.
+    In \emph{Proc. 26th Symp. on Principles of Distributed Computing}, pp. 398-407, Aug. 2007.
+
   \bibitem{paxos}
     L. Lamport.
     The part-time parliament.
     \emph{ACM Transactions on Computer Systems}, 16(2):133-169, 1998.
+
+  \bibitem{paxsimp}
+    L. Lamport.
+    Paxos made simple.
+    \emph{ACM SIGACT News 32}, 4:18-25, Dec. 2001.
+
+  \bibitem{rfc}
+    P. Resnick, ed.
+    Internet Message Format, RFC 2822.
+    April 2001.
 }
 
 \end{document}
