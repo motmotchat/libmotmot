@@ -46,14 +46,17 @@ typedef int (*connect_t)(const void *desc, size_t size,
  * learn_t - Learning callback type.
  *
  * @param message   The message to learn.  For chats, this is the chat message
- *                  itself.  For joins and parts, this is an opaque handle
- *                  recognized by the client which represents the peer that
- *                  has joined or parted.
- * @param size      The size of that message.
+ *                  itself.  It is not used for joins and parts.
+ * @param len       The size of that message.
+ * @param desc      Opaque descriptor identifying a client.  For chats, it
+ *                  is the message source; for joins and parts, it is the
+ *                  joining or parting client.
+ * @param size      Size of the descriptor object.
  * @param data      Data pointer used by the client to identify the session.
  * @returns         0 on success, nonzero on error.
  */
-typedef int (*learn_t)(const void *message, size_t size, void *data);
+typedef int (*learn_t)(const void *message, size_t len, void *desc,
+    size_t size, void *data);
 
 /**
  * enter_t - Chatroom entrance callback type.
@@ -133,6 +136,6 @@ int motmot_disconnect(void *data);
  * @param data      Data pointer used by motmot to identify the session.
  * @returns         0 on success, nonzero on error.
  */
-int motmot_send(const char *message, size_t length, void *data);
+int motmot_send(const char *message, size_t len, void *data);
 
 #endif // __MOTMOT_H__

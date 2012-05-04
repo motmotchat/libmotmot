@@ -152,8 +152,13 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       break;
 
     case DEC_CHAT:
+      // Grab the message sender.
+      acc = acceptor_find(&pax->alist, req->pr_val.pv_reqid.id);
+      assert(acc != NULL);
+
       // Invoke client learning callback.
-      state.learn.chat(req->pr_data, req->pr_size, pax->client_data);
+      state.learn.chat(req->pr_data, req->pr_size, acc->pa_desc, acc->pa_size,
+          pax->client_data);
       break;
 
     case DEC_JOIN:
@@ -185,7 +190,8 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       }
 
       // Invoke client learning callback.
-      state.learn.join(req->pr_data, req->pr_size, pax->client_data);
+      state.learn.join(req->pr_data, req->pr_size, acc->pa_desc, acc->pa_size,
+          pax->client_data);
       break;
 
     case DEC_PART:
@@ -203,7 +209,8 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       }
 
       // Invoke client learning callback.
-      state.learn.part(acc->pa_desc, acc->pa_size, pax->client_data);
+      state.learn.part(acc->pa_desc, acc->pa_size, acc->pa_desc, acc->pa_size,
+          pax->client_data);
 
       if (acc->pa_paxid != pax->self_id) {
         // Just clean up the acceptor.
