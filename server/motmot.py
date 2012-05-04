@@ -328,7 +328,7 @@ def statusChanged(conn, stat):
             # an update message to their send Queue if they are.
             if splt[1] == conn.domain:
                 if friend[0] in conn.connTbl:
-                    conn.connTbl[friend[0]].send([RM.PUSH_CLIENT_STATUS, userName, stat])
+                    conn.connTbl[friend[0]].send([RM.PUSH_CLIENT_STATUS, userName, stat, conn.address[0], conn.address[1]])
             
             # if they are not from the same domain, 
             # then send the update off to the appropriate domain
@@ -434,9 +434,9 @@ def getAllFriendStatuses(conn):
             if splt[1] == conn.domain:
                 if friend[0] in conn.connTbl:
                     key = conn.connTbl[friend[0]].address 
-                    rList.append(authList[key])
+                    rList.append((authList[key], key[0], key[1]))
                 else:
-                    rList.append((friend[0], status.OFFLINE))
+                    rList.append(((friend[0], status.OFFLINE), 0, 0))
             else:
                 # we first sort the friends into lists on a domain by domain basis
                 if splt[1] in frByDom:
@@ -516,7 +516,8 @@ def serverStatusChange(conn, userName, status):
         for user in rows:
             # if user is online, push the update out
             if user[0] in conn.connTbl:
-                conn.connTbl[user[0]].send([RM.PUSH_CLIENT_STATUS, userName, status])
+                addr = conn.connTbl[user[0]]
+                conn.connTbl[user[0]].send([RM.PUSH_CLIENT_STATUS, userName, status, addr[0], addr[1]])
 
     except lite.Error, e:
         print "sqlite error: %s" % e.args[0]
@@ -535,9 +536,10 @@ def serverGetStatus(conn, users):
     for user in users:
         # if the user is online, get status and add to return list
         if user in conn.connTbl:
-            rList.append(authList[conn.connTbl[user].address])
+            addr = conn.connTbl[user].address
+            rList.append((authList[addr], addr[0], addr[1]))
         else:
-            rList.append((user, status.OFFLINE))
+            rList.append(((user, status.OFFLINE), 0, 0))
 
     return [RM.SERVER_GET_STATUS_RESP, rList]
 
@@ -565,9 +567,10 @@ def getUserStatus(conn, userName):
     if splt[1] == conn.domain:
         user_exists(userName)
         if userName in conn.connTbl:
-           rMsg.append(authList[conn.connTbl[userName].address])
+            addr = conn.connTbl[userName].address
+            rMsg.append((authList[addr], addr[0], addr[1]))
         else:
-            rMsg.append((userName, status.OFFLINE))
+            rMsg.append(((userName, status.OFFLINE), 0, 0))
 
     else:
 
