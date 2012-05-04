@@ -170,6 +170,19 @@ typedef struct {
  * helpers
  */
 
+ //JULIE
+static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
+                           int id, const char *room, gpointer userdata) {
+  if (from != to) {
+    /*  tell their chat window that we left */
+    purple_debug_info("nullprpl", "%s sees that %s left chat room %s\n",
+                      to->nick, from->nick, room);
+    purple_conv_chat_remove_user(to,
+                                 from->nick,
+                                 NULL);  /* user-provided message, IRC style */
+  }
+}
+
 static void query_status(const char *username, motmot_conn *conn){
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
@@ -258,6 +271,28 @@ static char *deser_get_string(msgpack_object_array ar, int i){
     struct needs to have (at least) ip field
 */
 
+    static PurpleConnection *get_nullprpl_gc(const char *username) {
+  PurpleAccount *acct = purple_accounts_find(username, NULLPRPL_ID);
+  if (acct && purple_account_is_connected(acct))
+    return acct->gc;
+  else
+    return NULL;
+}
+
+
+static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
+                                 int id, const char *room, gpointer userdata) {
+  const char *message = (const char *)userdata;
+  PurpleConnection *to_gc = get_nullprpl_gc(to->nick);
+
+  purple_debug_info("nullprpl",
+                    "%s receives message from %s in chat room %s: %s\n",
+                    to->nick, from->nick, room, message);
+  serv_got_chat_in(to_gc, id, from->nick, PURPLE_MESSAGE_RECV, message,
+                   time(NULL));
+}
+
+
 int connectSuccess()
 {
   return 0;
@@ -298,26 +333,26 @@ int print_chat_motmot(const void *info, size_t len)
 
 //call when someone joins a chat—probably do this based on their sending a msg to chat
 // TODO—fill this in, make this pint "so-and-so joined"
-int print_join_motmot(const void *buf, size_t len)
+int print_join_motmot(const void *info, size_t len)
 {
+
   return 0;
 }
 
 //call when someone leaves a chat—do based on logout/inaccessibility I guess
-int print_part_motmot(const void *buf, size_t len)
+int print_part_motmot(const void *info, size_t len)
 {
-  left_chat_room();
+    MotmotInfo *converted_info = (MotmotInfo *)info;
+  PurpleConversation *from = (PurpleConversation *) converted_info->from;
+  PurpleConversation *to = (PurpleConversation *) converted_info->to;
+  int id = converted_info->id;
+  const char * room = converted_info->room;
+  gpointer message = converted_info->message;
+  left_chat_room(from,to,id,room,message);
   return 0;
 }
 
 
-static PurpleConnection *get_nullprpl_gc(const char *username) {
-  PurpleAccount *acct = purple_accounts_find(username, NULLPRPL_ID);
-  if (acct && purple_account_is_connected(acct))
-    return acct->gc;
-  else
-    return NULL;
-}
 
 static void call_if_nullprpl(gpointer data, gpointer userdata) {
   PurpleConnection *gc = (PurpleConnection *)(data);
@@ -1346,18 +1381,7 @@ static void nullprpl_chat_invite(PurpleConnection *gc, int id,
   }
 }
 
-//JULIE
-static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
-                           int id, const char *room, gpointer userdata) {
-  if (from != to) {
-    /*  tell their chat window that we left */
-    purple_debug_info("nullprpl", "%s sees that %s left chat room %s\n",
-                      to->nick, from->nick, room);
-    purple_conv_chat_remove_user(to,
-                                 from->nick,
-                                 NULL);  /* user-provided message, IRC style */
-  }
-}
+
 
 // JULIE
 static void nullprpl_chat_leave(PurpleConnection *gc, int id) {
@@ -1437,21 +1461,11 @@ static void nullprpl_chat_whisper(PurpleConnection *gc, int id, const char *who,
                    message, time(NULL));
 }
 
-static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
-                                 int id, const char *room, gpointer userdata) {
-  const char *message = (const char *)userdata;
-  PurpleConnection *to_gc = get_nullprpl_gc(to->nick);
-
-  purple_debug_info("nullprpl",
-                    "%s receives message from %s in chat room %s: %s\n",
-                    to->nick, from->nick, room, message);
-  serv_got_chat_in(to_gc, id, from->nick, PURPLE_MESSAGE_RECV, message,
-                   time(NULL));
-}
 
 static int nullprpl_chat_send(PurpleConnection *gc, int id, const char *message,
                               PurpleMessageFlags flags) {
-  // I don't get the distinction between a to convchat and a from convchat...
+  // TODO fix this
+  /*
   Motmotinfo *info;
   *info.id=id;
   *info.message=message;
@@ -1461,6 +1475,7 @@ static int nullprpl_chat_send(PurpleConnection *gc, int id, const char *message,
   const void *pass_info = (const void *)info;
 
   motmot_send(*pass_info,strlen(*pass_info));
+  */
 
 //shouldn't need the below for the function, because motmot
 /*
