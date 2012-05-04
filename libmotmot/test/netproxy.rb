@@ -7,6 +7,14 @@ require 'msgpack'
 $basedelay = rand(5..300)
 $quiet = ARGV[2] == 'quiet'
 
+$all = []
+
+def reschedule q, cb
+  EM::next_tick do
+    q.pop &cb
+  end
+end
+
 module DelayProxy
   def initialize *args
     # First, how many milliseconds (ish) should we delay by?
@@ -24,14 +32,14 @@ module DelayProxy
 
     # Recieve callback
     @rcb = lambda do |data|
-      # We push a nil "bubble" through the pipeline to indicate that we should
-      # close it
-      return @nq.push nil if data == nil
+      return if @dieplz
 
       # Let's sniff the wire
-      @unpacker.feed data
-      @unpacker.each do |obj|
-        p obj unless $quiet
+      unless $quiet
+        @unpacker.feed data
+        @unpacker.each do |obj|
+          p obj
+        end
       end
 
       # We want to chunk up the data into random sized chunks. We somewhat
@@ -40,74 +48,55 @@ module DelayProxy
       data.bytes.slice_before { rand < 1.0 / 50 }.each do |e|
         @nq.push [now, e.pack('c*')]
       end
-      # Schedule ourselves again
-      EM::next_tick do
-        @rq.pop &@rcb
-      end
+      reschedule @rq, @rcb
     end
 
     # Net callback. This is responsible for limiting the data rate and
     # artificially adding latency to the connection
     @ncb = lambda do |data|
-      return proxy nil if data == nil
+      return if @dieplz
       time, data = data
       now = Time.now
       if now - time > @lag
         proxy data
-        EM::next_tick do
-          @nq.pop &@ncb
-        end
+        reschedule @nq, @ncb
       else
         EM::add_timer Time.now - time + (rand / 100) do
           proxy data
-          EM::next_tick do
-            @nq.pop &@ncb
-          end
+          reschedule @nq, @ncb
         end
       end
     end
 
     # Send queue
     @scb = lambda do |data|
-      return close_connection if data == nil
+      return if @dieplz
       send_data data
-      EM::next_tick do
-        @sq.pop &@scb
-      end
+      reschedule @sq, @scb
     end
 
     init_hook *args
-  end
-  def post_init
-    # Start up the net and send queues
-    @nq.pop &@ncb
-    @sq.pop &@scb
-
-    post_init_hook
   end
   def receive_data data
     @rq.push data
   end
   def start
     @rq.pop &@rcb
+    @nq.pop &@ncb
+    @sq.pop &@scb
+  end
+  def die
+    @dieplz = true
+    # Wake up all the queues
+    @rq.push nil
+    @nq.push nil
+    @sq.push nil
   end
   def send data
-    @sq.push data unless @unbound
+    @sq.push data unless @dieplz
   end
   def unbind
-    unless @unbound
-      @unbound = true
-      p 'unbind' unless $quiet
-      p type unless $quiet
-      @rq.push nil
-    end
-  end
-
-  # Stuff to override
-  def post_init_hook
-  end
-  def proxy data
-    send_data data
+    die
   end
 end
 
@@ -115,9 +104,10 @@ end
 module BindProxy
   include DelayProxy
   def init_hook other
+    $all << self
     @other = other
   end
-  def post_init_hook
+  def post_init
     EM::connect @other, nil, RespProxy, self, @lag
   end
   def register resp
@@ -126,6 +116,11 @@ module BindProxy
   end
   def proxy data
     @resp.send data
+  end
+  def unbind
+    die
+    @resp.die
+    $all.delete self
   end
   def type
     'BIND'
@@ -144,21 +139,24 @@ module RespProxy
   def proxy data
     @bind.send data
   end
-
+  def unbind
+    die
+    @bind.die
+  end
   def type
     'RESP'
   end
 end
 
 def kill_things
-  p 'die!'
+  $all[rand($all.length)].close_connection if $all.length > 0 and rand < 0.1
 end
 
 EM::run do
   # Ruby does ARGV funny
   EM::start_server ARGV[0], nil, BindProxy, ARGV[1]
 
-  #EM::add_periodic_timer 1 do
-  #  kill_things
-  #end
+  EM::add_periodic_timer 0.2 do
+    kill_things
+  end
 end
