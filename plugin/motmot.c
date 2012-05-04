@@ -361,19 +361,22 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
                    time(NULL));
 }
 
-// returns fd on success, -1 on failure
-int connectSuccess(gpointer data, gint source, const gchar *error_message)
+// returns fd on success, -1 on failure—>TODO(Julie) fix this once MAX does his shit
+// it'll also be a GIOChannel * then
+static void connectSuccess(gpointer data, gint source, const gchar *error_message)
 {
-  MotmotInfo *info = data;
-  info__;
+  //MotmotInfo *info = data;
   if (source<0) {
-    return -1;
+    return;
+    //return -1;
   }
-  return source;
+  //return source;
+  return;
 }
 
 // sets up connection to a buddy
-GIOChannel *connect_motmot(const char *info, size_t len)
+
+static void connect_motmot(const char *info, size_t len)
 {
   //gives us socket to buddy itself (yay peer-to-peer)
   // could probably simplify by extracting info from connection...
@@ -387,7 +390,7 @@ GIOChannel *connect_motmot(const char *info, size_t len)
   //set null, since I don't think gpointer is ever used?
   gpointer data = 0;
   purple_proxy_connect(connection,account,host,port,connectSuccess,data);
-  return g_io_channel_unix_new();
+  return;
 }
 
 //static int purplemot_send_im(PurpleConnection *gc, const char *who,
@@ -399,10 +402,12 @@ int print_chat_motmot(const void *info, size_t len)
   MotmotInfo *converted_info = (MotmotInfo *)info;
   PurpleConversation *from = (PurpleConversation *) converted_info->from;
   PurpleConversation *to = (PurpleConversation *) converted_info->to;
+  PurpleConvChat *from_conv = purple_conversation_get_chat_data(from);
+  PurpleConvChat *to_conv = purple_conversation_get_chat_data(to);
   int id = converted_info->id;
   const char * room = converted_info->room;
-  const gpointer message = converted_info->message;
-  receive_chat_message(from,to,id,room,message);
+  const gpointer message = (const gpointer) converted_info->message;
+  receive_chat_message(from_conv,to_conv,id,room,message);
   return 0;
 }
 
@@ -420,10 +425,12 @@ int print_part_motmot(const void *info, size_t len)
     MotmotInfo *converted_info = (MotmotInfo *)info;
   PurpleConversation *from = (PurpleConversation *) converted_info->from;
   PurpleConversation *to = (PurpleConversation *) converted_info->to;
+  PurpleConvChat *from_conv = purple_conversation_get_chat_data(from);
+  PurpleConvChat *to_conv = purple_conversation_get_chat_data(to);
   int id = converted_info->id;
   const char * room = converted_info->room;
-  gconstpointer message = converted_info->message;
-  left_chat_room(from,to,id,room,message);
+  const gpointer message = (const gpointer) converted_info->message;
+  left_chat_room(from_conv,to_conv,id,room,message);
   return 0;
 }
 
@@ -1571,10 +1578,10 @@ static void purplemot_chat_invite(PurpleConnection *gc, int id,
 
 
 
-// JULIE
+// JULIE: add disconnect back in
 static void purplemot_chat_leave(PurpleConnection *gc, int id) {
   PurpleConversation *conv = purple_find_chat(gc, id);
-  motmot_disconnect();
+  //motmot_disconnect();
   purple_debug_info("purplemot", "%s is leaving chat room %s\n",
                     gc->account->username, conv->name);
 
@@ -1652,41 +1659,15 @@ static void purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who
 
 static int purplemot_chat_send(PurpleConnection *gc, int id, const char *message,
                               PurpleMessageFlags flags) {
-  // TODO fix this
-  /*
-  Motmotinfo *info;
-  *info.id=id;
-  *info.message=message;
-  *info.room='';          // room only matters for debug statements
-  PurpleConvChat *from = *purple_conversation_get_chat_data(purple_find_chat(*gc,id));
-
+  MotmotInfo *info;
+  info->connection=gc;
+  info->id = id;
+  info->message=message;
+  info->flags=flags;
+  void *new_id = (void *) id;
   const void *pass_info = (const void *)info;
-
-  motmot_send(*pass_info,strlen(*pass_info));
-  */
-
-//shouldn't need the below for the function, because motmot
-/*
-  const char *username = gc->account->username;
-  PurpleConversation *conv = purple_find_chat(gc, id);
-
-  if (conv) {
-    purple_debug_info("purplemot",
-                      "%s is sending message to chat room %s: %s\n", username,
-                      conv->name, message);
-
-    // send message to everyone in the chat room
-    foreach_gc_in_chat(receive_chat_message, gc, id, (gpointer)message);
-    
-    return 0;
-  } else {
-    purple_debug_info("purplemot",
-                      "tried to send message from %s to chat room #%d: %s\n"
-                      "but couldn't find chat room",
-                      username, id, message);
-    return -1;
-  }
-  */
+  // I *think* id works for a unique identifier?
+  motmot_send(pass_info,strlen(pass_info),new_id);
   return 0;
 }
 
