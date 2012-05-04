@@ -40,50 +40,13 @@ int
 proposer_welcome(struct paxos_acceptor *acc)
 {
   int r;
-  struct paxos_header hdr;
-  struct paxos_acceptor *acc_it;
-  struct paxos_instance *inst_it;
-  struct paxos_yak py;
+  struct paxos_connectinue *conn;
 
   // Initiate a connection with the new acceptor.
-  acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
-  if (acc->pa_peer != NULL) {
-    pax->live_count++;
-  } else {
-    // If a connection cannot be made, part the acceptor.
-    return proposer_decree_part(acc);
-  }
+  conn = connectinue_new(continue_welcome, acc->pa_paxid);
+  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
 
-  // Initialize a header.  The new acceptor's ID is also the instance number
-  // of its JOIN.
-  header_init(&hdr, OP_WELCOME, acc->pa_paxid);
-
-  // Pack the header into a new payload.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &hdr);
-
-  // Start off the info payload with the ibase.
-  paxos_payload_begin_array(&py, 3);
-  paxos_paxid_pack(&py, pax->ibase);
-
-  // Pack the entire alist.  Hopefully we don't have too many un-parted
-  // dropped acceptors (we shouldn't).
-  paxos_payload_begin_array(&py, LIST_COUNT(&pax->alist));
-  LIST_FOREACH(acc_it, &pax->alist, pa_le) {
-    paxos_acceptor_pack(&py, acc_it);
-  }
-
-  // Pack the entire ilist.
-  paxos_payload_begin_array(&py, LIST_COUNT(&pax->ilist));
-  LIST_FOREACH(inst_it, &pax->ilist, pi_le) {
-    paxos_instance_pack(&py, inst_it);
-  }
-
-  // Send the welcome.
-  r = paxos_send(acc, UNYAK(&py));
-  paxos_payload_destroy(&py);
-
-  return r;
+  return 0;
 }
 
 /**
@@ -101,6 +64,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   msgpack_object *arr, *p, *pend;
   struct paxos_acceptor *acc;
   struct paxos_instance *inst;
+  struct paxos_connectinue *conn;
 
   // Set our local state.
   pax->ballot.id = hdr->ph_ballot.id;
@@ -138,12 +102,10 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
       pax->proposer->pa_peer = source;
       pax->live_count++;
     } else if (acc->pa_paxid != pax->self_id) {
-      // Connect and say hello to everyone but ourselves.
-      acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
-      if (acc->pa_peer != NULL) {
-        pax->live_count++;
-        ERR_RET(r, paxos_hello(acc));
-      }
+      // Connect to everyone but ourselves.  When we continue, we will say
+      // hello to these acceptors.
+      conn = connectinue_new(continue_ack_welcome, acc->pa_paxid);
+      ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
     }
   }
 

@@ -67,4 +67,11 @@ int proposer_ack_last(struct paxos_header *, msgpack_object *);
 int proposer_truncate(struct paxos_header *);
 int acceptor_ack_truncate(struct paxos_header *, msgpack_object *);
 
+/* Connection establishment continuations. */
+int continue_welcome(GIOChannel *, void *);
+int continue_ack_welcome(GIOChannel *, void *);
+int continue_ack_redirect(GIOChannel *, void *);
+int continue_ack_refuse(GIOChannel *, void *);
+int continue_ack_reject(GIOChannel *, void *);
+
 #endif /* __PAXOS_PROTOCOL_H__ */

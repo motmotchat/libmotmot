@@ -62,10 +62,13 @@ listen_unix(const void *handle, size_t len)
   return socket_open((char *)handle, len, true);
 }
 
-GIOChannel *
-connect_unix(const void *handle, size_t len)
+int
+connect_unix(const void *handle, size_t len, struct motmot_connect_cb *cb)
 {
-  return socket_open((char *)handle, len, false);
+  GIOChannel *chan;
+
+  chan = socket_open((char *)handle, len, false);
+  return cb->func(chan, cb->data);
 }
 
 /**

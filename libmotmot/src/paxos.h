@@ -89,7 +89,7 @@ struct paxos_header {
    * - OP_RETRIEVE, OP_RESEND: The instance number associated with the
    *   desired request.
    *
-   * - OP_REDIRECT: The ID of the proposer we are redirecting to.
+   * - OP_REDIRECT, OP_REFUSE: The ID of the proposer we are redirecting to.
    *
    * - OP_REJECT: The instance number of the decree.
    *
@@ -125,10 +125,12 @@ struct paxos_header {
  *
  * - OP_REQUEST: The paxos_request object.
  * - OP_RETRIEVE: A msgpack array containing the ID of the retriever and
- *     the paxos_value referencing the request.
+ *   the paxos_value referencing the request.
  * - OP_RESEND: The paxos_request object being resent.
  *
  * - OP_REDIRECT: The header of the message that resulted in our redirecting.
+ * - OP_REFUSE: The header of the message that resulted in our refusal, along
+ *   with the request ID of the offending request.
  * - OP_REJECT: None.
  *
  * - OP_RETRY: None.
@@ -217,6 +219,15 @@ struct paxos_sync {
   paxid_t ps_last;        // the last contiguous learn across the system
 };
 
+/* Continuation-style callbacks for connect_t calls. */
+struct paxos_connectinue {
+  struct motmot_connect_cb pc_cb;
+  paxid_t pc_paxid;
+  paxid_t pc_inum;
+  LIST_ENTRY(paxos_connectinue) pc_le;
+};
+LIST_HEAD(continue_list, paxos_connectinue);
+
 /* Session state. */
 struct paxos_session {
   uuid_t session_id;                  // ID of the Paxos session
@@ -237,6 +248,7 @@ struct paxos_session {
   unsigned live_count;                // number of acceptors we think are live
   struct acceptor_list alist;         // list of all Paxos participants
   struct acceptor_list adefer;        // list of deferred hello acks
+  struct continue_list connectinues;  // list of connectinuations
 
   struct instance_list ilist;         // list of all instances
   struct instance_list idefer;        // list of deferred instances

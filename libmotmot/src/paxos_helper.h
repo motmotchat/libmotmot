@@ -20,12 +20,17 @@ int ppair_compare(ppair_t, ppair_t);
 int ballot_compare(ballot_t, ballot_t);
 int reqid_compare(reqid_t, reqid_t);
 
-/* Initializers and destructors. */
+/* Initializers. */
 void instance_reset_metadata(struct paxos_instance *);
 void header_init(struct paxos_header *, paxop_t, paxid_t);
+struct paxos_connectinue *
+  connectinue_new(motmot_connect_continuation_t, paxid_t);
+
+/* Destructors. */
 void acceptor_destroy(struct paxos_acceptor *);
 void instance_destroy(struct paxos_instance *);
 void request_destroy(struct paxos_request *);
+void connectinue_destroy(struct paxos_connectinue *);
 
 /* List helpers. */
 struct paxos_acceptor *acceptor_find(struct acceptor_list *, paxid_t);

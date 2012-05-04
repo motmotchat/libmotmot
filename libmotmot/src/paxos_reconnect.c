@@ -71,8 +71,10 @@ acceptor_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
 int
 proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 {
+  int r;
   struct paxos_header orig_hdr;
   struct paxos_acceptor *acc;
+  struct paxos_connectinue *conn;
 
   // We dispatched as the proposer, so we do not need to check again whether
   // we think ourselves to be the proposer.  Instead, just sanity check that
@@ -113,21 +115,10 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
     // try to send a request.
     acc = acceptor_find(&pax->alist, hdr->ph_inum);
     assert(acc->pa_peer == NULL);
-    acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
 
-    if (acc->pa_peer != NULL) {
-      // If the reconnect succeeds, relinquish proposership, clear our defer
-      // list, and reintroduce ourselves to the proposer.
-      pax->proposer = acc;
-      pax->live_count++;
-
-      instance_list_destroy(&pax->idefer);
-
-      return paxos_hello(acc);
-    } else {
-      // If the reconnect fails, try preparing again.
-      return proposer_prepare();
-    }
+    conn = connectinue_new(continue_ack_redirect, acc->pa_paxid);
+    ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+    return 0;
   }
 
   // If we have heard back from everyone but the acks and redirects are tied,
@@ -194,7 +185,9 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
 int
 acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
 {
+  int r;
   struct paxos_acceptor *acc;
+  struct paxos_connectinue *conn;
 
   // Check whether, since we sent our request, we have already found a more
   // suitable proposer, possibly due to another redirect, in which case we
@@ -210,17 +203,10 @@ acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
   // this acceptor to NULL to indicate the lost connection.
   acc = acceptor_find(&pax->alist, hdr->ph_inum);
   assert(acc->pa_peer == NULL);
-  acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
 
-  if (acc->pa_peer != NULL) {
-    // If the reconnect succeeds, reset our proposer and reintroduce ourselves.
-    // XXX: Do we want to resend our request?
-    pax->proposer = acc;
-    pax->live_count++;
-    return paxos_hello(acc);
-  } else {
-    return 0;
-  }
+  conn = connectinue_new(continue_ack_refuse, acc->pa_paxid);
+  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+  return 0;
 }
 
 /**
@@ -258,6 +244,7 @@ proposer_ack_reject(struct paxos_header *hdr)
   int r;
   struct paxos_instance *inst;
   struct paxos_acceptor *acc;
+  struct paxos_connectinue *conn;
 
   // Our prepare succeeded, so we have only one possible ballot in our
   // lifetime in the system.
@@ -280,26 +267,11 @@ proposer_ack_reject(struct paxos_header *hdr)
     // See if we can reconnect to the acceptor we tried to part.
     acc = acceptor_find(&pax->alist, inst->pi_val.pv_extra);
     assert(acc->pa_peer == NULL);
-    acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
 
-    if (acc->pa_peer != NULL) {
-      // Account for a new live connection.
-      pax->live_count++;
-
-      // Reintroduce ourselves to the acceptor.
-      ERR_RET(r, paxos_hello(acc));
-
-      // Nullify the instance.
-      inst->pi_hdr.ph_opcode = OP_DECREE;
-      inst->pi_val.pv_dkind = DEC_NULL;
-      inst->pi_val.pv_extra = 0;
-    }
-
-    // Reset the instance metadata, marking one vote.
-    instance_reset_metadata(inst);
-
-    // Decree null if the reconnect succeeded, else redecree the part.
-    return paxos_broadcast_instance(inst);
+    conn = connectinue_new(continue_ack_reject, acc->pa_paxid);
+    conn->pc_inum = inst->pi_hdr.ph_inum;
+    ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+    return 0;
   }
 
   // If we have heard back from everyone but the accepts and rejects are tied,

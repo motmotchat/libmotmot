@@ -92,6 +92,22 @@ header_init(struct paxos_header *hdr, paxop_t opcode, paxid_t inum)
   hdr->ph_inum = inum;
 }
 
+struct paxos_connectinue *
+connectinue_new(motmot_connect_continuation_t func, paxid_t paxid)
+{
+  struct paxos_connectinue *conn;
+
+  conn = g_malloc0(sizeof(*conn));
+  conn->pc_cb.func = func;
+  conn->pc_cb.data = conn;
+  conn->pc_paxid = paxid;
+  conn->pc_inum = 0;
+
+  LIST_INSERT_TAIL(&pax->connectinues, conn, pc_le);
+
+  return conn;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -121,6 +137,13 @@ request_destroy(struct paxos_request *req)
     g_free(req->pr_data);
   }
   g_free(req);
+}
+
+void
+connectinue_destroy(struct paxos_connectinue *conn)
+{
+  LIST_REMOVE(&pax->connectinues, conn, pc_le);
+  g_free(conn);
 }
 
 
