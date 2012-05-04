@@ -160,7 +160,9 @@ typedef struct {
  */
 
 // global definition of aforementioned struct. motmot everrrrrywhere
-MotmotInfo motmot_info;
+// question—do I want this to be global?
+// I don't think so; comment this out for now
+// MotmotInfo motmot_info;
 
 GHashTable* goffline_messages = NULL;
 
@@ -171,11 +173,6 @@ typedef struct {
   PurpleMessageFlags flags;
 } GOfflineMessage;
 
-/*
- * helpers
- */
-
- //JULIE
 static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
                            int id, const char *room, gpointer userdata) {
   if (from != to) {
@@ -306,7 +303,7 @@ static char *deser_get_string(msgpack_object_array ar, int i, int *error){
     struct needs to have (at least) ip field
 */
 
-    static PurpleConnection *get_nullprpl_gc(const char *username) {
+static PurpleConnection *get_nullprpl_gc(const char *username) {
   PurpleAccount *acct = purple_accounts_find(username, NULLPRPL_ID);
   if (acct && purple_account_is_connected(acct))
     return acct->gc;
@@ -327,13 +324,18 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
                    time(NULL));
 }
 
-
-int connectSuccess()
+// returns fd on success, -1 on failure
+int connectSuccess(gpointer data, gint source, const gchar *error_message)
 {
-  return 0;
+  MotmotInfo *info = data;
+  info__;
+  if (source<0) {
+    return -1;
+  }
+  return source;
 }
 
-// returns discovery server connection info
+// sets up connection to a buddy
 GIOChannel *connect_motmot(const char *info, size_t len)
 {
   //gives us socket to buddy itself (yay peer-to-peer)
@@ -347,7 +349,8 @@ GIOChannel *connect_motmot(const char *info, size_t len)
   int port = temp->port;
   //set null, since I don't think gpointer is ever used?
   gpointer data = 0;
-  return g_io_channel_unix_new(purple_proxy_connect(connection,account,host,port,connectSuccess,data));
+  purple_proxy_connect(connection,account,host,port,connectSuccess,data);
+  return g_io_channel_unix_new();
 }
 
 //static int nullprpl_send_im(PurpleConnection *gc, const char *who,
