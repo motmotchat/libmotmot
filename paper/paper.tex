@@ -295,6 +295,14 @@ particular) to perform certificate operations.
 
 \subsection{Lessons Learned}
 
+We rewrote the server several times because we did not understand a few of the technical requirements of our design choices; namely, that communication needs to be asynchronous. Asynchrony allows for  push notifications to go over the same socket as all other requests. Once we understood that communication needed to by asynchronous, the next  design choice was how to implement socket reading. In an earlier implementation, we were inadvertently throwing away parts of messages, causing incorrect behavior. Moving to the unpacker object in the msgpack library and using its feed() function solved this problem and prevented data loss.
+
+From there, the implementation was fairly straight forward. Servers currently authenticate by checking that the connection is coming from the IP that DNS records have for the domain. This could be made more robust (and is perhaps a concern for future versions), but as of the present, it allows for servers to be easily added to the global network and communicate.
+
+Multiplexing over a single socket was by far the most difficult aspect of this server. Many of the problems with the original synchronous implementation could have been solved by adding a second socket, but we decided that using a single socket is superior because it has simpler failure modes.
+
+We quickly learned that writing good test code for distributed systems is both difficult and time consuming. The server test code, while not exhaustive, covers many common situations. However, testing for partial failure of messages and other network related failures will be implemented in a future version.   Additionally, in a future version, we plan to add message IDs to each call so that the client can know which response corresponds to which request.
+
 % TODO: EJ?
 
 \section{Pidgin Plugin}
