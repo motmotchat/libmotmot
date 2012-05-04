@@ -734,14 +734,14 @@ static void purplemot_login(PurpleAccount *acct)
   char **userparts;
   motmot_conn *conn;
   int port;
-
+/* This doesn't really work.
   if(GLOBAL_ACCOUNT != NULL){
 		purple_connection_error_reason (acct -> gc,
 			PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
 			_("You can't login to more than one motmot account"));
 		return;
   }
-
+*/
   GLOBAL_ACCOUNT = acct;
 
 	const char *username = purple_account_get_username(acct);
@@ -756,7 +756,7 @@ static void purplemot_login(PurpleAccount *acct)
   // initialize paxos functions
   // right now this does nothing, since these are do-nothing functions:
   // TODO fill out later
-  motmot_init(connect_motmot, print_chat_motmot, print_join_motmot, print_part_motmot, enter, leave_cb);
+  // motmot_init(connect_motmot, print_chat_motmot, print_join_motmot, print_part_motmot, enter, leave_cb);
 
 	if (strpbrk(username, " \t\v\r\n") != NULL) {
 		purple_connection_error_reason (gc,
@@ -930,7 +930,9 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   motmot_buddy *proto;
 
   msgpack_object_array ar = deser_get_array(buffer, len, &error);
+  purple_debug_info("motmot", "parsing data");
   if(error == PURPLEMOT_ERROR){
+    purple_debug_info("motmot", "error");
     return;
   }
   if(ar.size <= 0){
@@ -938,6 +940,7 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   }
 
   opcode = deser_get_pos_int(ar, 0, &error);
+  purple_debug_info("motmot", "opcode %d", opcode);
   if(error == PURPLEMOT_ERROR){
     return;
   }
@@ -1049,6 +1052,7 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
       update_remote_status(a, friend_name, status);
 
       if(opcode == PUSH_FRIEND_ACCEPT){
+        purple_debug_info("motmot", "querying the status");
         query_status(friend_name, conn);
         break;
       }
@@ -1635,7 +1639,7 @@ static void purplemot_chat_leave(PurpleConnection *gc, int id) {
     return;
   }
   // disconnect
-  motmot_disconnect(info -> internal_data);
+  // motmot_disconnect(info -> internal_data);
   purple_debug_info("purplemot", "%s is leaving chat room %s\n",
                     gc->account->username, "THE CHAT");
 
@@ -1715,7 +1719,7 @@ static int purplemot_chat_send(PurpleConnection *gc, int id, const char *message
   if(info == NULL){
     return -1;
   }
-  motmot_send(message,strlen(message) + 1, info -> internal_data);
+  // motmot_send(message,strlen(message) + 1, info -> internal_data);
   return 0;
 }
 

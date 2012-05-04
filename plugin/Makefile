@@ -1,6 +1,6 @@
 DEPDIR = .deps/
 INSTALLDIR = /home/jeff/262proj/build/lib/purple-2/
-LIBMOTMOTDIR=/home/jeff/262proj/motmot/motmot/
+LIBMOTMOTDIR=../motmot/
 
 CC = gcc
 CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0 purple` -I$(LIBMOTMOTDIR)

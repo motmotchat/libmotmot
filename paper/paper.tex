@@ -194,8 +194,24 @@ particular) to perform certificate operations.
 To allow our protocol to be utilized via Pidgin, we needed our plugin to
 interface with two major aspects of the protocol: the discovery server, and the
 \libmotmot library.
+A libpurple protocol plugin is compiled as a statically linked library and installed into the lib directory
+of Pidgin. Upon start-up Pidgin loads each of the protocol plugins in its protocol directory. If the protocol is successfully loaded, the user
+can then create accounts of that specific protocol.
+In order to implement a protocol, the programmer must implement a certain number of functions specifying the code to run when the user takes
+an action, for example logging-in or joining a chat, in addition to listening
+for input over a socket. Implemented functions are stored in a struct. Calls to libmotmot and message passing between the client and the discovery server had to be
+implemented within these functions.
 
 \subsection{Plugin Interactions with Discovery Server}
+The procedure for hooking up the plugin to the discovery server is similar to the procedures in other chat protocols. Two user-info fields were
+added to the account creation menu, giving the server and port of the discovery server. In the login code, a connection with the discovery server
+is initiated, and once the connection is initiated an input listener is added and authentication credentials are sent. Once authentication succeeds,
+status updates and friend requests are handled. We used message pack in order to have a standard message format across multiple platforms..
+
+The input listener listens for input from the discovery server. Upon receiving a message it deserializes the message from the message pack buffer, finds
+the opcode, and calls the appropriate libpurple functions based on the opcode and the rest of the data sent by the message. Writes to the discovery server
+are handled in individual purple functions. Based on the user action, a message pack object is created, and the data is sent to the server across
+the connection. Messages are asynchronous.
 
 % TODO: Jeff?
 
