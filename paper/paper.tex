@@ -376,7 +376,7 @@ an internal handle, and we need create some sort of external handle.  We solved
 this by creating a global variable, \verb`GLOBAL_ACCOUNT`, which represents the
 account that a user first logs in under, and we associate our external handle
 with this \verb`GLOBAL_ACCOUNT`.  Though this ``works'' if a user only signs in
-with on eaccount, this breaks when a user decides to sign in with multiple
+with one account, this breaks when a user decides to sign in with multiple
 accounts at once (something that \libpurple allows), and should be addressed in
 future versions.
 
