@@ -32,6 +32,7 @@ begin
     when /([^ ]+): (.*)/ then
       motmots[$1].stdin << $2.strip << "\n"
     end
+    sleep 0.001
   end
 rescue EOFError
 end
