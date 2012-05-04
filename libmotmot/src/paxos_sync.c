@@ -74,10 +74,7 @@ proposer_sync()
   pax->sync->ps_last = 0;
 
   // Initialize a header.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_SYNC;
-  hdr.ph_inum = (++pax->sync_id);  // Sync number.
+  header_init(&hdr, OP_SYNC, ++pax->sync_id);
 
   // Pack and broadcast the sync.
   paxos_payload_init(&py, 1);

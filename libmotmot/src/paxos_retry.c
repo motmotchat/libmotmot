@@ -25,10 +25,7 @@ acceptor_retry(paxid_t hole)
   struct paxos_yak py;
 
   // Initialize a header.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_RETRY;
-  hdr.ph_inum = hole;
+  header_init(&hdr, OP_RETRY, hole);
 
   // Pack and send the payload.
   paxos_payload_init(&py, 1);

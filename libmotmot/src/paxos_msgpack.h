@@ -24,6 +24,8 @@ size_t paxos_payload_size(struct paxos_yak *);
 
 void paxos_paxid_pack(struct paxos_yak *, paxid_t);
 void paxos_paxid_unpack(paxid_t *, msgpack_object *);
+void paxos_uuid_pack(struct paxos_yak *, uuid_t *);
+void paxos_uuid_unpack(uuid_t *, msgpack_object *);
 
 void paxos_header_pack(struct paxos_yak *, struct paxos_header *);
 void paxos_header_unpack(struct paxos_header *, msgpack_object *);

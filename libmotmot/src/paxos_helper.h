@@ -29,6 +29,7 @@ int reqid_compare(reqid_t, reqid_t);
 
 /* Initializers and destructors. */
 void instance_reset_metadata(struct paxos_instance *);
+void header_init(struct paxos_header *, paxop_t, paxid_t);
 void acceptor_destroy(struct paxos_acceptor *);
 void instance_destroy(struct paxos_instance *);
 void request_destroy(struct paxos_request *);

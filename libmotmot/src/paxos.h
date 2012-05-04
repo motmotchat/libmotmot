@@ -15,6 +15,7 @@
 
 /* Paxos ID type. */
 typedef uint32_t  paxid_t;
+typedef paxid_t   uuid_t;
 
 /* Totally ordered pair of paxid's. */
 typedef struct paxid_pair {
@@ -60,6 +61,7 @@ typedef enum paxos_opcode {
 
 /* Paxos message header that is included with any message. */
 struct paxos_header {
+  uuid_t ph_session;    // session ID
   ballot_t ph_ballot;   // ballot ID
   paxop_t ph_opcode;    // protocol opcode
   paxid_t ph_inum;      // Multi-Paxos instance number
@@ -217,7 +219,7 @@ struct paxos_sync {
 
 /* Session state. */
 struct paxos_session {
-  paxid_t session_id;                 // ID of the Paxos session
+  uuid_t session_id;                  // ID of the Paxos session
   void *client_data;                  // opaque client session object
 
   paxid_t self_id;                    // our own acceptor ID

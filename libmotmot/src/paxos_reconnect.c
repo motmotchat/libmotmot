@@ -32,10 +32,7 @@ acceptor_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
   // ballot ID as the ID of the proposer we are suggesting, since, it may be
   // the case that the proposer has assumed the proposership but has not yet
   // prepared to us.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_REDIRECT;
-  hdr.ph_inum = pax->proposer->pa_paxid;
+  header_init(&hdr, OP_REDIRECT, pax->proposer->pa_paxid);
 
   // Pack a payload, which includes the header we were sent which we believe
   // to be incorrect.
@@ -163,10 +160,7 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
   // ballot ID as the ID of the proposer we are suggesting, since, it may be
   // the case that the proposer has assumed the proposership but has not yet
   // prepared to us.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_REFUSE;
-  hdr.ph_inum = pax->proposer->pa_paxid;
+  header_init(&hdr, OP_REFUSE, pax->proposer->pa_paxid);
 
   // Pack a payload, which includes the header we were sent which we believe
   // to be incorrect and the request ID of the refused request.

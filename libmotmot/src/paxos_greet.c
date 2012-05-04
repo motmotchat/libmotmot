@@ -55,13 +55,9 @@ proposer_welcome(struct paxos_acceptor *acc)
     return proposer_decree_part(acc);
   }
 
-  // Initialize a header.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_WELCOME;
-
-  // The new acceptor's ID is also the instance number of its JOIN.
-  hdr.ph_inum = acc->pa_paxid;
+  // Initialize a header.  The new acceptor's ID is also the instance number
+  // of its JOIN.
+  header_init(&hdr, OP_WELCOME, acc->pa_paxid);
 
   // Pack the header into a new payload.
   paxos_payload_init(&py, 2);
@@ -210,11 +206,8 @@ paxos_hello(struct paxos_acceptor *acc)
   struct paxos_header hdr;
   struct paxos_yak py;
 
-  // Initialize the header.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_HELLO;
-  hdr.ph_inum = pax->self_id;  // Overloaded with our acceptor ID.
+  // Initialize the header.  We pass our own acceptor ID in ph_inum.
+  header_init(&hdr, OP_HELLO, pax->self_id);
 
   // Pack and send the hello.
   paxos_payload_init(&py, 1);

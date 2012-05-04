@@ -251,9 +251,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
     if (inst != NULL) {
       // Do initialization common to both above paths.
-      inst->pi_hdr.ph_ballot.id = pax->ballot.id;
-      inst->pi_hdr.ph_ballot.gen = pax->ballot.gen;
-      inst->pi_hdr.ph_opcode = OP_DECREE;
+      header_init(&inst->pi_hdr, OP_DECREE, inst->pi_hdr.ph_inum);
       instance_reset_metadata(inst);
 
       // Pack and broadcast the decree.
@@ -294,10 +292,7 @@ proposer_decree(struct paxos_instance *inst)
   int r;
 
   // Update the header.
-  inst->pi_hdr.ph_ballot.id = pax->ballot.id;
-  inst->pi_hdr.ph_ballot.gen = pax->ballot.gen;
-  inst->pi_hdr.ph_opcode = OP_DECREE;
-  inst->pi_hdr.ph_inum = next_instance();
+  header_init(&inst->pi_hdr, OP_DECREE, next_instance());
 
   // Zero out the metadata and mark one vote.
   instance_reset_metadata(inst);

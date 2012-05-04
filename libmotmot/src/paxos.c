@@ -105,11 +105,7 @@ paxos_start(const void *desc, size_t size, void *data)
 
   // Artificially generate an initial commit, without learning.
   inst = g_malloc0(sizeof(*inst));
-
-  inst->pi_hdr.ph_ballot.id = pax->ballot.id;
-  inst->pi_hdr.ph_ballot.gen = pax->ballot.gen;
-  inst->pi_hdr.ph_opcode = OP_DECREE;
-  inst->pi_hdr.ph_inum = 1;
+  header_init(&inst->pi_hdr, OP_DECREE, 1);
 
   inst->pi_committed = true;
   inst->pi_cached = true;

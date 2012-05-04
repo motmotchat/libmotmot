@@ -65,10 +65,7 @@ paxos_request(struct paxos_session *session, dkind_t dkind, const void *msg,
 
   // Initialize a header.  We overload ph_inum to the ID of the acceptor who
   // we believe to be the proposer.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_REQUEST;
-  hdr.ph_inum = pax->proposer->pa_paxid;
+  header_init(&hdr, OP_REQUEST, pax->proposer->pa_paxid);
 
   // Allocate a request and initialize it.
   req = g_malloc0(sizeof(*req));
@@ -191,11 +188,9 @@ paxos_retrieve(struct paxos_instance *inst)
   struct paxos_acceptor *acc;
   struct paxos_yak py;
 
-  // Initialize a header.
-  hdr.ph_ballot.id = pax->ballot.id;
-  hdr.ph_ballot.gen = pax->ballot.gen;
-  hdr.ph_opcode = OP_RETRIEVE;
-  hdr.ph_inum = inst->pi_hdr.ph_inum; // Instance number of the request.
+  // Initialize a header.  We set ph_inum to the instance number of the
+  // request.
+  header_init(&hdr, OP_RETRIEVE, inst->pi_hdr.ph_inum);
 
   // Pack the retrieve.
   paxos_payload_init(&py, 2);

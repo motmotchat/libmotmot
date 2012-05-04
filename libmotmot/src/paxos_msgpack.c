@@ -65,9 +65,22 @@ paxos_paxid_unpack(paxid_t *paxid, msgpack_object *o)
 }
 
 void
+paxos_uuid_pack(struct paxos_yak *py, uuid_t *uuid)
+{
+  paxos_paxid_pack(py, *uuid);
+}
+
+void
+paxos_uuid_unpack(uuid_t *uuid, msgpack_object *o)
+{
+  paxos_paxid_unpack(uuid, o);
+}
+
+void
 paxos_header_pack(struct paxos_yak *py, struct paxos_header *hdr)
 {
-  msgpack_pack_array(py->pk, 4);
+  msgpack_pack_array(py->pk, 5);
+  paxos_uuid_pack(py, &hdr->ph_session);
   msgpack_pack_paxid(py->pk, hdr->ph_ballot.id);
   msgpack_pack_paxid(py->pk, hdr->ph_ballot.gen);
   msgpack_pack_int(py->pk, hdr->ph_opcode);
@@ -81,9 +94,11 @@ paxos_header_unpack(struct paxos_header *hdr, msgpack_object *o)
 
   // Make sure the input is well-formed.
   assert(o->type == MSGPACK_OBJECT_ARRAY);
-  assert(o->via.array.size == 4);
+  assert(o->via.array.size == 5);
 
   p = o->via.array.ptr;
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  hdr->ph_session = (p++)->via.u64;
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   hdr->ph_ballot.id = (p++)->via.u64;
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
