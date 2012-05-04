@@ -87,6 +87,11 @@
 #include "version.h"
 
 #include "motmot.h"
+
+#define BUFF_SIZE 512
+#define PURPLEMOT_ERROR 1
+#define PURPLEMOT_OK 0
+
 #define AUTHENTICATE_USER 1
 #define REGISTER_FRIEND 2
 #define UNREGISTER_FRIEND 3
@@ -182,7 +187,12 @@ static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
                                  NULL);  /* user-provided message, IRC style */
   }
 }
-
+/**
+ * query_status - query the status of a buddy
+ *
+ * @param username The username of the buddy
+ * @param conn The motmot connection handle
+ */
 static void query_status(const char *username, motmot_conn *conn){
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
@@ -200,49 +210,74 @@ static void query_status(const char *username, motmot_conn *conn){
 }
   
 
-static msgpack_object_array deser_get_array(char *buffer, int len){
+static msgpack_object_array deser_get_array(char *buffer, int len, int *error){
   bool success;
+  msgpack_object_array ar;
   msgpack_unpacked msg;
   msgpack_unpacked_init(&msg);
   success = msgpack_unpack_next(&msg, buffer, len, NULL);
-  assert(success);
-  assert((msg.data).type == MSGPACK_OBJECT_ARRAY);
+  if(!success || msg.data.type != MSGPACK_OBJECT_ARRAY){
+    *error = PURPLEMOT_ERROR;
+    return ar;
+  }
 
 
-  msgpack_object_array ar = msg.data.via.array;
+  ar = msg.data.via.array;
 
+  *error = PURPLEMOT_OK;
   return ar;
 }
 
-static msgpack_object_array get_array2(msgpack_object obj){
-  assert(obj.type == MSGPACK_OBJECT_ARRAY);
-  msgpack_object_array ar = obj.via.array;
+static msgpack_object_array get_array2(msgpack_object obj, int *error){
+  msgpack_object_array ar;
+  if(obj.type != MSGPACK_OBJECT_ARRAY){
+    *error = PURPLEMOT_ERROR;
+    return ar;
+  }
+  ar = obj.via.array;
+
+  *error = PURPLEMOT_OK;
   return ar;
 }
 /* 
  * gets a positive int in index i of an object array 
  */
-static uint64_t deser_get_pos_int(msgpack_object_array ar, int i){
-  assert(ar.size >= i + 1);
-  msgpack_object x = (ar.ptr)[i];
+static uint64_t deser_get_pos_int(msgpack_object_array ar, int i, int *error){
+  msgpack_object x;
+  if(ar.size < i + 1){
+    *error = PURPLEMOT_ERROR;
+    return 0;
+  }
+  x = (ar.ptr)[i];
+  if(x.type != MSGPACK_OBJECT_POSITIVE_INTEGER){
+    *error = PURPLEMOT_ERROR;
+    return 0;
+  }
 
-  assert(x.type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  *error = PURPLEMOT_OK;
   return x.via.u64;
 }
 
 /* 
  * gets a string 
  */
-static char *deser_get_string(msgpack_object_array ar, int i){
-  assert(ar.size >= i + 1);
+static char *deser_get_string(msgpack_object_array ar, int i, int *error){
+  char *ptr;
+  if(ar.size < i + 1){
+    *error = PURPLEMOT_ERROR;
+    return NULL;
+  }
   msgpack_object x = (ar.ptr)[i];
-
+  if(x.type != MSGPACK_OBJECT_RAW){
+    *error = PURPLEMOT_ERROR;
+  }
   assert(x.type == MSGPACK_OBJECT_RAW);
 
-  char *ptr = g_malloc(x.via.raw.size + 1);
+  ptr = g_malloc(x.via.raw.size + 1);
   g_memmove(ptr, x.via.raw.ptr, x.via.raw.size);
   ptr[x.via.raw.size] = '\0';
 
+  *error = PURPLEMOT_OK;
   return ptr;
 }
 
@@ -326,7 +361,7 @@ int print_chat_motmot(const void *info, size_t len)
   PurpleConversation *to = (PurpleConversation *) converted_info->to;
   int id = converted_info->id;
   const char * room = converted_info->room;
-  gpointer message = converted_info->message;
+  const gpointer message = converted_info->message;
   receive_chat_message(from,to,id,room,message);
   return 0;
 }
@@ -347,7 +382,7 @@ int print_part_motmot(const void *info, size_t len)
   PurpleConversation *to = (PurpleConversation *) converted_info->to;
   int id = converted_info->id;
   const char * room = converted_info->room;
-  gpointer message = converted_info->message;
+  gconstpointer message = converted_info->message;
   left_chat_room(from,to,id,room,message);
   return 0;
 }
@@ -402,7 +437,7 @@ static void foreach_gc_in_chat(ChatFunc fn, PurpleConnection *from,
                  &cfdata);
 }
 
-
+/*
 static void discover_status(PurpleConnection *from, PurpleConnection *to,
                             gpointer userdata) {
   const char *from_username = from->account->username;
@@ -427,14 +462,15 @@ static void discover_status(PurpleConnection *from, PurpleConnection *to,
     }
   }
 }
-
+*/
+/*
 static void report_status_change(PurpleConnection *from, PurpleConnection *to,
                                  gpointer userdata) {
   purple_debug_info("nullprpl", "notifying %s that %s changed status\n",
                     to->account->username, from->account->username);
   discover_status(to, from, NULL);
 }
-
+*/
 
 /*
  * UI callbacks
@@ -784,19 +820,31 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   int status;
   int opcode;
   int i;
+  int error;
+  const char *addr;
+  int port;
+
   msgpack_object o;
   msgpack_object_array ar2;
+  msgpack_object_array info_list;
   msgpack_object_array tuple;
   motmot_conn *conn = gc -> proto_data;
   PurpleAccount *a = conn -> account;
   PurpleBuddy *bud;
+  motmot_buddy *proto;
 
-  msgpack_object_array ar = deser_get_array(buffer, len);
+  msgpack_object_array ar = deser_get_array(buffer, len, &error);
+  if(error == PURPLEMOT_ERROR){
+    return;
+  }
   if(ar.size <= 0){
     return;
   }
 
-  opcode = deser_get_pos_int(ar, 0);
+  opcode = deser_get_pos_int(ar, 0, &error);
+  if(error == PURPLEMOT_ERROR){
+    return;
+  }
 
   switch (opcode) {
     case ALL_STATUS_RESPONSE:
@@ -804,27 +852,52 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
         return;
       }
       o = (ar.ptr)[1];
-      ar2 = get_array2(o);
+      ar2 = get_array2(o, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
       for(i = 0; i < ar2.size; i++){
-        tuple = get_array2((ar2.ptr)[i]);
-        friend_name = deser_get_string(tuple, 0);
-        status = deser_get_pos_int(tuple, 1);
+        info_list = get_array2((ar2.ptr)[i], &error);
+        if(error == PURPLEMOT_ERROR || info_list.size <= 3){
+          return;
+        }
+        tuple = get_array2((info_list.ptr)[0], &error);
+        if(error == PURPLEMOT_ERROR){
+          return;
+        }
+
+        friend_name = deser_get_string(tuple, 0, &error);
+        if(error == PURPLEMOT_ERROR){
+          return;
+        }
+
+        status = deser_get_pos_int(tuple, 1, &error);
+        if(error == PURPLEMOT_ERROR){
+          return;
+        }
+        addr = deser_get_string(info_list, 1, &error);
+        if(error == PURPLEMOT_ERROR){
+          return;
+        }
+        port = deser_get_pos_int(info_list, 2, &error);
+        if(error == PURPLEMOT_ERROR){
+          return;
+        }
         bud = purple_find_buddy(a, friend_name);
         if(bud == NULL){
           bud = purple_buddy_new(a, friend_name, NULL);
-          // hack until we get ip addresses working
-          motmot_buddy *proto = g_new0(motmot_buddy, 1);
-          proto -> addr = "127.0.0.1";
-          proto -> port = 8888;
+          proto = g_new0(motmot_buddy, 1);
+          proto -> addr = addr;
+          proto -> port = port;
           bud -> proto_data = proto;
           purple_blist_add_buddy(bud, NULL, NULL, NULL);
           update_remote_status(a, friend_name, status);
         }
         else{
           // HACK
-          motmot_buddy *proto = g_new0(motmot_buddy, 1);
-          proto -> addr = "127.0.0.1";
-          proto -> port = 8888;
+          proto = g_new0(motmot_buddy, 1);
+          proto -> addr = addr;
+          proto -> port = port;
           bud -> proto_data = proto;
           // /HACK
           update_remote_status(a, friend_name, status);
@@ -833,22 +906,79 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
       }
       break;
     case GET_STATUS_RESP:
-      tuple = get_array2((ar.ptr)[1]);
-      friend_name = deser_get_string(tuple, 0);
-      status = deser_get_pos_int(tuple, 1);
+      if(ar.size <= 4){
+        return;
+      }
+      tuple = get_array2((ar.ptr)[1], &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
+      friend_name = deser_get_string(tuple, 0, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
+      status = deser_get_pos_int(tuple, 1, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
+      addr = deser_get_string(tuple, 2, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
+      port = deser_get_pos_int(tuple, 3, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
       update_remote_status(a, friend_name, status);
+
+      bud = purple_find_buddy(a, friend_name);
+      if(bud == NULL){
+        return;
+      }
+      proto = bud -> proto_data;
+      proto -> addr = addr;
+      proto -> port = port;
       g_free(friend_name);
       break;
     case PUSH_FRIEND_ACCEPT:
     case PUSH_CLIENT_STATUS:
-      friend_name = deser_get_string(ar, 1);
-      status = deser_get_pos_int(ar, 2);
+      friend_name = deser_get_string(ar, 1, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
+      status = deser_get_pos_int(ar, 2, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
       update_remote_status(a, friend_name, status);
+
+      if(opcode == PUSH_FRIEND_ACCEPT){
+        break;
+      }
+
+      addr = deser_get_string(tuple, 2, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
+      port = deser_get_pos_int(tuple, 3, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
+      bud = purple_find_buddy(a, friend_name);
+      if(bud == NULL){
+        return;
+      }
+      proto = bud -> proto_data;
+      proto -> addr = addr;
+      proto -> port = port;
       g_free(friend_name);
       break;
     case PUSH_FRIEND_REQUEST:
       purple_debug_info("nullprpl", "getting friend request");
-      friend_name = deser_get_string(ar, 1);
+      friend_name = deser_get_string(ar, 1, &error);
+      if(error == PURPLEMOT_ERROR){
+        return;
+      }
       if(purple_find_buddy(a, friend_name) != NULL){
         break;
       }
@@ -871,27 +1001,42 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
 static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInputCondition cond){
   PurpleConnection *gc = (PurpleConnection *) data;
   gsize l;
-
+  gsize read_bytes = 0;
 	if(!g_list_find(purple_connections_get_all(), gc)) {
 		purple_ssl_close(gsc);
 		return;
 	}
 
-  char *buffer = g_malloc(512);
+  char *buffer = g_malloc(BUFF_SIZE);
+  char *nxt = buffer;
 
   purple_debug_info("motmot", "reading data");
-  l = purple_ssl_read(gsc, buffer, 512);
-	if (l < 0 && errno == EAGAIN) {
-		/* Try again later */
-		return;
-	} else if (l < 0) {
-		gchar *tmp = g_strdup_printf(_("Lost connection with server: %s"),
-				g_strerror(errno));
-		purple_connection_error_reason (gc,
-			PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
-		g_free(tmp);
-		return;
-	} else if (l == 0) {
+  while(true){
+    l = purple_ssl_read(gsc, nxt, BUFF_SIZE);
+
+    if (l < 0 && errno == EAGAIN) {
+      /* Try again later */
+      return;
+    } else if (l < 0) {
+      gchar *tmp = g_strdup_printf(_("Lost connection with server: %s"),
+          g_strerror(errno));
+      purple_connection_error_reason (gc,
+        PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
+      g_free(tmp);
+      return;
+	  }
+    read_bytes += l;
+    if(l < BUFF_SIZE){
+      break;
+    }
+
+    buffer = g_realloc(buffer, read_bytes + BUFF_SIZE);
+    nxt = buffer + read_bytes;
+
+  }
+
+
+  if (read_bytes == 0) {
 		purple_connection_error_reason (gc,
 			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
 			_("Server closed the connection"));
@@ -910,7 +1055,7 @@ static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInput
   motmot_conn *conn = gc -> proto_data;
   PurpleAccount *acct = conn -> account;
 	if (do_login(gc)) {
-		purple_ssl_input_add(gsc, motmot_input_cb, gc);
+		purple_ssl_input_add(gsc, (PurpleSslInputFunction) motmot_input_cb, gc);
     /* tell purple about everyone on our buddy list who's connected */
     get_all_statuses(conn);
 
@@ -1138,7 +1283,7 @@ static void nullprpl_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
 
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
   GList *el = g_list_find_custom(conn -> acceptance_list, 
-    purple_buddy_get_name(buddy), motmot_node_cmp);
+    purple_buddy_get_name(buddy), (GCompareFunc) motmot_node_cmp);
   if(el != NULL){
     name = el -> data;
     msgpack_pack_array(pk, 2);

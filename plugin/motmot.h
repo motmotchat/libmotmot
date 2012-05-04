@@ -13,7 +13,7 @@ typedef struct{
 } motmot_conn;
 
 typedef struct{
-  char *addr;
+  const char *addr;
   int port;
 } motmot_buddy;
 
