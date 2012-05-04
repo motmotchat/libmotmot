@@ -154,19 +154,6 @@ typedef struct {
  * (char *) to GList * of GOfflineMessages. initialized in nullprpl_init.
  */
 
-
-// JULIE
-// struct for passing data around to motmot callbacks
-typedef struct {
-  PurpleAccount *account;
-  PurpleBuddy *buddy;
-  PurpleConnection *connection;
-  int id;
-  const char *message;
-  PurpleMessageFlags flags;
-  GHashTable components;
-} MotmotInfo;
-
 // global definition of aforementioned struct. motmot everrrrrywhere
 MotmotInfo motmot_info;
 
@@ -280,14 +267,17 @@ int connectSuccess()
 GIOChannel *connect_motmot(const char *info, size_t len)
 {
   //gives us socket to buddy itself (yay peer-to-peer)
-  // TODO must establish handle
-  PurpleConnection* connection = (MotmotInfo*)info -> connection;
-  PurpleAccount* account = (MotmotInfo*)info -> account;
-  motmot_buddy *temp = (MotmotInfo*)info->buddy->proto_data;
-  host = temp.addr;
-  port = temp.port;
-  gpointer = NULL;
-  return g_io_channel_unix_new(purple_proxy_connect(handle,account,host,port,connectSuccess,gpointer));
+  // could probably simplify by extracting info from connection...
+  MotmotInfo *converted_info = (MotmotInfo *)info;
+  PurpleConnection *connection = converted_info->connection;
+  PurpleAccount *account = converted_info->account;
+  PurpleBuddy *buddy = converted_info->buddy;
+  motmot_buddy *temp = (motmot_buddy *) buddy->proto_data;
+  const char *host = temp->addr;
+  int port = temp->port;
+  //set null, since I don't think gpointer is ever used?
+  gpointer data = 0;
+  return g_io_channel_unix_new(purple_proxy_connect(connection,account,host,port,connectSuccess,data));
 }
 
 //static int nullprpl_send_im(PurpleConnection *gc, const char *who,
@@ -296,23 +286,20 @@ GIOChannel *connect_motmot(const char *info, size_t len)
 int print_chat_motmot(const void *info, size_t len)
 {
   //given identifying *info, extracts from,to,id,room_id,
-  MotmotInfo info = (MotmotInfo *)info;
-  from = info.from;
-  to = info.to;
-  id = info.id;
-  room = info.room;
-  message = info.message;
+  MotmotInfo *converted_info = (MotmotInfo *)info;
+  PurpleConversation *from = (PurpleConversation *) converted_info->from;
+  PurpleConversation *to = (PurpleConversation *) converted_info->to;
+  int id = converted_info->id;
+  const char * room = converted_info->room;
+  gpointer message = converted_info->message;
   receive_chat_message(from,to,id,room,message);
   return 0;
 }
 
 //call when someone joins a chat—probably do this based on their sending a msg to chat
+// TODO—fill this in, make this pint "so-and-so joined"
 int print_join_motmot(const void *buf, size_t len)
 {
-  //takes a PurpleConnection *gc and a GHashTable *components
-  PurpleConnection *gc = info.purpleconnection;
-  GHashTable *components = info.components;
-  nullprpl_join_chat(*gc,*components);
   return 0;
 }
 
@@ -596,8 +583,6 @@ static void nullprpl_login(PurpleAccount *acct)
   PurpleConnection *gc = purple_account_get_connection(acct);
   GList *offline_messages;
 
-  info.gc = gc;
-
   purple_debug_info("nullprpl", "logging in %s\n", acct->username);
 
   /* MOTMOT! */
@@ -775,7 +760,7 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   }
 
   opcode = deser_get_pos_int(ar, 0);
-   
+
   switch (opcode) {
     case ALL_STATUS_RESPONSE:
       if(ar.size <= 1){
@@ -1280,7 +1265,7 @@ static void joined_chat(PurpleConvChat *from, PurpleConvChat *to,
 static void nullprpl_join_chat(PurpleConnection *gc, GHashTable *components) {
   // JULIE
   // to join chat, first call upon almighty paxos
-  print_join_motmot();
+  // must figure out distinction between *joining* a chat and *creating* a chat
 
   const char *username = gc->account->username;
   const char *room = g_hash_table_lookup(components, "room");

@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -ggdb3 -Wall `pkg-config --cflags glib-2.0 purple` 
 LDFLAGS = `pkg-config --libs glib-2.0 purple msgpack` -rpath $(INSTALLDIR)
 
-LIBTOOL = libtool --tag=CC 
+LIBTOOL = glibtool 
 
 SRC = $(wildcard *.c)
 

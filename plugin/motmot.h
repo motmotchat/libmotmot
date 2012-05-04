@@ -16,3 +16,19 @@ typedef struct{
   char *addr;
   int port;
 } motmot_buddy;
+
+// JULIE
+// struct for passing data around to motmot callbacks
+typedef struct {
+  PurpleAccount *account;
+  PurpleBuddy *buddy;
+  PurpleConnection *connection;
+  int id;
+  const char *message;
+  PurpleMessageFlags flags;
+  //GHashTable components;
+  PurpleConversation *from;
+  PurpleConversation *to;
+  gpointer room;
+  GHashTable *components;
+} MotmotInfo;
