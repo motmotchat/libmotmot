@@ -3,6 +3,7 @@
 \usepackage{url,xspace}
 \newcommand\Motmot{\textsc{Motmot}\xspace}
 \newcommand\libmotmot{\texttt{libmotmot}\xspace}
+\newcommand\libpurple{\texttt{libpurple}\xspace}
 
 \begin{document}
 
@@ -190,25 +191,58 @@ certificate operations.
 
 \section{Pidgin Plugin}
 
-To allow our protocol to be utilized via Pidgin, we needed our plugin to interface with two major aspects of the protocol: the discovery server, and the libmotmot library.
+To allow our protocol to be utilized via Pidgin, we needed our plugin to
+interface with two major aspects of the protocol: the discovery server, and the
+\libmotmot library.
 
 \subsection{Plugin Interactions with Discovery Server}
 
-\subsection{Plugin Interactions with Libmotmot}
-There were a few major difficulties that had to be addressed when calling libmotmot within the plugin:
+% TODO: Jeff?
+
+\subsection{Plugin Interactions with \libmotmot}
+There were a few major difficulties that had to be addressed when calling
+\libmotmot within the plugin:
 
 \begin{itemize}
-\item libpurple makes a distinction between "IMs" (two-person chats) and "chats" (three or more people); libmotmot does not.  libpurple takes in different arguments for its IM-related and its chat-related functions
+\item \libpurple makes a distinction between "IMs" (two-person chats) and
+"chats" (three or more people); \libmotmot does not.  \libpurple takes in
+different arguments for its IM-related and its chat-related functions
 
-\item The main Pidgin event loop cannot be modified from within a plugin (without patching libpurple itself).  Instead, callbacks are made to plugin functions from within the main event loop, so we had to find a way to call libmotmot functions correctly (i.e. still honoring the correct control flow from libmotmot's perspective) and consistently within the bounds of these plugin functions
+\item The main Pidgin event loop cannot be modified from within a plugin
+(without patching \libpurple itself).  Instead, callbacks are made to plugin
+functions from within the main event loop, so we had to find a way to call
+\libmotmot functions correctly (i.e. still honoring the correct control flow
+from \libmotmot's perspective) and consistently within the bounds of these
+plugin functions
 
-\item libmotmot and libpurple use different handles to differentiate between chats and users, and translating between the two handles proved challenging, especially given the complexity of the information associated with libpurple chats (e.g. a single chat may have an id, a room name, PurpleConnection and PurpleConvChat objects...)
+\item \libmotmot and \libpurple use different handles to differentiate between
+chats and users, and translating between the two handles proved challenging,
+especially given the complexity of the information associated with \libpurple
+chats (e.g. a single chat may have an id, a room name, \verb`PurpleConnection`
+and \verb`PurpleConvChat` objects...)
 
 \end{itemize}
 
-The bulk of the integration work was writing callbacks for the motmot\_init() function of libmotmot.  Once these callbacks are written correctly, libmotmot handles most of the work of starting, sending, and coordinating chats automatically.  These callbacks were, in almost all instances, responsible for calling libpurple functions, which handle the UI aspect of the associated libmotmot calls.  In order to pass relevant information to our callbacks, we created a MotmotInfo struct, a large data struct that is used differently in different callbacks to get all the necessary info to the libpurple calls.
+The bulk of the integration work was writing callbacks for the
+\verb`motmot_init` function of \libmotmot.  Once these callbacks are written
+correctly, \libmotmot handles most of the work of starting, sending, and
+coordinating chats automatically.  These callbacks were, in almost all
+instances, responsible for calling \libpurple functions, which handle the UI
+aspect of the associated \libmotmot calls.  In order to pass relevant
+information to our callbacks, we created a \verb`MotmotInfo` struct, a large
+data struct that is used differently in different callbacks to get all the
+necessary info to the \libpurple calls.
 
-We faced a challenge when writing the enter() function.  This function is a callback responsible for allowing a user to enter a chat.  Due to the structure of libmotmot, the only information passed into enter() as an argument is an internal handle, and we need create some sort of external handle.  We solved this by creating a global variable, GLOBAL\_ACCOUNT, which represents the account that a user first logs in under, and we associate our external handle with this GLOBAL\_ACCOUNT.  Though this ``works'' if a user only signs in with on eaccount, this breaks when a user decides to sign in with multiple accounts at once (something that libpurple allows), and should be addressed in future versions.
+We faced a challenge when writing the \verb`enter` function.  This function is a
+callback responsible for allowing a user to enter a chat.  Due to the structure
+of \libmotmot, the only information passed into \verb`enter` as an argument is
+an internal handle, and we need create some sort of external handle.  We solved
+this by creating a global variable, \verb`GLOBAL_ACCOUNT`, which represents the
+account that a user first logs in under, and we associate our external handle
+with this \verb`GLOBAL_ACCOUNT`.  Though this ``works'' if a user only signs in
+with on eaccount, this breaks when a user decides to sign in with multiple
+accounts at once (something that \libpurple allows), and should be addressed in
+future versions.
 
 \section{Conclusions}
 
