@@ -62,7 +62,6 @@ def writeback(conn, fn, args):
         print "Exception Occured on connection from {0}:{1}".format(conn.address[0], conn.address[1])
         rVal = [RM.BAD_STATUS,"Not a Valid Status Code"]
     finally:
-        print rVal
         conn.send(rVal)
 
 def rpc_dispatcher(conn):

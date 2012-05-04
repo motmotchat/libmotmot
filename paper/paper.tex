@@ -290,7 +290,10 @@ instances, responsible for calling \libpurple functions, which handle the UI
 aspect of the associated \libmotmot calls.  In order to pass relevant
 information to our callbacks, we created a \verb`MotmotInfo` struct, a large
 data struct that is used differently in different callbacks to get all the
-necessary info to the \libpurple calls.
+necessary info to the \libpurple calls. \verb`MotmotInfo` contained the info
+necessary to mediate between \libpurple and \libmotmot. It contained both the
+id of the chat which was necessary for \libpurple and the opaque data handle
+necessary for \libmotmot.
 
 We faced a challenge when writing the \verb`enter` function.  This function is a
 callback responsible for allowing a user to enter a chat.  Due to the structure
