@@ -76,6 +76,20 @@ client library \texttt{libmotmot}, in order to provide these guarantees.
 
 \section{Pidgin Plugin}
 
+To allow our protocol to be utilized via Pidgin, we needed our plugin to interface with two major aspects of the protocol: the discovery server, and the libmotmot library.
+
+\subsection{Plugin Interactions with Discovery Server}
+
+\subsection{Plugin Interactions with Libmotmot}
+There were a few major difficulties that had to be addressed when calling libmotmot within the plugin:
+
+\begin{itemize}
+\item libpurple makes a distinction between "IMs" (two-person chats) and "chats" (three or more people); libmotmot does not.  libpurple takes in different arguments for its IM-related and its chat-related functions
+
+\item One cannot modify the main Pidgin event loop from within a plugin (without patching libpurple itself).  Instead, callbacks are made to plugin functions from within the main event loop, so finding a way to call libmotmot functions correctly (i.e. still honoring the correct control flow from libmotmot's perspective) and consistently within the bounds of these plugin functions was a second challenge.
+
+\end{itemize}
+
 \section{Conclusions}
 
 Wheeee.
