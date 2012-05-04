@@ -27,8 +27,8 @@ proposer_decree_request(struct paxos_request *req)
   memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
 
   // Send a decree if we're not preparing; if we are, defer it.
-  if (pax.prep != NULL) {
-    LIST_INSERT_TAIL(&pax.idefer, inst, pi_le);
+  if (pax->prep != NULL) {
+    LIST_INSERT_TAIL(&pax->idefer, inst, pi_le);
     return 0;
   } else {
     return proposer_decree(inst);
@@ -47,7 +47,7 @@ proposer_decree_request(struct paxos_request *req)
  * string).
  */
 int
-paxos_request(struct paxos_state *session, dkind_t dkind, const void *msg,
+paxos_request(struct paxos_session *session, dkind_t dkind, const void *msg,
     size_t len)
 {
   int r, needs_cached;
@@ -56,7 +56,7 @@ paxos_request(struct paxos_state *session, dkind_t dkind, const void *msg,
   struct paxos_yak py;
 
   // We can't make requests if we're not part of a protocol.
-  if (pax.self_id == 0) {
+  if (pax->self_id == 0) {
     return 1;
   }
 
@@ -65,16 +65,16 @@ paxos_request(struct paxos_state *session, dkind_t dkind, const void *msg,
 
   // Initialize a header.  We overload ph_inum to the ID of the acceptor who
   // we believe to be the proposer.
-  hdr.ph_ballot.id = pax.ballot.id;
-  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_ballot.id = pax->ballot.id;
+  hdr.ph_ballot.gen = pax->ballot.gen;
   hdr.ph_opcode = OP_REQUEST;
-  hdr.ph_inum = pax.proposer->pa_paxid;
+  hdr.ph_inum = pax->proposer->pa_paxid;
 
   // Allocate a request and initialize it.
   req = g_malloc0(sizeof(*req));
   req->pr_val.pv_dkind = dkind;
-  req->pr_val.pv_reqid.id = pax.self_id;
-  req->pr_val.pv_reqid.gen = (++pax.req_id);  // Increment our req_id.
+  req->pr_val.pv_reqid.id = pax->self_id;
+  req->pr_val.pv_reqid.gen = (++pax->req_id);  // Increment our req_id.
   req->pr_val.pv_extra = 0; // Always 0 for requests.
 
   req->pr_size = len;
@@ -82,7 +82,7 @@ paxos_request(struct paxos_state *session, dkind_t dkind, const void *msg,
 
   // Add it to the request cache if needed.
   if (needs_cached) {
-    request_insert(&pax.rcache, req);
+    request_insert(&pax->rcache, req);
   }
 
   if (!is_proposer() || needs_cached) {
@@ -135,15 +135,15 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
   // proposer.  This should occur only in the case that we are preparing but
   // have lost our connection to the true proposer.  If we indeed are not the
   // proposer, our prepare will fail, and we will be redirected at that point.
-  if (hdr->ph_inum > pax.self_id) {
-    acc = acceptor_find(&pax.alist, req->pr_val.pv_reqid.id);
+  if (hdr->ph_inum > pax->self_id) {
+    acc = acceptor_find(&pax->alist, req->pr_val.pv_reqid.id);
     request_destroy(req);
     return proposer_decree_part(acc);
   }
 
   // Add it to the request cache if needed.
   if (request_needs_cached(req->pr_val.pv_dkind)) {
-    request_insert(&pax.rcache, req);
+    request_insert(&pax->rcache, req);
   }
 
   return proposer_decree_request(req);
@@ -163,7 +163,7 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   // The requester overloads ph_inst to the acceptor it believes to be the
   // proposer.  If we are incorrectly identified as the proposer (i.e., if
   // we believe someone higher-ranked is still live), send a redirect.
-  if (hdr->ph_inum == pax.self_id) {
+  if (hdr->ph_inum == pax->self_id) {
     r = paxos_redirect(source, hdr);
   }
 
@@ -172,7 +172,7 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   paxos_request_unpack(req, o);
 
   // Add it to the request cache.
-  request_insert(&pax.rcache, req);
+  request_insert(&pax->rcache, req);
 
   return r;
 }
@@ -193,8 +193,8 @@ paxos_retrieve(struct paxos_instance *inst)
   struct paxos_yak py;
 
   // Initialize a header.
-  hdr.ph_ballot.id = pax.ballot.id;
-  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_ballot.id = pax->ballot.id;
+  hdr.ph_ballot.gen = pax->ballot.gen;
   hdr.ph_opcode = OP_RETRIEVE;
   hdr.ph_inum = inst->pi_hdr.ph_inum; // Instance number of the request.
 
@@ -202,12 +202,12 @@ paxos_retrieve(struct paxos_instance *inst)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &hdr);
   paxos_payload_begin_array(&py, 2);
-  paxos_paxid_pack(&py, pax.self_id);
+  paxos_paxid_pack(&py, pax->self_id);
   paxos_value_pack(&py, &inst->pi_val);
 
   // Determine the request originator and send.  If we are no longer connected
   // to the request originator, broadcast the retrieve instead.
-  acc = acceptor_find(&pax.alist, inst->pi_val.pv_reqid.id);
+  acc = acceptor_find(&pax->alist, inst->pi_val.pv_reqid.id);
   if (acc == NULL || acc->pa_peer == NULL) {
     r = paxos_broadcast(UNYAK(&py));
   } else {
@@ -242,10 +242,10 @@ int paxos_ack_retrieve(struct paxos_header *hdr, msgpack_object *o)
 
   // Retrieve the request.
   assert(request_needs_cached(val.pv_dkind));
-  req = request_find(&pax.rcache, val.pv_reqid);
+  req = request_find(&pax->rcache, val.pv_reqid);
   if (req != NULL) {
     // If we have the request, look up the recipient and resend.
-    acc = acceptor_find(&pax.alist, paxid);
+    acc = acceptor_find(&pax->alist, paxid);
     return paxos_resend(acc, hdr, req);
   } else {
     // If we don't have the request either, just return.
@@ -293,14 +293,14 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   //
   // Note also that an instance should only be NULL if it was committed and
   // learned and then truncated in a sync operation.
-  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  inst = instance_find(&pax->ilist, hdr->ph_inum);
   if (inst == NULL || inst->pi_learned) {
     return 0;
   }
 
   // If we had already obtained the request, we would have committed, so
   // let's ensure that we haven't.
-  req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
+  req = request_find(&pax->rcache, inst->pi_val.pv_reqid);
   assert(req == NULL);
 
   // Allocate a request and unpack it.
@@ -308,7 +308,7 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   paxos_request_unpack(req, o);
 
   // Insert it to our request cache.
-  request_insert(&pax.rcache, req);
+  request_insert(&pax->rcache, req);
 
   // Commit again, now that we have the associated request.
   return paxos_commit(inst);

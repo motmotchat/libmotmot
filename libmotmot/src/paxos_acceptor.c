@@ -31,8 +31,8 @@ acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
   // If the ballot being prepared for is <= our most recent ballot, or if
   // the preparer is not the highest-ranking acceptor (i.e., the proposer),
   // send a redirect.
-  if (ballot_compare(hdr->ph_ballot, pax.ballot) <= 0 ||
-      pax.proposer->pa_peer != source) {
+  if (ballot_compare(hdr->ph_ballot, pax->ballot) <= 0 ||
+      pax->proposer->pa_peer != source) {
     return paxos_redirect(source, hdr);
   }
 
@@ -56,9 +56,9 @@ acceptor_promise(struct paxos_header *hdr)
   struct paxos_yak py;
 
   // Set our ballot to the one given in the prepare.
-  pax.ballot.id = hdr->ph_ballot.id;
-  pax.ballot.gen = hdr->ph_ballot.gen;
-  pax.gen_high = pax.ballot.gen;
+  pax->ballot.id = hdr->ph_ballot.id;
+  pax->ballot.gen = hdr->ph_ballot.gen;
+  pax->gen_high = pax->ballot.gen;
 
   // Start off the payload with the header.
   hdr->ph_opcode = OP_PROMISE;
@@ -68,7 +68,7 @@ acceptor_promise(struct paxos_header *hdr)
   count = 0;
 
   // Determine how many accepts we need to send back.
-  LIST_FOREACH_REV(it, &pax.ilist, pi_le) {
+  LIST_FOREACH_REV(it, &pax->ilist, pi_le) {
     count++;
     if (hdr->ph_inum >= it->pi_hdr.ph_inum) {
       break;
@@ -79,7 +79,7 @@ acceptor_promise(struct paxos_header *hdr)
   paxos_payload_begin_array(&py, count);
 
   // Pack all the instances starting at the lowest-numbered instance requested.
-  for (; it != (void *)&pax.ilist; it = LIST_NEXT(it, pi_le)) {
+  for (; it != (void *)&pax->ilist; it = LIST_NEXT(it, pi_le)) {
     paxos_instance_pack(&py, it);
   }
 
@@ -112,27 +112,27 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   // to prepares.  Hence if we respond both to the proposer's higher ballot
   // and our lower ballot, we could break correctness guarantees if we
   // responded to any further decrees with the lower ballot number.
-  if (ballot_compare(hdr->ph_ballot, pax.ballot) != 0) {
+  if (ballot_compare(hdr->ph_ballot, pax->ballot) != 0) {
     return 0;
   }
 
   // Our local notion of the ballot should match our notion of the proposer.
   // Only when failover has just occurred but we have not yet received the new
   // proposer's prepare is this not the case.
-  assert(pax.proposer->pa_paxid == pax.ballot.id);
+  assert(pax->proposer->pa_paxid == pax->ballot.id);
 
   // Unpack the value and see if it decrees a part.  If so, but if the target
   // acceptor is still alive, reject the decree.
   paxos_value_unpack(&val, o);
   if (val.pv_dkind == DEC_PART) {
-    acc = acceptor_find(&pax.alist, val.pv_extra);
+    acc = acceptor_find(&pax->alist, val.pv_extra);
     if (acc->pa_peer != NULL) {
       return acceptor_reject(hdr);
     }
   }
 
   // See if we have seen this instance for another ballot.
-  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  inst = instance_find(&pax->ilist, hdr->ph_inum);
   if (inst == NULL) {
     // We haven't seen this instance, so initialize a new one.  Our commit
     // flags are all zeroed so we don't need to initialize them.
@@ -202,7 +202,7 @@ acceptor_ack_commit(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_instance *inst;
 
   // Retrieve the instance struct corresponding to the inum.
-  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  inst = instance_find(&pax->ilist, hdr->ph_inum);
 
   // The instance may not exist if we didn't get the original decree, but
   // we can trust the majority and commit anyway.  Our commit flags are

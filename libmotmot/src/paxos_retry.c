@@ -25,8 +25,8 @@ acceptor_retry(paxid_t hole)
   struct paxos_yak py;
 
   // Initialize a header.
-  hdr.ph_ballot.id = pax.ballot.id;
-  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_ballot.id = pax->ballot.id;
+  hdr.ph_ballot.gen = pax->ballot.gen;
   hdr.ph_opcode = OP_RETRY;
   hdr.ph_inum = hole;
 
@@ -49,7 +49,7 @@ proposer_ack_retry(struct paxos_header *hdr)
   struct paxos_instance *inst;
 
   // Find the requested instance.
-  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  inst = instance_find(&pax->ilist, hdr->ph_inum);
   assert(inst != NULL);
 
   // Recommit if it's been committed; otherwise, just don't respond.
@@ -91,7 +91,7 @@ int acceptor_ack_recommit(struct paxos_header *hdr, msgpack_object *o)
 
   // Check if we've already committed since we sent the retry.  If we have,
   // just return.
-  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  inst = instance_find(&pax->ilist, hdr->ph_inum);
   if (inst != NULL && inst->pi_committed) {
     return 0;
   }

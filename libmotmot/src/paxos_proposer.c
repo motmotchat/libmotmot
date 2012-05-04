@@ -53,32 +53,32 @@ proposer_prepare()
 
   // We always free the prepare before we would have an opportunity to
   // prepare again.
-  assert(pax.prep == NULL);
+  assert(pax->prep == NULL);
 
   // If a majority of acceptors are disconnected, we should just give up and
   // quit the session.
-  if (pax.live_count < majority()) {
+  if (pax->live_count < majority()) {
     paxos_end(&pax);
     return 1;
   }
 
   // Start a new prepare.
-  pax.prep = g_malloc0(sizeof(*pax.prep));
+  pax->prep = g_malloc0(sizeof(*pax->prep));
 
   // Set up a new ballot.
-  pax.prep->pp_ballot.id = pax.self_id;
-  pax.prep->pp_ballot.gen = ++pax.gen_high;
+  pax->prep->pp_ballot.id = pax->self_id;
+  pax->prep->pp_ballot.gen = ++pax->gen_high;
 
   // Initialize our counters.  Our only initial acceptor is ourselves, and no
   // one initially redirects.
-  pax.prep->pp_acks = 1;
-  pax.prep->pp_redirects = 0;
+  pax->prep->pp_acks = 1;
+  pax->prep->pp_redirects = 0;
 
   // Initialize a Paxos header.
-  hdr.ph_ballot.id = pax.prep->pp_ballot.id;
-  hdr.ph_ballot.gen = pax.prep->pp_ballot.gen;
+  hdr.ph_ballot.id = pax->prep->pp_ballot.id;
+  hdr.ph_ballot.gen = pax->prep->pp_ballot.gen;
   hdr.ph_opcode = OP_PREPARE;
-  hdr.ph_inum = pax.ihole;
+  hdr.ph_inum = pax->ihole;
 
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
@@ -132,12 +132,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
   // If we're not preparing but are still the proposer, then our prepare has
   // already succeeded, so just return.
-  if (pax.prep == NULL) {
+  if (pax->prep == NULL) {
     return 0;
   }
 
   // If the promise is for some other ballot, just ignore it.
-  if (ballot_compare(pax.prep->pp_ballot, hdr->ph_ballot) != 0) {
+  if (ballot_compare(pax->prep->pp_ballot, hdr->ph_ballot) != 0) {
     return 0;
   }
 
@@ -147,7 +147,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // Initialize loop variables.
   p = o->via.array.ptr;
   pend = o->via.array.ptr + o->via.array.size;
-  it = pax.istart;
+  it = pax->istart;
 
   // Loop through all the vote information.  Note that we assume the votes
   // are sorted by instance number.
@@ -172,16 +172,16 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     // starting Paxos, our instance list is guaranteed to always be nonempty,
     // so this should always return a valid instance (so long as we don't
     // pass an iterator which already has a higher inum).
-    it = get_instance_glb(it, &pax.ilist, inst->pi_hdr.ph_inum);
+    it = get_instance_glb(it, &pax->ilist, inst->pi_hdr.ph_inum);
     assert(it != NULL);
 
     if (it->pi_hdr.ph_inum < inst->pi_hdr.ph_inum) {
       // The closest instance is strictly lower in number, so insert after.
-      LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
+      LIST_INSERT_AFTER(&pax->ilist, it, inst, pi_le);
 
-      // Update pax.istart if we just instantiated our hole.
-      if (inst->pi_hdr.ph_inum == pax.ihole) {
-        pax.istart = inst;
+      // Update pax->istart if we just instantiated our hole.
+      if (inst->pi_hdr.ph_inum == pax->ihole) {
+        pax->istart = inst;
       }
 
       // We need to allocate a new scratch instance in the next iteration.
@@ -193,36 +193,36 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       if (!it->pi_committed &&
           ballot_compare(inst->pi_hdr.ph_ballot, it->pi_hdr.ph_ballot) > 0) {
         // Perform the switch; reuse the old allocation in the next iteration.
-        LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
-        LIST_REMOVE(&pax.ilist, it, pi_le);
+        LIST_INSERT_AFTER(&pax->ilist, it, inst, pi_le);
+        LIST_REMOVE(&pax->ilist, it, pi_le);
         swap((void **)&inst, (void **)&it);
       }
     }
   }
 
   // Acknowledge the promise.
-  pax.prep->pp_acks++;
+  pax->prep->pp_acks++;
 
   // Return if we don't have a majority of acks; otherwise, end the prepare.
-  if (pax.prep->pp_acks < majority()) {
+  if (pax->prep->pp_acks < majority()) {
     return 0;
   }
 
   // Set our ballot to the prepare ballot.
-  pax.ballot.id = pax.prep->pp_ballot.id;
-  pax.ballot.gen = pax.prep->pp_ballot.gen;
+  pax->ballot.id = pax->prep->pp_ballot.id;
+  pax->ballot.gen = pax->prep->pp_ballot.gen;
 
   // For each Paxos instance for which we don't have a commit, send a decree.
-  for (it = pax.istart, inum = pax.ihole; ; ++inum) {
+  for (it = pax->istart, inum = pax->ihole; ; ++inum) {
     // Get the closest instance with number <= inum.
-    it = get_instance_glb(it, &pax.ilist, inum);
+    it = get_instance_glb(it, &pax->ilist, inum);
     assert(it != NULL);
 
     inst = NULL;
     if (it->pi_hdr.ph_inum < inum) {
       // If inum is strictly past the last instance number seen by a quorum
       // of the entire Paxos system, we're done.
-      if (it == LIST_LAST(&pax.ilist)) {
+      if (it == LIST_LAST(&pax->ilist)) {
         break;
       }
 
@@ -233,14 +233,14 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
       inst->pi_hdr.ph_inum = inum;
 
       inst->pi_val.pv_dkind = DEC_NULL;
-      inst->pi_val.pv_reqid.id = pax.self_id;
-      inst->pi_val.pv_reqid.gen = (++pax.req_id);
+      inst->pi_val.pv_reqid.id = pax->self_id;
+      inst->pi_val.pv_reqid.gen = (++pax->req_id);
 
-      LIST_INSERT_AFTER(&pax.ilist, it, inst, pi_le);
+      LIST_INSERT_AFTER(&pax->ilist, it, inst, pi_le);
 
-      // Update pax.istart if we just instantiated our hole.
-      if (inst->pi_hdr.ph_inum == pax.ihole) {
-        pax.istart = inst;
+      // Update pax->istart if we just instantiated our hole.
+      if (inst->pi_hdr.ph_inum == pax->ihole) {
+        pax->istart = inst;
       }
     } else if (!it->pi_committed) {
       // The quorum has seen this instance before, but we have not committed
@@ -251,8 +251,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
 
     if (inst != NULL) {
       // Do initialization common to both above paths.
-      inst->pi_hdr.ph_ballot.id = pax.ballot.id;
-      inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
+      inst->pi_hdr.ph_ballot.id = pax->ballot.id;
+      inst->pi_hdr.ph_ballot.gen = pax->ballot.gen;
       inst->pi_hdr.ph_opcode = OP_DECREE;
       instance_reset_metadata(inst);
 
@@ -262,20 +262,20 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   }
 
   // Free the prepare.
-  g_free(pax.prep);
-  pax.prep = NULL;
+  g_free(pax->prep);
+  pax->prep = NULL;
 
   // Forceably part any dropped acceptors we have in our acceptor list, making
   // sure to skip ourselves since we have no pa_peer.
-  LIST_FOREACH(acc, &pax.alist, pa_le) {
-    if (acc->pa_peer == NULL && acc->pa_paxid != pax.self_id) {
+  LIST_FOREACH(acc, &pax->alist, pa_le) {
+    if (acc->pa_peer == NULL && acc->pa_paxid != pax->self_id) {
       ERR_RET(r, proposer_decree_part(acc));
     }
   }
 
   // Decree ALL the deferred things!
-  LIST_WHILE_FIRST(inst, &pax.idefer) {
-    LIST_REMOVE(&pax.idefer, inst, pi_le);
+  LIST_WHILE_FIRST(inst, &pax->idefer) {
+    LIST_REMOVE(&pax->idefer, inst, pi_le);
     ERR_RET(r, proposer_decree(inst));
   }
 
@@ -294,8 +294,8 @@ proposer_decree(struct paxos_instance *inst)
   int r;
 
   // Update the header.
-  inst->pi_hdr.ph_ballot.id = pax.ballot.id;
-  inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
+  inst->pi_hdr.ph_ballot.id = pax->ballot.id;
+  inst->pi_hdr.ph_ballot.gen = pax->ballot.gen;
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_inum = next_instance();
 
@@ -330,10 +330,10 @@ proposer_ack_accept(struct paxos_header *hdr)
   // We never change the ballot if our initial prepare succeeds, and in
   // particular, the ballot cannot refer to some earlier ballot also prepared
   // by us.  Thus, it should not be possible for the ballot not to match.
-  assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
+  assert(ballot_compare(hdr->ph_ballot, pax->ballot) == 0);
 
   // Find the decree of the correct instance and increment the vote count.
-  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  inst = instance_find(&pax->ilist, hdr->ph_inum);
   inst->pi_votes++;
 
   // Ignore the vote if we've already committed.

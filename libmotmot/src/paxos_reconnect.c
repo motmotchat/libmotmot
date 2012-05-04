@@ -13,7 +13,7 @@
 #include <assert.h>
 #include <glib.h>
 
-#define DEATH_ADJUSTED(n) ((n) + (LIST_COUNT(&pax.alist) - pax.live_count))
+#define DEATH_ADJUSTED(n) ((n) + (LIST_COUNT(&pax->alist) - pax->live_count))
 
 extern int paxos_broadcast_instance(struct paxos_instance *);
 
@@ -33,10 +33,10 @@ paxos_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
   // ballot ID as the ID of the proposer we are suggesting, since, it may be
   // the case that the proposer has assumed the proposership but has not yet
   // prepared to us.
-  hdr.ph_ballot.id = pax.ballot.id;
-  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_ballot.id = pax->ballot.id;
+  hdr.ph_ballot.gen = pax->ballot.gen;
   hdr.ph_opcode = OP_REDIRECT;
-  hdr.ph_inum = pax.proposer->pa_paxid;
+  hdr.ph_inum = pax->proposer->pa_paxid;
 
   // Pack a payload, which includes the header we were sent which we believe
   // to be incorrect.
@@ -83,7 +83,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   // we think ourselves to be the proposer.  Instead, just sanity check that
   // the supposed true proposer has a lower ID than we do.  This should
   // always be the case because of the consistency of proposer ranks.
-  assert(hdr->ph_inum < pax.self_id);
+  assert(hdr->ph_inum < pax->self_id);
 
   // If we are not still preparing, either we succeeded or our prepare was
   // rejected.  In the former case, we should ignore the redirect because
@@ -92,42 +92,42 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   // as an acceptor; and if we did not successfully connect, we would have
   // sent out another prepare.  Hence, if we are not preparing, our prepare
   // succeeded and hence we should ignore the redirect.
-  if (pax.prep == NULL) {
+  if (pax->prep == NULL) {
     return 0;
   }
 
   // Ensure that the redirect is for our current prepare; otherwise ignore.
   paxos_header_unpack(&orig_hdr, o);
   if (orig_hdr.ph_opcode != OP_PREPARE ||
-      ballot_compare(orig_hdr.ph_ballot, pax.prep->pp_ballot) != 0) {
+      ballot_compare(orig_hdr.ph_ballot, pax->prep->pp_ballot) != 0) {
     return 0;
   }
 
   // Acknowledge the rejection of our prepare.
-  pax.prep->pp_redirects++;
+  pax->prep->pp_redirects++;
 
   // If we have been redirected by a majority, give up on the prepare and
   // attempt reconnection.
-  if (DEATH_ADJUSTED(pax.prep->pp_redirects) >= majority()) {
+  if (DEATH_ADJUSTED(pax->prep->pp_redirects) >= majority()) {
     // Free the prepare.
-    g_free(pax.prep);
-    pax.prep = NULL;
+    g_free(pax->prep);
+    pax->prep = NULL;
 
     // Connect to the higher-ranked acceptor indicated in the most recent
     // redirect message we received (i.e., this one).  It's possible that an
     // even higher-ranked acceptor exists, but we'll find that out when we
     // try to send a request.
-    acc = acceptor_find(&pax.alist, hdr->ph_inum);
+    acc = acceptor_find(&pax->alist, hdr->ph_inum);
     assert(acc->pa_peer == NULL);
-    acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+    acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
 
     if (acc->pa_peer != NULL) {
       // If the reconnect succeeds, relinquish proposership, clear our defer
       // list, and reintroduce ourselves to the proposer.
-      pax.proposer = acc;
-      pax.live_count++;
+      pax->proposer = acc;
+      pax->live_count++;
 
-      instance_list_destroy(&pax.idefer);
+      instance_list_destroy(&pax->idefer);
 
       return paxos_hello(acc);
     } else {
@@ -138,11 +138,11 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 
   // If we have heard back from everyone but the acks and redirects are tied,
   // just prepare again.
-  if (pax.prep->pp_acks < majority() &&
-      DEATH_ADJUSTED(pax.prep->pp_redirects) < majority() &&
-      pax.prep->pp_acks + pax.prep->pp_redirects == pax.live_count) {
-    g_free(pax.prep);
-    pax.prep = NULL;
+  if (pax->prep->pp_acks < majority() &&
+      DEATH_ADJUSTED(pax->prep->pp_redirects) < majority() &&
+      pax->prep->pp_acks + pax->prep->pp_redirects == pax->live_count) {
+    g_free(pax->prep);
+    pax->prep = NULL;
     return proposer_prepare();
   }
 
@@ -175,7 +175,7 @@ acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   // Check whether, since we sent our request, we have already found a more
   // suitable proposer, possibly due to another redirect, in which case we
   // can ignore this one.
-  if (pax.proposer->pa_paxid <= hdr->ph_inum) {
+  if (pax->proposer->pa_paxid <= hdr->ph_inum) {
     return 0;
   }
 
@@ -189,15 +189,15 @@ acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   // Pull out the acceptor struct corresponding to the purported proposer and
   // try to reconnect.  Note that we should have already set the pa_peer of
   // this acceptor to NULL to indicate the lost connection.
-  acc = acceptor_find(&pax.alist, hdr->ph_inum);
+  acc = acceptor_find(&pax->alist, hdr->ph_inum);
   assert(acc->pa_peer == NULL);
-  acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+  acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
 
   if (acc->pa_peer != NULL) {
     // If the reconnect succeeds, reset our proposer and reintroduce ourselves.
     // XXX: Do we want to resend our request?
-    pax.proposer = acc;
-    pax.live_count++;
+    pax->proposer = acc;
+    pax->live_count++;
     return paxos_hello(acc);
   } else {
     return 0;
@@ -242,10 +242,10 @@ proposer_ack_reject(struct paxos_header *hdr)
 
   // Our prepare succeeded, so we have only one possible ballot in our
   // lifetime in the system.
-  assert(ballot_compare(hdr->ph_ballot, pax.ballot) == 0);
+  assert(ballot_compare(hdr->ph_ballot, pax->ballot) == 0);
 
   // Find the decree of the correct instance and increment the reject count.
-  inst = instance_find(&pax.ilist, hdr->ph_inum);
+  inst = instance_find(&pax->ilist, hdr->ph_inum);
   inst->pi_rejects++;
 
   // Ignore the vote if we've already committed.
@@ -259,13 +259,13 @@ proposer_ack_reject(struct paxos_header *hdr)
   // If we have been rejected by a majority, attempt reconnection.
   if (DEATH_ADJUSTED(inst->pi_rejects) >= majority()) {
     // See if we can reconnect to the acceptor we tried to part.
-    acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
+    acc = acceptor_find(&pax->alist, inst->pi_val.pv_extra);
     assert(acc->pa_peer == NULL);
-    acc->pa_peer = paxos_peer_init(pax.connect(acc->pa_desc, acc->pa_size));
+    acc->pa_peer = paxos_peer_init(state.connect(acc->pa_desc, acc->pa_size));
 
     if (acc->pa_peer != NULL) {
       // Account for a new live connection.
-      pax.live_count++;
+      pax->live_count++;
 
       // Reintroduce ourselves to the acceptor.
       ERR_RET(r, paxos_hello(acc));
@@ -287,7 +287,7 @@ proposer_ack_reject(struct paxos_header *hdr)
   // just decree the part again.
   if (inst->pi_votes < majority() &&
       DEATH_ADJUSTED(inst->pi_rejects) < majority() &&
-      inst->pi_votes + inst->pi_rejects == pax.live_count) {
+      inst->pi_votes + inst->pi_rejects == pax->live_count) {
     return paxos_broadcast_instance(inst);
   }
 

@@ -18,7 +18,7 @@
 int
 is_proposer()
 {
-  return pax.proposer != NULL && pax.self_id == pax.proposer->pa_paxid;
+  return pax->proposer != NULL && pax->self_id == pax->proposer->pa_paxid;
 }
 
 /**
@@ -29,9 +29,9 @@ reset_proposer()
 {
   struct paxos_acceptor *it;
 
-  LIST_FOREACH(it, &pax.alist, pa_le) {
-    if (it->pa_paxid == pax.self_id || it->pa_peer != NULL) {
-      pax.proposer = it;
+  LIST_FOREACH(it, &pax->alist, pa_le) {
+    if (it->pa_paxid == pax->self_id || it->pa_peer != NULL) {
+      pax->proposer = it;
       break;
     }
   }
@@ -43,7 +43,7 @@ reset_proposer()
 paxid_t
 next_instance()
 {
-  return LIST_EMPTY(&pax.ilist) ? 1 : LIST_LAST(&pax.ilist)->pi_hdr.ph_inum + 1;
+  return LIST_EMPTY(&pax->ilist) ? 1 : LIST_LAST(&pax->ilist)->pi_hdr.ph_inum + 1;
 }
 
 /**
@@ -61,7 +61,7 @@ request_needs_cached(dkind_t dkind)
 unsigned
 majority()
 {
-  return (LIST_COUNT(&pax.alist) / 2) + 1;
+  return (LIST_COUNT(&pax->alist) / 2) + 1;
 }
 
 
@@ -304,7 +304,7 @@ paxos_broadcast(const char *buffer, size_t length)
   int r;
   struct paxos_acceptor *acc;
 
-  LIST_FOREACH(acc, &(pax.alist), pa_le) {
+  LIST_FOREACH(acc, &(pax->alist), pa_le) {
     if (acc->pa_peer == NULL) {
       continue;
     }
@@ -332,9 +332,9 @@ paxos_send(struct paxos_acceptor *acc, const char *buffer, size_t length)
 int
 paxos_send_to_proposer(const char *buffer, size_t length)
 {
-  if (pax.proposer == NULL) {
+  if (pax->proposer == NULL) {
     return 1;
   }
 
-  return paxos_peer_send(pax.proposer->pa_peer, buffer, length);
+  return paxos_peer_send(pax->proposer->pa_peer, buffer, length);
 }

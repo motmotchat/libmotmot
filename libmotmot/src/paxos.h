@@ -214,14 +214,8 @@ struct paxos_sync {
   paxid_t ps_last;        // the last contiguous learn across the system
 };
 
-struct learn_table {
-  learn_t chat;
-  learn_t join;
-  learn_t part;
-};
-
-/* Local state. */
-struct paxos_state {
+/* Session state. */
+struct paxos_session {
   paxid_t session_id;                 // ID of the Paxos session
   void *client_data;                  // opaque client session object
 
@@ -229,10 +223,6 @@ struct paxos_state {
   paxid_t req_id;                     // local incrementing request ID
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
   ballot_t ballot;                    // identity of the current ballot
-
-  paxid_t ibase;                      // base value for instance numbers
-  paxid_t ihole;                      // number of first uncommitted instance
-  struct paxos_instance *istart;      // lower bound instance of first hole
 
   paxid_t gen_high;                   // high water mark of ballots we've seen
   struct paxos_prep *prep;            // prepare state; NULL if not preparing
@@ -249,12 +239,30 @@ struct paxos_state {
   struct instance_list idefer;        // list of deferred instances
   struct request_list rcache;         // cached requests waiting for commit
 
+  paxid_t ibase;                      // base value for instance numbers
+  paxid_t ihole;                      // number of first uncommitted instance
+  struct paxos_instance *istart;      // lower bound instance of first hole
+
+  LIST_ENTRY(paxos_session) le;       // session list entry
+};
+LIST_HEAD(session_list, paxos_session);
+
+/* Table of client learning callbacks. */
+struct learn_table {
+  learn_t chat;
+  learn_t join;
+  learn_t part;
+};
+
+/* Global state. */
+struct paxos_state {
   connect_t connect;                  // callback for initiating connections
-  disconnect_t disconnect;             // callback for registering disconnection
+  disconnect_t disconnect;            // callback for registering disconnection
   struct learn_table learn;           // callbacks for paxos_learn
 };
 
-extern struct paxos_state pax;
+extern struct paxos_state state;
+extern struct paxos_session *pax;
 
 /* Paxos protocol interface. */
 void paxos_init(connect_t, disconnect_t, struct learn_table *);
@@ -264,7 +272,7 @@ int paxos_end(void *data);
 int paxos_register_connection(GIOChannel *);
 int paxos_drop_connection(struct paxos_peer *);
 
-int paxos_request(struct paxos_state *, dkind_t, const void *, size_t len);
+int paxos_request(struct paxos_session *, dkind_t, const void *, size_t len);
 int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
 int paxos_sync(void *);
 

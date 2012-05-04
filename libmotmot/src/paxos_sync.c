@@ -41,43 +41,43 @@ proposer_sync()
   struct paxos_yak py;
 
   // If we haven't finished preparing as the proposer, don't sync.
-  if (pax.prep != NULL) {
+  if (pax->prep != NULL) {
     return 1;
   }
 
   // If not everyone is live, we should delay syncing.
-  if (pax.live_count != LIST_COUNT(&pax.alist)) {
+  if (pax->live_count != LIST_COUNT(&pax->alist)) {
     return 1;
   }
 
   // If our local last contiguous learn is the same as the previous sync
   // point, we don't need to sync.
-  if (pax.ihole - 1 == pax.sync_prev) {
+  if (pax->ihole - 1 == pax->sync_prev) {
     return 0;
   }
 
   // If we're already syncing, increment the skip counter.
-  if (pax.sync != NULL) {
+  if (pax->sync != NULL) {
     // Resync if we've waited too long for the sync to finish.
-    if (++pax.sync->ps_skips < SYNC_SKIP_THRESH) {
+    if (++pax->sync->ps_skips < SYNC_SKIP_THRESH) {
       return 1;
     } else {
-      g_free(pax.sync);
+      g_free(pax->sync);
     }
   }
 
   // Create a new sync.
-  pax.sync = g_malloc0(sizeof(*(pax.sync)));
-  pax.sync->ps_total = LIST_COUNT(&pax.alist);
-  pax.sync->ps_acks = 1;  // Including ourselves.
-  pax.sync->ps_skips = 0;
-  pax.sync->ps_last = 0;
+  pax->sync = g_malloc0(sizeof(*(pax->sync)));
+  pax->sync->ps_total = LIST_COUNT(&pax->alist);
+  pax->sync->ps_acks = 1;  // Including ourselves.
+  pax->sync->ps_skips = 0;
+  pax->sync->ps_last = 0;
 
   // Initialize a header.
-  hdr.ph_ballot.id = pax.ballot.id;
-  hdr.ph_ballot.gen = pax.ballot.gen;
+  hdr.ph_ballot.id = pax->ballot.id;
+  hdr.ph_ballot.gen = pax->ballot.gen;
   hdr.ph_opcode = OP_SYNC;
-  hdr.ph_inum = (++pax.sync_id);  // Sync number.
+  hdr.ph_inum = (++pax->sync_id);  // Sync number.
 
   // Pack and broadcast the sync.
   paxos_payload_init(&py, 1);
@@ -98,7 +98,7 @@ int
 acceptor_ack_sync(struct paxos_header *hdr)
 {
   // Respond only if the ballot number matches ours.
-  if (ballot_compare(hdr->ph_ballot, pax.ballot) == 0) {
+  if (ballot_compare(hdr->ph_ballot, pax->ballot) == 0) {
     return acceptor_last(hdr);
   } else {
     return 0;
@@ -120,7 +120,7 @@ int acceptor_last(struct paxos_header *hdr)
   // Pack and send the response.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
-  paxos_paxid_pack(&py, pax.ihole - 1);
+  paxos_paxid_pack(&py, pax->ihole - 1);
   r = paxos_send_to_proposer(UNYAK(&py));
   paxos_payload_destroy(&py);
 
@@ -136,19 +136,19 @@ proposer_ack_last(struct paxos_header *hdr, msgpack_object *o)
   paxid_t last;
 
   // Ignore replies to older sync commands.
-  if (hdr->ph_inum != pax.sync_id) {
+  if (hdr->ph_inum != pax->sync_id) {
     return 0;
   }
 
   // Update our knowledge of the system's last contiguous learn.
   paxos_paxid_unpack(&last, o);
-  if (last < pax.sync->ps_last || pax.sync->ps_last == 0) {
-    pax.sync->ps_last = last;
+  if (last < pax->sync->ps_last || pax->sync->ps_last == 0) {
+    pax->sync->ps_last = last;
   }
 
   // Increment acks and command a truncate if the sync is over.
-  pax.sync->ps_acks++;
-  if (pax.sync->ps_acks == pax.sync->ps_total) {
+  pax->sync->ps_acks++;
+  if (pax->sync->ps_acks == pax->sync->ps_total) {
     return proposer_truncate(hdr);
   }
 
@@ -173,9 +173,9 @@ ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
     }
 
     // Free the instance and its associated request.
-    req = request_find(&pax.rcache, it->pi_val.pv_reqid);
+    req = request_find(&pax->rcache, it->pi_val.pv_reqid);
     if (req != NULL) {
-      LIST_REMOVE(&pax.rcache, req, pr_le);
+      LIST_REMOVE(&pax->rcache, req, pr_le);
       request_destroy(req);
     }
     LIST_REMOVE(ilist, it, pi_le);
@@ -194,17 +194,17 @@ proposer_truncate(struct paxos_header *hdr)
   struct paxos_yak py;
 
   // Obtain our own last contiguous learn.
-  if (pax.ihole - 1 < pax.sync->ps_last) {
-    pax.sync->ps_last = pax.ihole - 1;
+  if (pax->ihole - 1 < pax->sync->ps_last) {
+    pax->sync->ps_last = pax->ihole - 1;
   }
 
   // Record the sync point.
-  pax.sync_prev = pax.sync->ps_last;
+  pax->sync_prev = pax->sync->ps_last;
 
   // Make this instance our new ibase; this ensures that our list always has
   // at least one committed instance.
-  assert(pax.sync->ps_last >= pax.ibase);
-  pax.ibase = pax.sync->ps_last;
+  assert(pax->sync->ps_last >= pax->ibase);
+  pax->ibase = pax->sync->ps_last;
 
   // Modify the header.
   hdr->ph_opcode = OP_TRUNCATE;
@@ -212,7 +212,7 @@ proposer_truncate(struct paxos_header *hdr)
   // Pack a truncate.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
-  paxos_paxid_pack(&py, pax.ibase);
+  paxos_paxid_pack(&py, pax->ibase);
 
   // Broadcast it.
   r = paxos_broadcast(UNYAK(&py));
@@ -221,12 +221,12 @@ proposer_truncate(struct paxos_header *hdr)
     return r;
   }
 
-  // Do the truncate (< pax.ibase).
-  ilist_truncate_prefix(&pax.ilist, pax.ibase);
+  // Do the truncate (< pax->ibase).
+  ilist_truncate_prefix(&pax->ilist, pax->ibase);
 
   // End the sync.
-  g_free(pax.sync);
-  pax.sync = NULL;
+  g_free(pax->sync);
+  pax->sync = NULL;
 
   return 0;
 }
@@ -235,10 +235,10 @@ int
 acceptor_ack_truncate(struct paxos_header *hdr, msgpack_object *o)
 {
   // Unpack the new ibase.
-  paxos_paxid_unpack(&pax.ibase, o);
+  paxos_paxid_unpack(&pax->ibase, o);
 
-  // Do the truncate (< pax.ibase).
-  ilist_truncate_prefix(&pax.ilist, pax.ibase);
+  // Do the truncate (< pax->ibase).
+  ilist_truncate_prefix(&pax->ilist, pax->ibase);
 
   return 0;
 }

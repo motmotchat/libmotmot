@@ -40,7 +40,7 @@ paxos_commit(struct paxos_instance *inst)
 
   // Pull the request from the request cache if applicable.
   if (request_needs_cached(inst->pi_val.pv_dkind)) {
-    req = request_find(&pax.rcache, inst->pi_val.pv_reqid);
+    req = request_find(&pax->rcache, inst->pi_val.pv_reqid);
 
     // If we can't find a request and need one, send out a retrieve to the
     // request originator and defer the commit.
@@ -53,11 +53,11 @@ paxos_commit(struct paxos_instance *inst)
   inst->pi_cached = true;
 
   // We should already have committed and learned everything before the hole.
-  assert(inst->pi_hdr.ph_inum >= pax.ihole);
+  assert(inst->pi_hdr.ph_inum >= pax->ihole);
 
   // Since we want our learns to be totally ordered, if we didn't just fill
   // the hole, we cannot learn.
-  if (inst->pi_hdr.ph_inum != pax.ihole) {
+  if (inst->pi_hdr.ph_inum != pax->ihole) {
     // If we're the proposer, we have to just wait it out.
     if (is_proposer()) {
       return 0;
@@ -65,49 +65,49 @@ paxos_commit(struct paxos_instance *inst)
 
     // If the hole has committed but is just waiting on a retrieve, we'll learn
     // when we receive the resend.
-    if (pax.istart->pi_hdr.ph_inum == pax.ihole && pax.istart->pi_committed) {
-      assert(!pax.istart->pi_cached);
+    if (pax->istart->pi_hdr.ph_inum == pax->ihole && pax->istart->pi_committed) {
+      assert(!pax->istart->pi_cached);
       return 0;
     }
 
     // The hole is either missing or uncommitted and we are not the proposer,
     // so issue a retry.
-    return acceptor_retry(pax.ihole);
+    return acceptor_retry(pax->ihole);
   }
 
-  // Set pax.istart to point to the instance numbered pax.ihole.
-  if (pax.istart->pi_hdr.ph_inum != pax.ihole) {
-    pax.istart = LIST_NEXT(pax.istart, pi_le);
+  // Set pax->istart to point to the instance numbered pax->ihole.
+  if (pax->istart->pi_hdr.ph_inum != pax->ihole) {
+    pax->istart = LIST_NEXT(pax->istart, pi_le);
   }
-  assert(pax.istart->pi_hdr.ph_inum == pax.ihole);
+  assert(pax->istart->pi_hdr.ph_inum == pax->ihole);
 
   // Now learn as many contiguous commits as we can.  This function is the
   // only path by which we learn commits, and we always learn in contiguous
   // blocks.  Therefore, it is an invariant of our system that all the
-  // instances numbered lower than pax.ihole are learned and committed, and
-  // none of the instances geq to pax.ihole are learned (although some may
+  // instances numbered lower than pax->ihole are learned and committed, and
+  // none of the instances geq to pax->ihole are learned (although some may
   // be committed).
   //
   // We iterate over the instance list, detecting and breaking if we find a
   // hole and learning whenever we don't.
-  for (it = pax.istart; ; it = LIST_NEXT(it, pi_le), ++pax.ihole) {
-    // If we reached the end of the list, set pax.istart to the last existing
+  for (it = pax->istart; ; it = LIST_NEXT(it, pi_le), ++pax->ihole) {
+    // If we reached the end of the list, set pax->istart to the last existing
     // instance.
-    if (it == (void *)&pax.ilist) {
-      pax.istart = LIST_LAST(&pax.ilist);
+    if (it == (void *)&pax->ilist) {
+      pax->istart = LIST_LAST(&pax->ilist);
       break;
     }
 
     // If we skipped over an instance number because we were missing an
-    // instance, set pax.istart to the last instance before the hole.
-    if (it->pi_hdr.ph_inum != pax.ihole) {
-      pax.istart = LIST_PREV(it, pi_le);
+    // instance, set pax->istart to the last instance before the hole.
+    if (it->pi_hdr.ph_inum != pax->ihole) {
+      pax->istart = LIST_PREV(it, pi_le);
       break;
     }
 
-    // If we found an uncommitted or uncached instance, set pax.istart to it.
+    // If we found an uncommitted or uncached instance, set pax->istart to it.
     if (!it->pi_committed || !it->pi_cached) {
-      pax.istart = it;
+      pax->istart = it;
       break;
     }
 
@@ -119,7 +119,7 @@ paxos_commit(struct paxos_instance *inst)
     // have checked that pi_cached holds.
     req = NULL;
     if (request_needs_cached(it->pi_val.pv_dkind)) {
-      req = request_find(&pax.rcache, it->pi_val.pv_reqid);
+      req = request_find(&pax->rcache, it->pi_val.pv_reqid);
       assert(req != NULL);
     }
 
@@ -152,25 +152,25 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 
     case DEC_CHAT:
       // Invoke client learning callback.
-      pax.learn.chat(req->pr_data, req->pr_size, pax.client_data);
+      state.learn.chat(req->pr_data, req->pr_size, pax->client_data);
       break;
 
     case DEC_JOIN:
       // Check the adefer list to see if we received a hello already for the
       // newly joined acceptor.
-      acc = acceptor_find(&pax.adefer, inst->pi_hdr.ph_inum);
+      acc = acceptor_find(&pax->adefer, inst->pi_hdr.ph_inum);
 
       if (acc != NULL) {
         // We found a deferred hello.  To complete the hello, just move our
         // acceptor over to the alist and increment the live count.
-        LIST_REMOVE(&pax.adefer, acc, pa_le);
-        pax.live_count++;
+        LIST_REMOVE(&pax->adefer, acc, pa_le);
+        pax->live_count++;
       } else {
         // We have not yet gotten the hello, so create a new acceptor.
         acc = g_malloc0(sizeof(*acc));
         acc->pa_paxid = inst->pi_hdr.ph_inum;
       }
-      acceptor_insert(&pax.alist, acc);
+      acceptor_insert(&pax->alist, acc);
 
       // Copy over the identity information.
       acc->pa_size = req->pr_size;
@@ -184,7 +184,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       }
 
       // Invoke client learning callback.
-      pax.learn.join(req->pr_data, req->pr_size, pax.client_data);
+      state.learn.join(req->pr_data, req->pr_size, pax->client_data);
       break;
 
     case DEC_PART:
@@ -192,7 +192,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       was_proposer = is_proposer();
 
       // Pull the acceptor from the alist.
-      acc = acceptor_find(&pax.alist, inst->pi_val.pv_extra);
+      acc = acceptor_find(&pax->alist, inst->pi_val.pv_extra);
       if (acc == NULL) {
         // It is possible that we may part twice; for instance, if a proposer
         // issues a part for itself but its departure from the system is
@@ -202,11 +202,11 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       }
 
       // Invoke client learning callback.
-      pax.learn.part(acc->pa_desc, acc->pa_size, pax.client_data);
+      state.learn.part(acc->pa_desc, acc->pa_size, pax->client_data);
 
-      if (acc->pa_paxid != pax.self_id) {
+      if (acc->pa_paxid != pax->self_id) {
         // Just clean up the acceptor.
-        LIST_REMOVE(&pax.alist, acc, pa_le);
+        LIST_REMOVE(&pax->alist, acc, pa_le);
         acceptor_destroy(acc);
       } else {
         // We are leaving the protocol, so wipe all our state clean.

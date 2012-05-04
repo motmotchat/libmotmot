@@ -110,7 +110,7 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
     // TODO: If we have a lot of data buffered but don't have any messages,
     // then something has gone terribly wrong and we should abort.
     while (msgpack_unpacker_next(&peer->pp_unpacker, &result)) {
-      if (paxos_dispatch(peer, &result.data) != 0 && pax.self_id != 0) {
+      if (paxos_dispatch(peer, &result.data) != 0 && pax->self_id != 0) {
         g_warning("paxos_read_peer: Dispatch failed.");
         r = FALSE;
         break;

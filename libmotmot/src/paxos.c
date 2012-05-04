@@ -12,8 +12,11 @@
 #include <assert.h>
 #include <glib.h>
 
-// Local protocol state
-struct paxos_state pax;
+// Global system state.
+struct paxos_state state;
+
+// Current session.
+struct paxos_session *pax;
 
 void instance_insert_and_upstart(struct paxos_instance *);
 int proposer_broadcast_instance(struct paxos_instance *);
@@ -29,36 +32,38 @@ void
 paxos_init(connect_t connect, disconnect_t disconnect,
     struct learn_table *learn)
 {
-  pax.self_id = 0;
-  pax.req_id = 0;
-  pax.proposer = NULL;
-  pax.ballot.id = 0;
-  pax.ballot.gen = 0;
+  state.connect = connect;
+  state.disconnect = disconnect;
+  state.learn.chat = learn->chat;
+  state.learn.join = learn->join;
+  state.learn.part = learn->part;
 
-  pax.ibase = 0;
-  pax.ihole = 0;
-  pax.istart = NULL;
+  pax = g_malloc0(sizeof(*pax));
 
-  pax.gen_high = 0;
-  pax.prep = NULL;
+  pax->self_id = 0;
+  pax->req_id = 0;
+  pax->proposer = NULL;
+  pax->ballot.id = 0;
+  pax->ballot.gen = 0;
 
-  pax.sync_id = 0;
-  pax.sync_prev = 0;
-  pax.sync = NULL;
+  pax->ibase = 0;
+  pax->ihole = 0;
+  pax->istart = NULL;
 
-  pax.live_count = 0;
-  LIST_INIT(&pax.alist);
-  LIST_INIT(&pax.adefer);
+  pax->gen_high = 0;
+  pax->prep = NULL;
 
-  LIST_INIT(&pax.ilist);
-  LIST_INIT(&pax.idefer);
-  LIST_INIT(&pax.rcache);
+  pax->sync_id = 0;
+  pax->sync_prev = 0;
+  pax->sync = NULL;
 
-  pax.connect = connect;
-  pax.disconnect = disconnect;
-  pax.learn.chat = learn->chat;
-  pax.learn.join = learn->join;
-  pax.learn.part = learn->part;
+  pax->live_count = 0;
+  LIST_INIT(&pax->alist);
+  LIST_INIT(&pax->adefer);
+
+  LIST_INIT(&pax->ilist);
+  LIST_INIT(&pax->idefer);
+  LIST_INIT(&pax->rcache);
 }
 
 /**
@@ -73,33 +78,33 @@ paxos_start(const void *desc, size_t size, void *data)
 
   // Initialize a new session.
   // XXX: Do that.
-  pax.client_data = data;
+  pax->client_data = data;
 
   // Give ourselves ID 1.
-  pax.self_id = 1;
+  pax->self_id = 1;
 
   // Prepare a new ballot.  Hey, we accept the prepare!  Hoorah.
-  pax.ballot.id = pax.self_id;
-  pax.ballot.gen = 1;
-  pax.gen_high = 1;
+  pax->ballot.id = pax->self_id;
+  pax->ballot.gen = 1;
+  pax->gen_high = 1;
 
   // Submit a join request to the cache.
   req = g_malloc0(sizeof(*req));
 
   req->pr_val.pv_dkind = DEC_JOIN;
-  req->pr_val.pv_reqid.id = pax.self_id;
-  req->pr_val.pv_reqid.gen = (++pax.req_id);
+  req->pr_val.pv_reqid.id = pax->self_id;
+  req->pr_val.pv_reqid.gen = (++pax->req_id);
 
   req->pr_size = size;
   req->pr_data = g_memdup(desc, size);
 
-  LIST_INSERT_TAIL(&pax.rcache, req, pr_le);
+  LIST_INSERT_TAIL(&pax->rcache, req, pr_le);
 
   // Artificially generate an initial commit, without learning.
   inst = g_malloc0(sizeof(*inst));
 
-  inst->pi_hdr.ph_ballot.id = pax.ballot.id;
-  inst->pi_hdr.ph_ballot.gen = pax.ballot.gen;
+  inst->pi_hdr.ph_ballot.id = pax->ballot.id;
+  inst->pi_hdr.ph_ballot.gen = pax->ballot.gen;
   inst->pi_hdr.ph_opcode = OP_DECREE;
   inst->pi_hdr.ph_inum = 1;
 
@@ -112,26 +117,26 @@ paxos_start(const void *desc, size_t size, void *data)
 
   memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
 
-  LIST_INSERT_HEAD(&pax.ilist, inst, pi_le);
+  LIST_INSERT_HEAD(&pax->ilist, inst, pi_le);
 
-  pax.ibase = 1;
+  pax->ibase = 1;
 
   // Set up the learn protocol parameters to start at the next instance.
-  pax.ihole = 2;
-  pax.istart = inst;
+  pax->ihole = 2;
+  pax->istart = inst;
 
   // Add ourselves to the acceptor list.
   acc = g_malloc0(sizeof(*acc));
-  acc->pa_paxid = pax.self_id;
+  acc->pa_paxid = pax->self_id;
   acc->pa_peer = NULL;
   acc->pa_size = size;
   acc->pa_desc = g_memdup(desc, size);
-  LIST_INSERT_HEAD(&pax.alist, acc, pa_le);
+  LIST_INSERT_HEAD(&pax->alist, acc, pa_le);
 
-  pax.live_count = 1;
+  pax->live_count = 1;
 
   // Set ourselves as the proposer.
-  pax.proposer = acc;
+  pax->proposer = acc;
 
   return &pax;
 }
@@ -143,14 +148,14 @@ int
 paxos_end(void *session)
 {
   // Wipe all our lists.
-  acceptor_list_destroy(&pax.alist);
-  acceptor_list_destroy(&pax.adefer);
-  instance_list_destroy(&pax.ilist);
-  instance_list_destroy(&pax.idefer);
-  request_list_destroy(&pax.rcache);
+  acceptor_list_destroy(&pax->alist);
+  acceptor_list_destroy(&pax->adefer);
+  instance_list_destroy(&pax->ilist);
+  instance_list_destroy(&pax->idefer);
+  request_list_destroy(&pax->rcache);
 
   // Reinitialize our state.
-  paxos_init(pax.connect, pax.disconnect, &pax.learn);
+  paxos_init(state.connect, state.disconnect, &state.learn);
 
   return 0;
 }
@@ -187,11 +192,11 @@ paxos_drop_connection(struct paxos_peer *source)
   was_proposer = is_proposer();
 
   // Connection dropped; mark the acceptor as dead.
-  LIST_FOREACH(acc, &pax.alist, pa_le) {
+  LIST_FOREACH(acc, &pax->alist, pa_le) {
     if (acc->pa_peer == source) {
       paxos_peer_destroy(acc->pa_peer);
       acc->pa_peer = NULL;
-      pax.live_count--;
+      pax->live_count--;
       break;
     }
   }
@@ -202,7 +207,7 @@ paxos_drop_connection(struct paxos_peer *source)
   }
 
   // Oh noes!  Did we lose the proposer?
-  if (acc->pa_paxid == pax.proposer->pa_paxid) {
+  if (acc->pa_paxid == pax->proposer->pa_paxid) {
     // Let's mark the new one.
     reset_proposer();
 
@@ -414,11 +419,11 @@ void
 instance_insert_and_upstart(struct paxos_instance *inst)
 {
   // Insert into the ilist.
-  instance_insert(&pax.ilist, inst);
+  instance_insert(&pax->ilist, inst);
 
   // Update istart if we just instantiated the hole.
-  if (inst->pi_hdr.ph_inum == pax.ihole) {
-    pax.istart = inst;
+  if (inst->pi_hdr.ph_inum == pax->ihole) {
+    pax->istart = inst;
   }
 }
 
@@ -452,12 +457,12 @@ proposer_decree_part(struct paxos_acceptor *acc)
   inst = g_malloc0(sizeof(*inst));
 
   inst->pi_val.pv_dkind = DEC_PART;
-  inst->pi_val.pv_reqid.id = pax.self_id;
-  inst->pi_val.pv_reqid.gen = (++pax.req_id);
+  inst->pi_val.pv_reqid.id = pax->self_id;
+  inst->pi_val.pv_reqid.gen = (++pax->req_id);
   inst->pi_val.pv_extra = acc->pa_paxid;
 
-  if (pax.prep != NULL) {
-    LIST_INSERT_TAIL(&pax.idefer, inst, pi_le);
+  if (pax->prep != NULL) {
+    LIST_INSERT_TAIL(&pax->idefer, inst, pi_le);
     return 0;
   } else {
     return proposer_decree(inst);
@@ -486,7 +491,7 @@ proposer_force_kill(struct paxos_peer *source)
   g_critical("paxos_dispatch: Two live proposers detected.");
 
   // Find our acceptor object.
-  LIST_FOREACH(acc, &pax.alist, pa_le) {
+  LIST_FOREACH(acc, &pax->alist, pa_le) {
     if (acc->pa_peer == source) {
       // Decree a part for the acceptor.
       return proposer_decree_part(acc);
