@@ -13,7 +13,9 @@
  * and friend requests. Actual chat is handled by the distributed paxos
  * algorithm.
  *
- * TODO describe how the paxos algorithm is hooked up
+ * Calls to the libmomot api are added in relevant user action functions.
+ * In addition event listeners are added to listen for relevant libmotmot
+ * actions.
  *
  * In addition to supporting presence and chatting, the protocol interacts
  * with the UI through calls to libpurple functions.
@@ -993,12 +995,10 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
           update_remote_status(a, friend_name, status);
         }
         else{
-          // HACK
           proto = g_new0(motmot_buddy, 1);
           proto -> addr = addr;
           proto -> port = port;
           bud -> proto_data = proto;
-          // /HACK
           update_remote_status(a, friend_name, status);
           g_free(friend_name);
         }
@@ -1047,13 +1047,12 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
       }
       status = deser_get_pos_int(ar, 2, &error);
       if(error == PURPLEMOT_ERROR){
+        g_free(friend_name);
         return;
       }
       update_remote_status(a, friend_name, status);
 
       if(opcode == PUSH_FRIEND_ACCEPT){
-        purple_debug_info("motmot", "querying the status");
-        query_status(friend_name, conn);
         break;
       }
 
