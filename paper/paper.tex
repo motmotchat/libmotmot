@@ -212,6 +212,49 @@ these side protocols in detail.
 
 \subsection{Testing}
 
+Testing \libmotmot in a realistic setting was also challenging. We resorted to
+client ``fuzzing'' as our primary testing strategy, in which we randomly issued
+valid commands to a pool of connected \Motmot instances. These commands included
+messages, join invitations, and parts, and were issued at random intervals to
+random chat participants.
+
+One of the biggest challenges was writing a testing framework that allowed us to
+script interactions between many processes. Our first attempt was a Ruby DSL
+that allowed small scripts to spawn and interact with a given number of \Motmot
+instances. After performing arbitrary manipulations to the client pool,
+including sending messages, creating new clients, and killing clients, a reaper
+thread ensures message ordering.
+
+The second iteration of a testing framework instead relied more heavily on UNIX
+abstractions. First, we create a UNIX named pipe to act as \Motmot's input
+channel (replacing \texttt{stdin}). A small utility program
+(\texttt{test/motmot}) then assists in \texttt{dup2}-ing the correct file
+descriptors in place and spawning the correct process. This allows many
+\Motmot's to be spawned in separate windows, while centralizing the control of
+the instances. Unlike the previous testing framework, \texttt{stdout} is not
+checked. Finally, a central trace runner writes commands to the appropriate
+named pipes, causing messages to be sent to various windows.
+
+A key debugging feature of both of these frameworks was the ability to attach
+debuggers to every \Motmot instance spawned. This served to be a critical
+debugging tool, especially when analyzing segmentation faults or ensuring client
+state consistency.
+
+One final problem when testing \libmotmot was in simulating the network.  Chats
+occur over TCP in the real world, which have some amount of latency and can
+perform packet fragmentation, neither of which is a concern when interfacing
+over UNIX domain sockets. To simulate a lossy network (on which connections
+occasionally die), we wrote a network proxy, which ferried data from one UNIX
+socket to another, fragmenting them and adding between 5 and 500 milliseconds of
+latency. Connections were also occasionally dropped at some random interval.
+
+While simulating a network proved difficult, we found that fuzzing with network
+delays was a very effective way of finding bugs. After sending tens of millions
+of messages through \libmotmot, we are fairly confident that it correctly
+implements Paxos and delivers chats reliably, even at very high message
+throughputs (on the order of a thousand messages a second on low-latency
+networks).
+
 \subsection{Lessons Learned}
 
 Our simplification to Paxos is a lesson in the importance of end-to-end design
