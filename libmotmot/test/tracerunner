@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+
+# Runs testing traces.
+
+ROOT = File.dirname(__FILE__)
+CONN = ROOT + '/conn/'
+
+class MotMot
+  attr_accessor :conn, :stdin
+  def initialize connect
+    @conn = CONN + rand(1...1000000).to_s
+    `mkfifo #{@conn}in`
+    `screen #{ROOT}/motmot #{@conn} #{connect.join ' '}`
+    @stdin = open(@conn + 'in', 'a')
+    @stdin.sync = true
+  end
+end
+
+motmots = Hash.new
+
+f = ARGV[0] == '-' ? $stdin : open(ARGV[0], 'r')
+
+begin
+  loop do
+    case f.readline
+    when /> run (\S+)(\s.*|)/ then
+      others = $2.strip.split.map { |k| motmots[k] }
+      motmots[$1] = MotMot.new(others.map &:conn)
+    when /([^ ]+): \/invite (\S+)/ then
+      invited = motmots[$2].conn
+      motmots[$1].stdin << "/invite " << invited << "\n"
+    when /([^ ]+): (.*)/ then
+      motmots[$1].stdin << $2.strip << "\n"
+    end
+  end
+rescue EOFError
+end
