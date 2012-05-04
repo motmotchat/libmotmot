@@ -1,10 +1,15 @@
 \documentclass{sig-alternate}
 
+\usepackage{xspace}
+\newcommand\Motmot{\textsc{Motmot}\xspace}
+
+
 \begin{document}
 
 \CopyrightYear{2012}
 
-\title{Motmot: A Secure, Distributed Chat Service}
+\title{Motmot: A Secure, Distributed Chat Protocol}
+
 
 \numberofauthors{5}
 %
@@ -40,7 +45,11 @@
 
 \begin{abstract}
 
-We should write an abstract here.
+\Motmot is a new distributed text chat protocol based on Paxos. Unlike previous
+chat protocols like XMPP, OSCAR, and IRC, \Motmot provides guaranteed message
+delivery, total message ordering, end-to-end encryption, peer authentication,
+and message deniability.
+% TODO: write more
 
 \end{abstract}
 
