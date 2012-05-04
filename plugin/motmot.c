@@ -649,6 +649,8 @@ static void nullprpl_login(PurpleAccount *acct)
                                     0,   /* which connection step this is */
                                     2);  /* total number of steps */
 
+  purple_debug_info("motmot", "connecting to discovery server");
+
   conn -> gsc = purple_ssl_connect(acct, conn -> server, port, motmot_login_cb,
   (PurpleSslErrorFunction)  motmot_login_failure, gc);
 
@@ -903,6 +905,7 @@ static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInpu
 
 
 static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond){
+  purple_debug_info("motmot", "connection achieved");
   PurpleConnection *gc = data;
   motmot_conn *conn = gc -> proto_data;
   PurpleAccount *acct = conn -> account;
