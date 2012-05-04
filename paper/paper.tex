@@ -69,7 +69,7 @@ of its client library \libmotmot, in order to provide these guarantees.
 \subsection{Design}
 
 \libmotmot implements a slightly simplified variant of the Multi-Paxos
-algorithm, augmented by a number of out-of-band yet nonetheless indispensible
+algorithm, augmented by a number of out-of-band yet nonetheless indispensable
 side protocols.  This core Paxos implementation is wrapped by a client
 interface and uses MessagePack \cite{msgpack} for network communication.
 As with the other components of \Motmot, \libmotmot makes use of the GNOME
@@ -176,14 +176,14 @@ We found that these two libraries provided good abstractions for the task of
 implementing a server. Gevent's coroutines provided an extremely useful
 concurrency model: they were executed in a single thread, so synchronization
 around global objects was not necessary, while avoiding the complexity (and
-unnecessary indentation) of a callback-based system. Msgpack also provided an
+unnecessary indentation) of a callback-based system. MessagePack also provided an
 excellent abstraction, allowing the server to assume that arbitrary data
 structures could be written to and read from the wire. The ad-hoc nature of the
 format also helped speed development of the server and protocol.
 
 % TODO: cite pyopenssl
-Finally, we used openssl (and the pyOpenSSL library in particular) to perform
-certificate operations.
+Finally, we used \texttt{openssl} (and the \texttt{pyOpenSSL} library in
+particular) to perform certificate operations.
 
 \subsection{Lessons Learned}
 
