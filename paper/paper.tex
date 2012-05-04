@@ -66,7 +66,7 @@ and order of chat events.  \Motmot assumes a benign failure model and uses a
 variant of the Paxos consensus protocol \cite{paxos,paxsimp}, which is the core
 of its client library \libmotmot, in order to provide these guarantees.
 
-\subsection{Design}
+\subsection{Simplification}
 
 \libmotmot implements a slightly simplified variant of the Multi-Paxos
 algorithm, augmented by a number of out-of-band yet nonetheless indispensable
@@ -107,10 +107,41 @@ This simplification to Paxos yields many benefits.  For instance, clients may
 still choose to keep a record of chats in a local file, but by disallowing
 protocol rejoins, this persistent storage does not play any role in the safety
 or progress of \libmotmot's Paxos implementation.  We can also avoid the need
-for complicated and high-bandwidth recovery mechanisms.
+for complicated and high-bandwidth recovery mechanisms.  In \libmotmot's Paxos,
+as in the final protocol presented in the original Paxos paper, only one
+participant is designated as the proposer, and hence allowed to issue prepares
+and subsequently decrees, at any given time.  In the absence of rejoins, we
+are able to provide a very useful system invariant which full Paxos cannot
+have:
+\begin{quote}
+  If a proposer successfully completes a prepare phase, that proposer will
+  remain the protocol's designated proposer until it leaves the protocol, by
+  failure or otherwise.
+\end{quote}
+We discuss this invariant further in the following subsection.
 
-\libmotmot also implements a number of out-of-band protocols which support
-the core Paxos algorithm.  We will now describe each of these side protocols.
+\subsection{Support Protocols}
+
+In order to make Paxos efficient and usable, the core protocol needed to be
+supplemented with additional protocols which, despite being out-of-band, were
+no less integral to the functionality of \Motmot.  We will describe each of
+these side protocols in detail.
+
+\begin{description}
+  \item[Proposer election:]
+
+  \item[Greet protocol:]
+
+  \item[Out-of-band requests:]
+
+  \item[Reconnection:]
+
+  \item[Commit retry:]
+
+  \item[Log synchronization and truncation:]
+
+  \item[Connection continuations:]
+\end{description}
 
 \subsection{Implementation}
 
@@ -118,6 +149,18 @@ the core Paxos algorithm.  We will now describe each of these side protocols.
 
 \subsection{Lessons Learned}
 
+Our simplification to Paxos is a lesson in the importance of end-to-end design
+\cite{end2end}.  The \libmotmot library is a backend protocol layer, on top of
+which chat semantics are implemented.  Without taking the semantics of the
+system's endpoints---the chat clients---into consideration, our consensus
+algorithm would have been unnecessarily featureful and complicated.
+
+The importance of out-of-band effort in distributed protocols was also made
+very clear to us in our implementation.  Other implementors of Paxos have also
+discovered the substantial amount of support needed to make the the protocol
+work in practical production-level settings \cite{paxlive}.  Clean designs
+and interfaces for these additional protocols was crucial in keeping our
+system simple, functional, and understandable.
 
 \section{Discovery Server}
 
@@ -266,7 +309,7 @@ Wheeee.
 
 \section{Acknowledgments}
 
-\thebibliography{2}{
+\thebibliography{7}{
   \bibitem{paxlive}
     T. Chandra, R. Griesemer, and J. Redstone.
     Paxos made live---an engineering perspective.
@@ -294,6 +337,11 @@ Wheeee.
     P. Resnick, ed.
     Internet Message Format, RFC 2822.
     April 2001.
+
+  \bibitem{end2end}
+    J. H. Saltzer, D. P. Reed, and D. D. Clark.
+    End-to-end arguments in system design.
+    \emph{ACM Transactions on Computer Systems}, 2(4):277-288, Nov. 1984.
 }
 
 \end{document}
