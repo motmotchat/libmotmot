@@ -1,9 +1,11 @@
 \documentclass{sig-alternate}
 
-\usepackage{url,xspace}
+\usepackage{enumitem,url,xspace}
 \newcommand\Motmot{\textsc{Motmot}\xspace}
 \newcommand\libmotmot{\texttt{libmotmot}\xspace}
 \newcommand\libpurple{\texttt{libpurple}\xspace}
+
+\setdescription{leftmargin=0pt}
 
 \begin{document}
 
@@ -128,7 +130,18 @@ no less integral to the functionality of \Motmot.  We will describe each of
 these side protocols in detail.
 
 \begin{description}
-  \item[Proposer election:]
+  \item[Join, part, and election:]
+    The original Paxos paper remarks on, but does not actually describe, a
+    procedure for electing a Paxos system's designated proposer; nor does it
+    describe mechanisms for adding and removing individuals from the system.
+    These are all, however, necessary to the functionality of our consensus
+    algorithm.  Election is necessary in order to ensure that the system makes
+    progress past the prepare phase of Paxos, lest multiple participants
+    attempt repeatedly to prepare over one another.  Join and part are required
+    in order to support any usable notion of chat.
+
+    In \libmotmot, we guarantee the consistency of joins, parts, and election
+    results by baking them in to the standard commit protocol.
 
   \item[Greet protocol:]
 
