@@ -205,7 +205,7 @@ paxos_drop_connection(struct paxos_peer *source)
 
   // Oh noes!  Did we lose the proposer?
   if (acc->pa_paxid == pax->proposer->pa_paxid) {
-    // Let's mark the new one.
+    // Let's find the new one.
     reset_proposer();
 
     // If we're the new proposer, send a prepare.
