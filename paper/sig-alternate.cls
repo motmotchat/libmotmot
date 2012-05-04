@@ -1079,7 +1079,7 @@
             \begingroup
                 \interlinepenalty \@M
                 \if@uchead
-                    \uppercase{#8}%
+                    #8%
                 \else
                     #8%
                 \fi
