@@ -59,6 +59,58 @@ and message deniability.
 
 \section{Introduction}
 
+We wrote \Motmot due to our frustrations with existing chat protocols. XMPP, the
+protocol underlying Google Chat, is a federated XML-based chat protocol. Most
+annoyingly, we found that XMPP did not guarantee message delivery---when one
+of the users' connection dies, messages sent around the time of the
+disconnection may be lost, without any indication in the protocol that this has
+happened. Furthermore, XMPP messages are not totally ordered, and different chat
+participants can have different chat logs based on when messages were received.
+
+Finally, XMPP was an unsatisfying protocol technologically. While the protocol
+itself is federated, all chat messages are still sent to central servers for
+relaying. In addition to the obvious single-point-of-failure concerns, there are
+also several product-level concerns. In particular, any server which relays your
+messages is able to read the entire contents of the chat. Furthermore, your only
+guarantee that you are in fact talking to who you think you are comes from the
+servers you are talking to.
+
+Other chat protocols besides XMPP share similar properties. Skype, another
+popular chat protocol, acts in a peer-to-peer manner.\footnote{Recent rumors
+claim that Skype, under Microsoft's kindly direction, has moved some of the
+formerly distributed parts of the Skype protocol to a centrally managed server
+cluster. In light of such developments, it's unclear just how peer-to-peer
+Skype remains.} However, the protocol (and its primary implementation) are
+closed-source, so its guarantees cannot be further examined. As firm believers
+in sunlight and open protocols, we found Skype also wanting.
+
+\subsection{Design Goals}
+
+We set out implementing \Motmot with several design goals in mind.
+
+\begin{description}
+    \item[Multi-party] Chat sessions can occur between any number of
+    individuals.
+    \item[Reliability] All chat messages should be reliably delivered. Any message
+    recorded in the chat history is guaranteed to be delivered to the rest of the
+    \Motmot session.
+    \item[Total Ordering] All chat participants will receive the same messages
+    in exactly the same order.
+    \item[Security] All connections in the system will be encrypted with TLS,
+    using certificates (and client certificates) to authenticate the other party
+    to the communication.
+    \item[Deniability] While participants in the chat are confident that the
+    messages they receive are sent by the individuals specified, chat
+    participants cannot prove the provenance of any message to any third party.
+    In other words, after the chat has completed, all participants can fabricate
+    any equivalently valid chat history.
+    \item[Federation] Anyone can host their own server and issue authentication
+    credentials. Any \Motmot user can talk to any other \Motmot user (with an
+    identity in any realm) who correctly implements the protocol.
+    \item[Presence] Users can maintain buddy lists, and know the connection
+    status (online, busy, idle, etc.) of any buddy.
+\end{description}
+
 \section{libmotmot}
 
 Guaranteed delivery and total message ordering are perhaps the most fundamental
