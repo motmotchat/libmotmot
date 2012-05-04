@@ -7,6 +7,7 @@
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_util.h"
 #include "list.h"
 
 #include <assert.h>
@@ -18,9 +19,6 @@ struct paxos_state state;
 // Current session.
 struct paxos_session *pax;
 
-void instance_insert_and_upstart(struct paxos_instance *);
-int proposer_broadcast_instance(struct paxos_instance *);
-int proposer_decree_part(struct paxos_acceptor *);
 int proposer_force_kill(struct paxos_peer *);
 
 /**
@@ -411,70 +409,6 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
 
   g_free(hdr);
   return r;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
-//  Shared protocol helpers
-//
-
-/**
- * instance_insert_and_upstart - Insert a newly allocated instance into the
- * ilist and update istart.
- */
-void
-instance_insert_and_upstart(struct paxos_instance *inst)
-{
-  // Insert into the ilist.
-  instance_insert(&pax->ilist, inst);
-
-  // Update istart if we just instantiated the hole.
-  if (inst->pi_hdr.ph_inum == pax->ihole) {
-    pax->istart = inst;
-  }
-}
-
-/**
- * paxos_broadcast_instance - Pack the header and value of an instance and
- * broadcast.
- */
-int
-paxos_broadcast_instance(struct paxos_instance *inst)
-{
-  int r;
-  struct paxos_yak py;
-
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_value_pack(&py, &(inst->pi_val));
-  r = paxos_broadcast(UNYAK(&py));
-  paxos_payload_destroy(&py);
-
-  return r;
-}
-
-/**
- * proposer_decree_part - Decree a part, deferring as necessary.
- */
-int
-proposer_decree_part(struct paxos_acceptor *acc)
-{
-  struct paxos_instance *inst;
-
-  inst = g_malloc0(sizeof(*inst));
-
-  inst->pi_val.pv_dkind = DEC_PART;
-  inst->pi_val.pv_reqid.id = pax->self_id;
-  inst->pi_val.pv_reqid.gen = (++pax->req_id);
-  inst->pi_val.pv_extra = acc->pa_paxid;
-
-  if (pax->prep != NULL) {
-    LIST_INSERT_TAIL(&pax->idefer, inst, pi_le);
-    return 0;
-  } else {
-    return proposer_decree(inst);
-  }
 }
 
 /**

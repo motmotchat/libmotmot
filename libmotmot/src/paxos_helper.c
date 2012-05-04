@@ -9,64 +9,6 @@
 
 ///////////////////////////////////////////////////////////////////////////
 //
-//  Paxos state helpers
-//
-
-/**
- * Check if we think we are the proposer.
- */
-int
-is_proposer()
-{
-  return pax->proposer != NULL && pax->self_id == pax->proposer->pa_paxid;
-}
-
-/**
- * Realias the proposer after an update to the acceptor list.
- */
-void
-reset_proposer()
-{
-  struct paxos_acceptor *it;
-
-  LIST_FOREACH(it, &pax->alist, pa_le) {
-    if (it->pa_paxid == pax->self_id || it->pa_peer != NULL) {
-      pax->proposer = it;
-      break;
-    }
-  }
-}
-
-/**
- * Gets the next free instance number.
- */
-paxid_t
-next_instance()
-{
-  return LIST_EMPTY(&pax->ilist) ? 1 : LIST_LAST(&pax->ilist)->pi_hdr.ph_inum + 1;
-}
-
-/**
- * Convenience function for denoting which dkinds are requests.
- */
-int
-request_needs_cached(dkind_t dkind)
-{
-  return (dkind == DEC_CHAT || dkind == DEC_JOIN);
-}
-
-/**
- * Get the minimum number of acceptors needed in a simple majority.
- */
-unsigned
-majority()
-{
-  return (LIST_COUNT(&pax->alist) / 2) + 1;
-}
-
-
-///////////////////////////////////////////////////////////////////////////
-//
 //  Comparison functions.
 //
 

@@ -7,6 +7,7 @@
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_util.h"
 #include "list.h"
 
 #include <assert.h>

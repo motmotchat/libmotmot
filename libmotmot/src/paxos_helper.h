@@ -15,13 +15,6 @@
     return r;             \
   }
 
-/* Convenience functions. */
-inline int is_proposer(void);
-inline void reset_proposer(void);
-inline paxid_t next_instance(void);
-inline int request_needs_cached(dkind_t dkind);
-unsigned majority(void);
-
 /* Paxid pair comparison functions. */
 int ppair_compare(ppair_t, ppair_t);
 int ballot_compare(ballot_t, ballot_t);

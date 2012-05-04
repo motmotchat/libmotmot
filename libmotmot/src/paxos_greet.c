@@ -7,12 +7,11 @@
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_util.h"
 #include "list.h"
 
 #include <assert.h>
 #include <glib.h>
-
-extern int proposer_decree_part(struct paxos_acceptor *);
 
 /**
  * proposer_welcome - Welcome a new protocol participant by passing along

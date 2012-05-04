@@ -7,6 +7,7 @@
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_util.h"
 #include "list.h"
 
 #include <assert.h>
@@ -19,10 +20,6 @@ swap(void **p1, void **p2)
   *p1 = *p2;
   *p2 = tmp;
 }
-
-extern void instance_insert_and_upstart(struct paxos_instance *);
-extern int proposer_decree_part(struct paxos_acceptor *);
-extern int paxos_broadcast_instance(struct paxos_instance *);
 
 /**
  * proposer_prepare - Broadcast a prepare message to all acceptors.

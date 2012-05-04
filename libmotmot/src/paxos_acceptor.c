@@ -7,12 +7,11 @@
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_util.h"
 #include "list.h"
 
 #include <assert.h>
 #include <glib.h>
-
-extern void instance_insert_and_upstart(struct paxos_instance *);
 
 /**
  * acceptor_ack_prepare - Prepare for a new proposer.
