@@ -158,6 +158,7 @@ typedef struct {
 // JULIE
 // struct for passing data around to motmot callbacks
 typedef struct {
+  PurpleAccount *account;
   PurpleBuddy *buddy;
   PurpleConnection *connection;
   int id;
@@ -270,19 +271,23 @@ static char *deser_get_string(msgpack_object_array ar, int i){
     struct needs to have (at least) ip field
 */
 
-// JULIE
+int connectSuccess()
+{
+  return 0;
+}
 
 // returns discovery server connection info
 GIOChannel *connect_motmot(const char *info, size_t len)
 {
   //gives us socket to buddy itself (yay peer-to-peer)
-  // TODO setup proto_data to do amusing things
-
-  // probably takes in a PurpleBuddy *buddy
-  motmot_buddy *temp = buddy->proto_data;
-
-  extra_buddy_info *info = info->buddy->proto_data.ip;
-  return g_io_channel_unix_new(temp->fd);
+  // TODO must establish handle
+  PurpleConnection* connection = (MotmotInfo*)info -> connection;
+  PurpleAccount* account = (MotmotInfo*)info -> account;
+  motmot_buddy *temp = (MotmotInfo*)info->buddy->proto_data;
+  host = temp.addr;
+  port = temp.port;
+  gpointer = NULL;
+  return g_io_channel_unix_new(purple_proxy_connect(handle,account,host,port,connectSuccess,gpointer));
 }
 
 //static int nullprpl_send_im(PurpleConnection *gc, const char *who,
