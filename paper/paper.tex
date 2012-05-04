@@ -1,7 +1,8 @@
 \documentclass{sig-alternate}
 
-\usepackage{xspace}
+\usepackage{url,xspace}
 \newcommand\Motmot{\textsc{Motmot}\xspace}
+\newcommand\libmotmot{\texttt{libmotmot}\xspace}
 
 \begin{document}
 
@@ -61,10 +62,54 @@ Guaranteed delivery and total message ordering are perhaps the most fundamental
 chat features provided by \Motmot.  In order to obtain these properties, the
 clients participating in a chat must reach a consensus concerning the reception
 and order of chat events.  \Motmot assumes a benign failure model and uses a
-variant of the Paxos consensus protocol \cite{paxos}, which is the core of its
-client library \texttt{libmotmot}, in order to provide these guarantees.
+variant of the Paxos consensus protocol \cite{paxos,paxsimp}, which is the core
+of its client library \libmotmot, in order to provide these guarantees.
 
 \subsection{Design}
+
+\libmotmot implements a slightly simplified variant of the Multi-Paxos
+algorithm, augmented by a number of out-of-band yet nonetheless indispensible
+side protocols.  This core Paxos implementation is wrapped by a client
+interface and uses MessagePack \cite{msgpack} for network communication.
+As with the other components of \Motmot, \libmotmot makes use of the GNOME
+Library (GLib) \cite{glib}.
+
+The Paxos implementation of \libmotmot makes a fundamental simplification to
+the standard algorithm: we do not allow participants who leave the protocol, by
+failure or otherwise, to rejoin.  In the original Paxos protocol, protocol
+participants may fail benignly or depart the protocol at any time, and return
+at some later point to continue voting and learning values in the system.
+This is necessary in order for participants to maintain a notion of persistent
+identity.  It is also needed to ensure recovery in the event of total system
+failure.  Participants keep a persistent log of the values committed in the
+protocol.  In the event of total failure, they can individually come back up,
+rejoin the protocol, and corroborate on their individual copies of the log,
+thereby allowing the protocol to continue where it left off.
+
+A chat protocol, however, has no need for this mode of recovery, nor for this
+particular notion of identity.  The persistent identity which users want from
+a chat service can be maintained out-of-band.  If a user leaves a chat, there
+is no need, at the level of the consensus protocol, to treat the user as the
+\emph{same} user if they returns to the chat later.  Users need not be informed
+of the messages that were exchanged in their absence.\footnote{We have not yet
+investigated whether or not a distributed chat protocol is able to support
+offline messages cleanly.}  So long as the system is able to determine, in a
+consistent manner, that the user has left, the user can gain a new identity
+within the protocol upon his or her return.
+
+Similarly, if a chat session ends, either due to failure or simply because all
+users leave, the termination is allowed to be final.  The participants in the
+chat may start a new session if they wish, but this new session need not have
+any memory nor knowledge of the old one.
+
+This simplification to Paxos yields many benefits.  For instance, clients may
+still choose to keep a record of chats in a local file, but by disallowing
+protocol rejoins, this persistent storage does not play any role in the safety
+or progress of \libmotmot's Paxos implementation.  We can also avoid the need
+for complicated and high-bandwidth recovery mechanisms.
+
+\libmotmot also implements a number of out-of-band protocols which support
+the core Paxos algorithm.  We will now describe each of these side protocols.
 
 \subsection{Implementation}
 
@@ -121,12 +166,10 @@ version of the protocol.
 
 The \Motmot discovery server was implemented in Python using several open source
 libraries. The server itself is a custom RPC-like reactor/dispatcher written
-% TODO: cite gevent
-using gevent, a coroutine-based networking library. For our communication
-% TODO: cite msgpack
-protocol, we use msgpack to serialize messages. This allows for easy
-cross-language communication with clients and other servers, since
-implementations are available for most popular languages.
+using GEvent \cite{glib}, a coroutine-based networking library. For our
+communication protocol, we use MessagePack \cite{msgpack} to serialize messages.
+This allows for easy cross-language communication with clients and other servers,
+since implementations are available for most popular languages.
 
 We found that these two libraries provided good abstractions for the task of
 implementing a server. Gevent's coroutines provided an extremely useful
@@ -179,6 +222,10 @@ Wheeee.
     Paxos made live---an engineering perspective.
     In \emph{Proc. 26th Symp. on Principles of Distributed Computing}, pp. 398-407, Aug. 2007.
 
+  \bibitem{glib}
+    GNOME Library.
+    \url{http://developer.gnome.org/about/}, 2011.
+
   \bibitem{paxos}
     L. Lamport.
     The part-time parliament.
@@ -188,6 +235,10 @@ Wheeee.
     L. Lamport.
     Paxos made simple.
     \emph{ACM SIGACT News 32}, 4:18-25, Dec. 2001.
+
+  \bibitem{msgpack}
+    MessagePack.
+    \url{http://www.msgpack.org/}, 2010.
 
   \bibitem{rfc}
     P. Resnick, ed.
