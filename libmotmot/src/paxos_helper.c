@@ -103,7 +103,7 @@ connectinue_new(motmot_connect_continuation_t func, paxid_t paxid)
   conn->pc_paxid = paxid;
   conn->pc_inum = 0;
 
-  LIST_INSERT_TAIL(&pax->connectinues, conn, pc_le);
+  LIST_INSERT_TAIL(&pax->clist, conn, pc_le);
 
   return conn;
 }
@@ -142,7 +142,6 @@ request_destroy(struct paxos_request *req)
 void
 connectinue_destroy(struct paxos_connectinue *conn)
 {
-  LIST_REMOVE(&pax->connectinues, conn, pc_le);
   g_free(conn);
 }
 

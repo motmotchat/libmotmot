@@ -25,7 +25,10 @@
                                                                 \
     /* Obtain the acceptor, returning if it has been parted. */ \
     acc = acceptor_find(&pax->alist, conn->pc_paxid);           \
+                                                                \
+    LIST_REMOVE(&pax->clist, conn, pc_le);                      \
     connectinue_destroy(conn);                                  \
+                                                                \
     if (acc == NULL || acc->pa_peer != NULL) {                  \
       return 0;                                                 \
     }                                                           \
@@ -159,17 +162,19 @@ continue_ack_reject(GIOChannel *chan, void *data)
 
   conn = data;
 
-  // Obtain the acceptor, returning if it has been parted.
+  // Obtain the acceptor and rejected instance.
   acc = acceptor_find(&pax->alist, conn->pc_paxid);
+  inst = instance_find(&pax->ilist, conn->pc_inum);
+
+  LIST_REMOVE(&pax->clist, conn, pc_le);
+  connectinue_destroy(conn);
+
+  // If the acceptor has been parted, just return.
   if (acc == NULL || acc->pa_peer != NULL) {
-    connectinue_destroy(conn);
     return 0;
   }
 
-  // Obtain the instance that was rejected.  If it is gone, it must have been
-  // sync'd away, so just return.
-  inst = instance_find(&pax->ilist, conn->pc_inum);
-  connectinue_destroy(conn);
+  // If the instance is gone, it must have been sync'd away, so just return.
   if (inst == NULL) {
     return 0;
   }

@@ -226,7 +226,7 @@ struct paxos_connectinue {
   paxid_t pc_inum;
   LIST_ENTRY(paxos_connectinue) pc_le;
 };
-LIST_HEAD(continue_list, paxos_connectinue);
+LIST_HEAD(connectinue_list, paxos_connectinue);
 
 /* Session state. */
 struct paxos_session {
@@ -248,7 +248,7 @@ struct paxos_session {
   unsigned live_count;                // number of acceptors we think are live
   struct acceptor_list alist;         // list of all Paxos participants
   struct acceptor_list adefer;        // list of deferred hello acks
-  struct continue_list connectinues;  // list of connectinuations
+  struct connectinue_list clist;      // list of connectinuations
 
   struct instance_list ilist;         // list of all instances
   struct instance_list idefer;        // list of deferred instances

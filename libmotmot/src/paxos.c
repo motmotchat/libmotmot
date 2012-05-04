@@ -59,7 +59,7 @@ paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
   pax->live_count = 0;
   LIST_INIT(&pax->alist);
   LIST_INIT(&pax->adefer);
-  LIST_INIT(&pax->connectinues);
+  LIST_INIT(&pax->clist);
 
   LIST_INIT(&pax->ilist);
   LIST_INIT(&pax->idefer);
