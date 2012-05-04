@@ -173,6 +173,7 @@ typedef struct {
   PurpleMessageFlags flags;
 } GOfflineMessage;
 
+// Called by print_part_motmot to indicate successful chat departure.
 static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
                            int id, const char *room, gpointer userdata) {
   if (from != to) {
@@ -348,7 +349,7 @@ static PurpleConnection *get_purplemot_gc(const char *username) {
     return NULL;
 }
 
-
+// Called by print_chat_motmot, after paxos has said message is OK to send
 static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
                                  int id, const char *room, gpointer userdata) {
   const char *message = (const char *)userdata;
@@ -362,7 +363,7 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
 }
 
 // returns fd on success, -1 on failure—>TODO(Julie) fix this once MAX does his shit
-// it'll also be a GIOChannel * then
+// it'll also be a GIOChannel * then.  So yeah.
 static void connectSuccess(gpointer data, gint source, const gchar *error_message)
 {
   //MotmotInfo *info = data;
@@ -374,8 +375,7 @@ static void connectSuccess(gpointer data, gint source, const gchar *error_messag
   return;
 }
 
-// sets up connection to a buddy
-
+// libmotmot callback. Sets up a connection to a buddy.
 static void connect_motmot(const char *info, size_t len)
 {
   //gives us socket to buddy itself (yay peer-to-peer)
@@ -396,6 +396,7 @@ static void connect_motmot(const char *info, size_t len)
 //static int purplemot_send_im(PurpleConnection *gc, const char *who,
 //                        const char *message, PurpleMessageFlags flags)
 
+// libmotmot callback. Calls receive_chat_message.
 int print_chat_motmot(const void *info, size_t len)
 {
   //given identifying *info, extracts from,to,id,room_id,
@@ -411,6 +412,7 @@ int print_chat_motmot(const void *info, size_t len)
   return 0;
 }
 
+// libmotmot callback.
 //call when someone joins a chat—probably do this based on their sending a msg to chat
 // TODO—fill this in, make this pint "so-and-so joined"
 int print_join_motmot(const void *info, size_t len)
@@ -419,6 +421,7 @@ int print_join_motmot(const void *info, size_t len)
   return 0;
 }
 
+// libmotmot callback
 //call when someone leaves a chat—do based on logout/inaccessibility I guess
 int print_part_motmot(const void *info, size_t len)
 {
@@ -433,8 +436,6 @@ int print_part_motmot(const void *info, size_t len)
   left_chat_room(from_conv,to_conv,id,room,message);
   return 0;
 }
-
-
 
 static void call_if_purplemot(gpointer data, gpointer userdata) {
   PurpleConnection *gc = (PurpleConnection *)(data);
@@ -1492,6 +1493,7 @@ static void joined_chat(PurpleConvChat *from, PurpleConvChat *to,
   }
 }
 
+// calls motmot_invite (libmotmot)
 static void purplemot_join_chat(PurpleConnection *gc, GHashTable *components) {
   // JULIE
   // to join chat, first call upon almighty paxos
@@ -1579,6 +1581,7 @@ static void purplemot_chat_invite(PurpleConnection *gc, int id,
 
 
 // JULIE: add disconnect back in
+// calls motmot_disconnect (libmotmot)
 static void purplemot_chat_leave(PurpleConnection *gc, int id) {
   PurpleConversation *conv = purple_find_chat(gc, id);
   //motmot_disconnect();
@@ -1657,6 +1660,7 @@ static void purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who
 }
 
 
+// calls motmot_send (libmotmot function)
 static int purplemot_chat_send(PurpleConnection *gc, int id, const char *message,
                               PurpleMessageFlags flags) {
   MotmotInfo *info;
