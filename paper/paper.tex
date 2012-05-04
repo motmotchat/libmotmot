@@ -161,7 +161,7 @@ This simplification to Paxos yields many benefits.  For instance, clients may
 still choose to keep a record of chats in a local file, but by disallowing
 protocol rejoins, this persistent storage does not play any role in the safety
 or progress of \libmotmot's Paxos implementation.  We can also avoid the need
-for complicated and high-bandwidth recovery mechanisms.  In \libmotmot's Paxos,
+for complicated and high-volume recovery mechanisms.  In \libmotmot's Paxos,
 as in the final protocol presented in the original Paxos paper, only one
 participant is designated as the proposer, and hence allowed to issue prepares
 and subsequently decrees, at any given time.  In the absence of rejoins, we
@@ -183,7 +183,7 @@ these side protocols in detail.
 
 \begin{description}
   \item[Join, part, and election:]
-    The original Paxos paper remarks on, but does not actually describe, a
+    The original Paxos paper mentions, but does not actually provide, a
     procedure for electing a Paxos system's designated proposer; nor does it
     describe mechanisms for adding and removing individuals from the system.
     These are all, however, necessary to the functionality of our consensus
@@ -193,17 +193,106 @@ these side protocols in detail.
     in order to support any usable notion of chat.
 
     In \libmotmot, we guarantee the consistency of joins, parts, and election
-    results by baking them in to the standard commit protocol.
+    results by baking them in to the standard commit protocol.  Each protocol
+    participant keeps a list of all the participants in the chat, ordered
+    by session-unique identifiers.  Participants can be added and removed from
+    this list only through Paxos commits decreeing either \verb`DEC_JOIN` or
+    \verb`DEC_PART`, which ensures the consistency of the participants in this
+    list and their order.  Participants are identified by the ID of the Multi-%
+    Paxos instance which decreed their join.
+
+    Proposer election is performed locally, with each participant simply
+    recognizing the earliest-joined participant to whom they have a live socket
+    connection as the designated proposer.  Participants will only accept a
+    prepare phase issued by this designated proposer.  When a new proposer
+    successfully completes its prepare phase, it broadcasts a decree requesting
+    that all participants evict the old proposer from their participant lists.
+    In this manner, we are able to guarantee the invariant described above.
+
+    This mechanism may occasionally result in the forced eviction of a live
+    participant who was the previous proposer.  It is conceivable that transient
+    network problems might cause a majority of participants to lose their
+    connection to the original proposer, and hence to accept the prepare of
+    the new proposer.  Before the new proposer is able to issue its decree
+    parting the old proposer, however, these connections may all be
+    reestablished, and the old proposer may be booted even though the system
+    as a whole currently recognizes its presence.  This causes no loss of
+    consistency and merely forces an old proposer in this situation to rejoin
+    the chat.  We consider this a worthwhile tradeoff given the usefulness
+    of our invariant.
 
   \item[Greet protocol:]
+    The presence of joins and parts demands a mechanism for initiating
+    communication with new protocol participants.  When a join is successfully
+    accepted by a majority, the proposer will decree it.  Subsequently, the
+    proposer will send the new participant a welcome message, which transfers
+    all of its protocol state to the new participant.  The proposer always has
+    the most up-to-date state, and since the network guarantees FIFO message
+    ordering and the proposer is the only one who can issue commands to modify
+    protocol state, the new participant's state will be consistent.  The
+    proposer also assigns the new participant its ID (i.e., the instance
+    number of its join decree).
+
+    The new participant will then open sockets to each participant on the
+    list it receives from the proposer.  It will then send each participant
+    a hello message.  This hello message is also used in the reconnect protocol
+    and is used to bind sockets to the protocol state objects representing
+    participants.
 
   \item[Out-of-band requests:]
+    The proposer is the only protocol participant able to order and to decree
+    a chat message.  Hence, all participants must have a mechanism for asking
+    the proposer to decree a message.  These requests also apply for joins
+    (though not to parts, since we do not support forced kicking of users from
+    a chat).
+
+    We want to avoid stressing the network, and in particular want to keep the
+    volume of data the proposer must handle to a minimum, since the proposer is
+    one of the system's primary bottlenecks.  Thus, we did not want to force
+    the proposer to broadcast the arbitrarily-large chat messages produced by
+    the various users in the chat.  Instead of sending along the actual message,
+    the requester of a message generates a session-unique identifier for the
+    message, consisting of the requester's own participant ID and a locally
+    unique request ID.  The requester then takes on the responsibility of
+    broadcasting this identifier along with the actual message contents to all
+    participants.  When this message is received, each participant caches it
+    locally.  The proposer will make a decree which contains the identifier of
+    the request; when the other participants receive a commit for the decree,
+    they can do a local lookup for the message contents.
+
+    This has the added benefit of providing all participants an assurance that
+    message contents come directly from their sources without the possibility
+    of corruption by the proposer.  At worst, the proposer can modify the
+    cache index of the message.
+
+    Because our request mechanism is done out-of-band, commits for a given
+    request may arrive after the message contents are received from the initial
+    broadcast.  We implement a basic protocol for retrieving and resending
+    these messages if they cannot be found.
 
   \item[Reconnection:]
 
-  \item[Commit retry:]
+  \item[In-order learn:]
+    \libmotmot's clients are notified of Paxos commits via a set of callbacks.
+    In order to ensure the total ordering of chats as seen by the user, we
+    ``learn'' about commits in order of Paxos instance number.  This means that
+    a missing commit message could prevent client-side progress.  To rectify
+    this, we implement a straightforward means for any participant to ask the
+    proposer to remind them of a committed value.
 
   \item[Log synchronization and truncation:]
+    Commits made in Paxos must be kept by all protocol participants in order
+    to obtain Paxos's correctness guarantees.  Since we keep all of our logs
+    in memory, however, we need a mechanism for pruning information which
+    the entire system has finished learning.
+
+    We implement an out-of-band sync-and-truncate protocol, which is used by
+    the proposer to issue consistent system-wide deletion of old commits.  A
+    proposer asks all protocol participants to return the last contiguous
+    commit which their respective clients have learned about.  Once it receives
+    a response from \emph{all} participants, it can take the minimum instance
+    number of those commits and safely command all participants to truncate
+    up to that point.
 
   \item[Connection continuations:]
 \end{description}
