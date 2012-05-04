@@ -18,7 +18,7 @@ end
 
 motmots = Hash.new
 
-f = ARGV[0] == '-' ? $stdin : open(ARGV[0], 'r')
+f = (ARGV[0] == '-' or ARGV[0].nil?) ? $stdin : open(ARGV[0], 'r')
 
 begin
   loop do
