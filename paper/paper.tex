@@ -47,6 +47,8 @@
 chat protocols like XMPP, OSCAR, and IRC, \Motmot provides guaranteed message
 delivery, total message ordering, end-to-end encryption, peer authentication,
 and message deniability.
+% TODO: server federates, etc.
+% TODO: no xml! It's a feature
 % TODO: write more
 
 \end{abstract}
@@ -64,15 +66,85 @@ client library \texttt{libmotmot}, in order to provide these guarantees.
 
 \subsection{Design}
 
-
-
 \subsection{Implementation}
 
 \subsection{Testing}
 
 \subsection{Lessons Learned}
 
+
 \section{Discovery Server}
+
+The discovery server performs several tasks in the system: authentication and
+identity federation; presence management; and connection brokering.
+
+\subsection{Identity}
+
+Much like other federated protocols like XMPP and email, identity handles are
+based upon DNS. Every domain name with a SRV record can act as a \Motmot
+identity realm, and give out email-like addresses (an \verb`addr-spec` as
+defined in RFC 2822) for \Motmot communication.
+
+To grant a user an identity on a realm, the user first presents a username and
+password to the server, after which the server delegates authority for that name
+to the client by signing that client's key. This key-signing process is the
+method by which peers can authenticate securely to each other without a
+centralized broker.
+
+\subsection{Presence}
+
+In chat protocols, presence is the system by which users can specify a list of
+buddies to publish their online status to. The \Motmot discovery server provides
+a presence lookup service, by recording the status of all of the clients
+connected to it. Servers then push presence updates to all of the other servers
+on any user's buddy list, which in turn push the notification to the relevant
+clients.
+
+This subsystem system does not need to be robust or reliable, since all pushed
+state can be recreated from other sources, and since asynchronously pushed
+presence notifications do not need to be perfectly reliable to ensure a usable
+user interface.
+
+\subsection{Brokering}
+
+Finally, the server must perform message brokering. For clients behind firewalls
+or routers which perform network address translation (NAT), direct connections
+are not possible. In such a case, the discovery server might be forced to assist
+in connecting the clients.
+
+Technologies like STUN, TURN, and ICE provide implementations of ``NAT poking,''
+and while mechanisms for interfacing with such servers were considered in the
+design of the server, performing brokering itself was outside the scope of this
+version of the protocol.
+
+\subsection{Implementation}
+
+The \Motmot discovery server was implemented in Python using several open source
+libraries. The server itself is a custom RPC-like reactor/dispatcher written
+% TODO: cite gevent
+using gevent, a coroutine-based networking library. For our communication
+% TODO: cite msgpack
+protocol, we use msgpack to serialize messages. This allows for easy
+cross-language communication with clients and other servers, since
+implementations are available for most popular languages.
+
+We found that these two libraries provided good abstractions for the task of
+implementing a server. Gevent's coroutines provided an extremely useful
+concurrency model: they were executed in a single thread, so synchronization
+around global objects was not necessary, while avoiding the complexity (and
+unnecessary indentation) of a callback-based system. Msgpack also provided an
+excellent abstraction, allowing the server to assume that arbitrary data
+structures could be written to and read from the wire. The ad-hoc nature of the
+format also helped speed development of the server and protocol.
+
+% TODO: cite pyopenssl
+Finally, we used openssl (and the pyOpenSSL library in particular) to perform
+certificate operations
+
+\subsection{Lessons Learned}
+
+% TODO: EJ?
+>>>>>>> Discovery server
 
 \section{Pidgin Plugin}
 
