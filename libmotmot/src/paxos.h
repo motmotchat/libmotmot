@@ -222,6 +222,9 @@ struct learn_table {
 
 /* Local state. */
 struct paxos_state {
+  paxid_t session_id;                 // ID of the Paxos session
+  void *client_data;                  // opaque client session object
+
   paxid_t self_id;                    // our own acceptor ID
   paxid_t req_id;                     // local incrementing request ID
   struct paxos_acceptor *proposer;    // the acceptor we think is the proposer
@@ -247,20 +250,21 @@ struct paxos_state {
   struct request_list rcache;         // cached requests waiting for commit
 
   connect_t connect;                  // callback for initiating connections
+  disconnect_t disconnect;             // callback for registering disconnection
   struct learn_table learn;           // callbacks for paxos_learn
 };
 
 extern struct paxos_state pax;
 
 /* Paxos protocol interface. */
-void paxos_init(connect_t, struct learn_table *);
-void paxos_start(const void *, size_t);
-void paxos_end(void);
+void paxos_init(connect_t, disconnect_t, struct learn_table *);
+void *paxos_start(const void *, size_t, void *);
+int paxos_end(void *data);
 
 int paxos_register_connection(GIOChannel *);
 int paxos_drop_connection(struct paxos_peer *);
 
-int paxos_request(dkind_t, const void *, size_t len);
+int paxos_request(struct paxos_state *, dkind_t, const void *, size_t len);
 int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
 int paxos_sync(void *);
 

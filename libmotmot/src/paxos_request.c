@@ -47,7 +47,8 @@ proposer_decree_request(struct paxos_request *req)
  * string).
  */
 int
-paxos_request(dkind_t dkind, const void *msg, size_t len)
+paxos_request(struct paxos_state *session, dkind_t dkind, const void *msg,
+    size_t len)
 {
   int r, needs_cached;
   struct paxos_header hdr;

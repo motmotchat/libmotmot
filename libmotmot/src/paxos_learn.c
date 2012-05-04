@@ -152,7 +152,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 
     case DEC_CHAT:
       // Invoke client learning callback.
-      pax.learn.chat(req->pr_data, req->pr_size);
+      pax.learn.chat(req->pr_data, req->pr_size, pax.client_data);
       break;
 
     case DEC_JOIN:
@@ -184,7 +184,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       }
 
       // Invoke client learning callback.
-      pax.learn.join(req->pr_data, req->pr_size);
+      pax.learn.join(req->pr_data, req->pr_size, pax.client_data);
       break;
 
     case DEC_PART:
@@ -202,7 +202,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       }
 
       // Invoke client learning callback.
-      pax.learn.part(acc->pa_desc, acc->pa_size);
+      pax.learn.part(acc->pa_desc, acc->pa_size, pax.client_data);
 
       if (acc->pa_paxid != pax.self_id) {
         // Just clean up the acceptor.
@@ -210,7 +210,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
         acceptor_destroy(acc);
       } else {
         // We are leaving the protocol, so wipe all our state clean.
-        paxos_end();
+        paxos_end(&pax);
         return 1;
       }
 

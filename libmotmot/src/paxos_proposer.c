@@ -58,7 +58,7 @@ proposer_prepare()
   // If a majority of acceptors are disconnected, we should just give up and
   // quit the session.
   if (pax.live_count < majority()) {
-    paxos_end();
+    paxos_end(&pax);
     return 1;
   }
 

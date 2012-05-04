@@ -120,17 +120,17 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
     // \invite socket - Handle inviting others.
     tmp = msg + 7;
     while (*++tmp == ' ');  // Move past all the spaces.
-    motmot_invite(tmp, strlen(tmp));
+    motmot_invite(tmp, strlen(tmp), NULL);
   } else if (g_str_has_prefix(msg, "/part")) {
     // \part - Only do it if it's followed by a space or EOF.
     if (msg[6] == '\0' || msg[6] == ' ') {
-      motmot_disconnect();
+      motmot_disconnect(NULL);
       g_io_channel_shutdown(self_channel, TRUE, &gerr);
       exit(0);
     }
   } else {
     // Broadcast via motmot.
-    motmot_send(msg, eol + 1);
+    motmot_send(msg, eol + 1, NULL);
   }
 
   g_free(msg);
@@ -138,24 +138,34 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 }
 
 int
-print_chat(const void *buf, size_t len) {
+print_chat(const void *buf, size_t len, void *data)
+{
   printf("CHAT: %.*s\n", (int)len, (char *)buf);
   fflush(stdout);
   return 0;
 }
 
 int
-print_join(const void *buf, size_t len) {
+print_join(const void *buf, size_t len, void *data)
+{
   printf("JOIN: %.*s\n", (int)len, (char *)buf);
   fflush(stdout);
   return 0;
 }
 
 int
-print_part(const void *buf, size_t len) {
+print_part(const void *buf, size_t len, void *data)
+{
   printf("PART: %.*s\n", (int)len, (char *)buf);
   fflush(stdout);
   return 0;
+}
+
+void
+disconnect(void *data)
+{
+  printf("PART succeeded.  Exiting...\n");
+  exit(0);
 }
 
 int
@@ -179,16 +189,16 @@ main(int argc, char *argv[])
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   // Initialize motmot.
-  motmot_init(connect_unix, print_chat, print_join, print_part);
+  motmot_init(connect_unix, print_chat, print_join, print_part, disconnect);
 
   // Start a new chat.
   if (argc > 2) {
-    motmot_session(NULL, argv[1], strlen(argv[1]));
+    motmot_session(argv[1], strlen(argv[1]), NULL);
   }
 
   // Invite our friends!
   for (i = 2; i < argc; i++) {
-    motmot_invite(argv[i], strlen(argv[i]));
+    motmot_invite(argv[i], strlen(argv[i]), NULL);
   }
 
   g_main_loop_run(gmain);

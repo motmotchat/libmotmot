@@ -12,7 +12,8 @@
  * motmot_init - Initialize libmotmot.
  */
 void
-motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part)
+motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
+    disconnect_t disconnect)
 {
   struct learn_table learn;
 
@@ -20,17 +21,17 @@ motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part)
   learn.join = join;
   learn.part = part;
 
-  paxos_init(connect, &learn);
+  paxos_init(connect, disconnect, &learn);
   g_timeout_add_seconds(1, paxos_sync, NULL);
 }
 
 /**
  * motmot_session - Start a new motmot chat.
  */
-void
-motmot_session(void *id, const void *desc, size_t size)
+void *
+motmot_session(const void *desc, size_t size, void *data)
 {
-  paxos_start(desc, size);
+  return paxos_start(desc, size, data);
 }
 
 /**
@@ -47,25 +48,25 @@ motmot_watch(GIOChannel *channel)
  * motmot_invite - Add user to chat.
  */
 int
-motmot_invite(const void *handle, size_t len)
+motmot_invite(const void *handle, size_t len, void *data)
 {
-  return paxos_request(DEC_JOIN, handle, len);
+  return paxos_request(data, DEC_JOIN, handle, len);
 }
 
 /**
  * motmot_disconnect - Disconnect from a chat.
  */
-void
-motmot_disconnect()
+int
+motmot_disconnect(void *data)
 {
-  paxos_end();
+  return paxos_end(data);
 }
 
 /**
  * motmot_send - Queue the message for reliable ordered broadcast.
  */
 int
-motmot_send(const char *message, size_t len)
+motmot_send(const char *message, size_t len, void *data)
 {
-  return paxos_request(DEC_CHAT, message, len);
+  return paxos_request(data, DEC_CHAT, message, len);
 }

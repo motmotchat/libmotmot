@@ -26,7 +26,8 @@ int proposer_force_kill(struct paxos_peer *);
  * Most of our state is worthless until we are welcomed to the system.
  */
 void
-paxos_init(connect_t connect, struct learn_table *learn)
+paxos_init(connect_t connect, disconnect_t disconnect,
+    struct learn_table *learn)
 {
   pax.self_id = 0;
   pax.req_id = 0;
@@ -54,6 +55,7 @@ paxos_init(connect_t connect, struct learn_table *learn)
   LIST_INIT(&pax.rcache);
 
   pax.connect = connect;
+  pax.disconnect = disconnect;
   pax.learn.chat = learn->chat;
   pax.learn.join = learn->join;
   pax.learn.part = learn->part;
@@ -61,17 +63,17 @@ paxos_init(connect_t connect, struct learn_table *learn)
 
 /**
  * paxos_start - Start up the Paxos protocol with ourselves as the proposer.
- *
- * Currently we only support one universal execution of the protocol, so
- * everybody had better be in agreement about the fact that we get to start
- * it up.
  */
-void
-paxos_start(const void *desc, size_t size)
+void *
+paxos_start(const void *desc, size_t size, void *data)
 {
   struct paxos_request *req;
   struct paxos_instance *inst;
   struct paxos_acceptor *acc;
+
+  // Initialize a new session.
+  // XXX: Do that.
+  pax.client_data = data;
 
   // Give ourselves ID 1.
   pax.self_id = 1;
@@ -130,13 +132,15 @@ paxos_start(const void *desc, size_t size)
 
   // Set ourselves as the proposer.
   pax.proposer = acc;
+
+  return &pax;
 }
 
 /**
  * paxos_end - End our participancy in a Paxos protocol.
  */
-void
-paxos_end()
+int
+paxos_end(void *session)
 {
   // Wipe all our lists.
   acceptor_list_destroy(&pax.alist);
@@ -146,7 +150,9 @@ paxos_end()
   request_list_destroy(&pax.rcache);
 
   // Reinitialize our state.
-  paxos_init(pax.connect, &pax.learn);
+  paxos_init(pax.connect, pax.disconnect, &pax.learn);
+
+  return 0;
 }
 
 /**
