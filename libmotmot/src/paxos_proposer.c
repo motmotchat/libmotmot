@@ -249,7 +249,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
     if (inst != NULL) {
       // Do initialization common to both above paths.
       header_init(&inst->pi_hdr, OP_DECREE, inst->pi_hdr.ph_inum);
-      instance_reset_metadata(inst);
+      instance_init_metadata(inst);
 
       // Pack and broadcast the decree.
       ERR_RET(r, paxos_broadcast_instance(inst));
@@ -292,7 +292,7 @@ proposer_decree(struct paxos_instance *inst)
   header_init(&inst->pi_hdr, OP_DECREE, next_instance());
 
   // Zero out the metadata and mark one vote.
-  instance_reset_metadata(inst);
+  instance_init_metadata(inst);
 
   // Insert into the ilist, updating istart.
   instance_insert_and_upstart(inst);

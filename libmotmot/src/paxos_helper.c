@@ -73,16 +73,6 @@ reqid_compare(reqid_t x, reqid_t y)
 //
 
 void
-instance_reset_metadata(struct paxos_instance *inst)
-{
-  inst->pi_committed = false;
-  inst->pi_cached = false;
-  inst->pi_learned = false;
-  inst->pi_votes = 1;
-  inst->pi_rejects = 0;
-}
-
-void
 header_init(struct paxos_header *hdr, paxop_t opcode, paxid_t inum)
 {
   hdr->ph_session = pax->session_id;
@@ -90,6 +80,16 @@ header_init(struct paxos_header *hdr, paxop_t opcode, paxid_t inum)
   hdr->ph_ballot.gen = pax->ballot.gen;
   hdr->ph_opcode = opcode;
   hdr->ph_inum = inum;
+}
+
+void
+instance_init_metadata(struct paxos_instance *inst)
+{
+  inst->pi_committed = false;
+  inst->pi_cached = false;
+  inst->pi_learned = false;
+  inst->pi_votes = 1;
+  inst->pi_rejects = 0;
 }
 
 struct paxos_connectinue *

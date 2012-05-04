@@ -21,8 +21,8 @@ int ballot_compare(ballot_t, ballot_t);
 int reqid_compare(reqid_t, reqid_t);
 
 /* Initializers. */
-void instance_reset_metadata(struct paxos_instance *);
 void header_init(struct paxos_header *, paxop_t, paxid_t);
+void instance_init_metadata(struct paxos_instance *);
 struct paxos_connectinue *
   connectinue_new(motmot_connect_continuation_t, paxid_t);
 

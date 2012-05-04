@@ -189,7 +189,7 @@ continue_ack_reject(GIOChannel *chan, void *data)
   }
 
   // Reset the instance metadata, marking one vote.
-  instance_reset_metadata(inst);
+  instance_init_metadata(inst);
 
   // Decree null if the reconnect succeeded, else redecree the part.
   return paxos_broadcast_instance(inst);
