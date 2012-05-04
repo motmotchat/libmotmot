@@ -1,43 +1,13 @@
 /**
- * purple
+ * purplemot
+ * motmot chat protocol, extended from nullprpl chat protocol
  *
- * Purple is the legal property of its developers, whose names are too numerous
- * to list here.  Please refer to the COPYRIGHT file distributed with this
- * source distribution.
+ * This is the Pidgin plugin for motmot. It provides a UI wrapper for the
+ * functionality of libmotmot, and hooks up the separate parts of the project.
+ * Upon login (purplemot_login), a connection is established with a discovery server.
+ * Once the connection is established, the user's credentials are authenticated against
+ * the discovery server, and
  *
- * Nullprpl is a mock protocol plugin for Pidgin and libpurple. You can create
- * accounts with it, sign on and off, add buddies, and send and receive IMs,
- * all without connecting to a server!
- *
- * Beyond that basic functionality, purplemot supports presence and
- * away/available messages, offline messages, user info, typing notification,
- * privacy allow/block lists, chat rooms, whispering, room lists, and protocol
- * icons and emblems. Notable missing features are file transfer and account
- * registration and authentication.
- *
- * Nullprpl is intended as an example of how to write a libpurple protocol
- * plugin. It doesn't contain networking code or an event loop, but it does
- * demonstrate how to use the libpurple API to do pretty much everything a prpl
- * might need to do.
- *
- * Nullprpl is also a useful tool for hacking on Pidgin, Finch, and other
- * libpurple clients. It's a full-featured protocol plugin, but doesn't depend
- * on an external server, so it's a quick and easy way to exercise test new
- * code. It also allows you to work while you're disconnected.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111-1301  USA
  */
 
 #include <stdarg.h>
@@ -48,7 +18,6 @@
 
 #include <ctype.h>
 #include <msgpack.h>
-#include <assert.h>
 #include <errno.h>
 
 
@@ -63,11 +32,6 @@
 #define DEFAULT_SERV "motmottest.com"
 #define DEFAULT_PORT 8888
 
-/* If you're using this as the basis of a prpl that will be distributed
- * separately from libpurple, remove the internal.h include below and replace
- * it with code to include your own config.h or similar.  If you're going to
- * provide for translation, you'll also need to setup the gettext macros. */
-// #include "internal.h"
 
 #include "account.h"
 #include "accountopt.h"
@@ -139,10 +103,6 @@ static PurplePlugin *_null_protocol = NULL;
 #define NULL_STATUS_AWAY     "away"
 #define NULL_STATUS_OFFLINE  "offline"
 
-typedef struct {
-  const char *name;
-  int status;
-} buddy_tuple;
 
 typedef void (*GcFunc)(PurpleConnection *from,
                        PurpleConnection *to,
@@ -340,6 +300,13 @@ static char *deser_get_string(msgpack_object_array ar, int i, int *error){
     also, buddy->protodata is a struct
     struct needs to have (at least) ip field
 */
+
+/**
+ * get_purplemot_gc - gets the connection associated with the username
+ * @param username     the username
+ *
+ * @returns           the connection
+ */
 
 static PurpleConnection *get_purplemot_gc(const char *username) {
   PurpleAccount *acct = purple_accounts_find(username, PURPLEMOT_ID);
