@@ -5,6 +5,12 @@
 MOTMOT_PATH = File.dirname(__FILE__) + '/../src/motmot'
 CONN = ARGV[0]
 
+# If we're silent, just exec motmot
+if ENV['SILENT']
+  $stdin.reopen CONN + 'in', 'r'
+  exec MOTMOT_PATH, *ARGV
+end
+
 # Fork a child motmot
 pid = Process.fork
 if pid.nil?

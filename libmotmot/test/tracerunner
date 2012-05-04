@@ -7,10 +7,14 @@ CONN = ROOT + '/conn/'
 
 class MotMot
   attr_accessor :conn, :stdin
-  def initialize connect
+  def initialize connect, screen=true
     @conn = CONN + rand(1...1000000).to_s
     `mkfifo #{@conn}in`
-    `screen #{ROOT}/motmot #{@conn} #{connect.join ' '}`
+    if screen
+      `screen #{ROOT}/motmot #{@conn} #{connect.join ' '}`
+    else
+      `#{ROOT}/motmot #{@conn} #{connect.join ' '} &`
+    end
     @stdin = open(@conn + 'in', 'a')
     @stdin.sync = true
   end
@@ -25,7 +29,7 @@ begin
     case f.readline
     when /> run (\S+)(\s.*|)/ then
       others = $2.strip.split.map { |k| motmots[k] }
-      motmots[$1] = MotMot.new(others.map &:conn)
+      motmots[$1] = MotMot.new (others.map &:conn), ENV['SILENT'].nil?
     when /([^ ]+): \/invite (\S+)/ then
       invited = motmots[$2].conn
       motmots[$1].stdin << "/invite " << invited << "\n"
