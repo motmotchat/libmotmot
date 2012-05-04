@@ -1012,7 +1012,7 @@
 
 \def\subsection{%
     \@startsection{subsection}{2}{\z@}{-8\p@ \@plus -2\p@ \@minus -\p@}
-    {4\p@}{\secfnt}%
+    {4\p@}{\subsecfnt}%
 }
 \def\subsubsection{%
     \@startsection{subsubsection}{3}{\z@}{-8\p@ \@plus -2\p@ \@minus -\p@}%
