@@ -31,6 +31,7 @@ typedef struct {
   PurpleConversation *to;
   gpointer room;
   GHashTable *components;
+  void *internal_data;
 } MotmotInfo;
 
 /*
