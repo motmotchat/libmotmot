@@ -1,0 +1,13 @@
+> run 1
+> run 2
+> run 3
+> run 4 1 2 3
+> run 5
+4: bluh
+4: /part
+1: keepalive!
+2: /invite 5
+2: /part
+1: /part
+3: we can still chat
+5: /part
