@@ -6,7 +6,17 @@
  * functionality of libmotmot, and hooks up the separate parts of the project.
  * Upon login (purplemot_login), a connection is established with a discovery server.
  * Once the connection is established, the user's credentials are authenticated against
- * the discovery server, and
+ * the discovery server (do_login), and the client begins reading/writing
+ * data to the discovery server.
+ *
+ * The discovery server is used for status updates, presence,
+ * and friend requests. Actual chat is handled by the distributed paxos
+ * algorithm.
+ *
+ * TODO describe how the paxos algorithm is hooked up
+ *
+ * In addition to supporting presence and chatting, the protocol interacts
+ * with the UI through calls to libpurple functions.
  *
  */
 
@@ -342,8 +352,13 @@ static void connectSuccess(gpointer data, gint source, const gchar *error_messag
   return;
 }
 
+<<<<<<< HEAD
 // libmotmot callback. Sets up a connection to a buddy.
 static void connect_motmot(const char *info, size_t len)
+=======
+
+GIOChannel *connect_motmot(const char *info, size_t len)
+>>>>>>> more docs
 {
   //gives us socket to buddy itself (yay peer-to-peer)
   // could probably simplify by extracting info from connection...
@@ -488,7 +503,7 @@ static void report_status_change(PurpleConnection *from, PurpleConnection *to,
 */
 
 /*
- * UI callbacks
+ * UI callbacks (most of this is unchanged from nullprpl)
  */
 static void purplemot_input_user_info(PurplePluginAction *action)
 {
@@ -656,6 +671,12 @@ static GHashTable *purplemot_chat_info_defaults(PurpleConnection *gc,
   return defaults;
 }
 
+/**
+ * purplemot_login - Login for an account. Establishes a connection
+ *                   to the discovery server and initializes
+ *
+ * @param acct       The account to be logged in
+ */
 static void purplemot_login(PurpleAccount *acct)
 {
   char **userparts;
