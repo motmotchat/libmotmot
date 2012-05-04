@@ -288,7 +288,6 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   // learned and then truncated in a sync operation.
   inst = instance_find(&pax->ilist, hdr->ph_inum);
   if (inst == NULL || inst->pi_cached) {
-    assert(inst->pi_learned);
     return 0;
   }
 
