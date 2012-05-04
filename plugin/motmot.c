@@ -61,6 +61,7 @@
 #include "version.h"
 
 #include "motmot.h"
+#include "purplemot.h"
 
 #define BUFF_SIZE 512
 #define PURPLEMOT_ERROR 1
@@ -377,41 +378,37 @@ static void connectSuccess(gpointer data, gint source, const gchar *error_messag
 }
 
 
-GIOChannel *connect_motmot(const char *info, size_t len)
+int connect_motmot(const char *desc, size_t len, struct motmot_connection *cb)
 {
-  //gives us socket to buddy itself (yay peer-to-peer)
-  // could probably simplify by extracting info from connection...
-  MotmotInfo *converted_info = (MotmotInfo *)info;
-  PurpleConnection *connection = converted_info->connection;
-  PurpleAccount *account = converted_info->account;
-  PurpleBuddy *buddy = converted_info->buddy;
-  motmot_buddy *temp = (motmot_buddy *) buddy->proto_data;
-  const char *host = temp->addr;
-  int port = temp->port;
-  //set null, since I don't think gpointer is ever used?
-  gpointer data = 0;
-  purple_proxy_connect(connection,account,host,port,connectSuccess,data);
-  return;
+  PurpleBuddy *bud = purple_find_buddy(GLOBAL_ACCOUNT, desc);
+  if(bud == NULL){
+    return -1;
+  }
+
+  motmot_buddy *extra = bud -> proto_data;
+  purple_proxy_connect(GLOBAL_ACCOUNT -> gc, GLOBAL_ACCOUNT, bud -> addr,
+    bud -> port, connectSuccess, cb);
+  return 0;
 }
 
 //static int purplemot_send_im(PurpleConnection *gc, const char *who,
 //                        const char *message, PurpleMessageFlags flags)
 
 // libmotmot callback. Calls receive_chat_message.
-int print_chat_motmot(const void *info, size_t len, void *data)
+int print_chat_motmot(const void *info, size_t len, void *data, const void *desc, size_t size)
 {
   MotmotInfo *minfo = data;
   int id = minfo -> id;
   PurpleConnection *gc = GLOBAL_ACCOUNT -> gc;
 
-  serv_got_chat_in(gc, id, "A chatter", PURPLE_MESSAGE_RECV, info, time(NULL));
+  serv_got_chat_in(gc, id, desc, PURPLE_MESSAGE_RECV, info, time(NULL));
   return 0;
 }
 
 // libmotmot callback.
 //call when someone joins a chat—probably do this based on their sending a msg to chat
 // TODO—fill this in, make this pint "so-and-so joined"
-int print_join_motmot(const void *info, size_t len, void *data)
+int print_join_motmot(const void *unused, size_t unusedl, void *data, const void *info, size_t len)
 {
   MotmotInfo *minfo = data;
   int id = minfo -> id;
@@ -427,7 +424,7 @@ int print_join_motmot(const void *info, size_t len, void *data)
 
 // libmotmot callback
 //call when someone leaves a chat—do based on logout/inaccessibility I guess
-int print_part_motmot(const void *info, size_t len, void *data)
+int print_part_motmot(const void *unused, size_t unusedl, void *data, const void *info, size_t len)
 {
   MotmotInfo *minfo = data;
   int id = minfo -> id;
