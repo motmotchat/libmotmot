@@ -18,12 +18,11 @@
 extern int paxos_broadcast_instance(struct paxos_instance *);
 
 /**
- * paxos_redirect - Tell the sender of the message either that we are not the
- * proposer or that they are not the proposer, depending on whether or not
- * they think they are the proposer.
+ * acceptor_redirect - Tell a preparer that they are not the proposer and
+ * thus do not have the right to prepare.
  */
 int
-paxos_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
+acceptor_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
 {
   int r;
   struct paxos_header hdr;
@@ -98,8 +97,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 
   // Ensure that the redirect is for our current prepare; otherwise ignore.
   paxos_header_unpack(&orig_hdr, o);
-  if (orig_hdr.ph_opcode != OP_PREPARE ||
-      ballot_compare(orig_hdr.ph_ballot, pax->prep->pp_ballot) != 0) {
+  if (ballot_compare(orig_hdr.ph_ballot, pax->prep->pp_ballot) != 0) {
     return 0;
   }
 
@@ -150,26 +148,59 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 }
 
 /**
+ * acceptor_refuse - Tell a requester that they incorrectly identified us
+ * at the proposer and we cannot decree their message.
+ */
+int
+acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
+    struct paxos_request *req)
+{
+  int r;
+  struct paxos_header hdr;
+  struct paxos_yak py;
+
+  // Initialize a header.  Our recipients should use ph_inum rather than the
+  // ballot ID as the ID of the proposer we are suggesting, since, it may be
+  // the case that the proposer has assumed the proposership but has not yet
+  // prepared to us.
+  hdr.ph_ballot.id = pax->ballot.id;
+  hdr.ph_ballot.gen = pax->ballot.gen;
+  hdr.ph_opcode = OP_REFUSE;
+  hdr.ph_inum = pax->proposer->pa_paxid;
+
+  // Pack a payload, which includes the header we were sent which we believe
+  // to be incorrect and the request ID of the refused request.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &hdr);
+  paxos_payload_begin_array(&py, 3);
+  paxos_header_pack(&py, orig_hdr);
+  paxos_paxid_pack(&py, req->pr_val.pv_reqid.id);
+  paxos_paxid_pack(&py, req->pr_val.pv_reqid.gen);
+
+  // Send the payload.
+  r = paxos_peer_send(source, UNYAK(&py));
+  paxos_payload_destroy(&py);
+
+  return r;
+}
+
+/**
  * acceptor_ack_redirect - Resolve an acceptor's claim that we do not know
  * the true proposer.
  *
  * If we send a request to someone who is not the proposer, but identifying
- * them as the proposer, we will receive a redirect.  Since the correctness
+ * them as the proposer, we will receive a refuse.  Since the correctness
  * of the Paxos protocol guarantees that the acceptor list has a consistent
- * total ordering across the system, receiving a redirect means that there is
+ * total ordering across the system, receiving a refuse means that there is
  * someone more fitting to be proposer than the acceptor we identified.
  *
  * Note, as with ack_proposer, that it is possible we noticed a proposer
  * failure and sent our request to the new proposer correctly before the new
  * proposer themselves recognized the failure.
- *
- * Also, as with ack_proposer, we check the opcode of the second header
- * to ensure validity.
  */
 int
-acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
+acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
 {
-  struct paxos_header orig_hdr;
   struct paxos_acceptor *acc;
 
   // Check whether, since we sent our request, we have already found a more
@@ -179,12 +210,7 @@ acceptor_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
-  // Check that this redirect is a response to a request.
   // XXX: Check that it was a request for the current ballot?
-  paxos_header_unpack(&orig_hdr, o);
-  if (orig_hdr.ph_opcode != OP_REQUEST) {
-    return 0;
-  }
 
   // Pull out the acceptor struct corresponding to the purported proposer and
   // try to reconnect.  Note that we should have already set the pa_peer of

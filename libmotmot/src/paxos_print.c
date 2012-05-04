@@ -61,6 +61,9 @@ paxop_print(paxop_t op, const char *lead, const char *trail)
     case OP_REDIRECT:
       printf("OP_REDIRECT");
       break;
+    case OP_REFUSE:
+      printf("OP_REFUSE  ");
+      break;
     case OP_REJECT:
       printf("OP_REJECT  ");
       break;

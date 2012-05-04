@@ -157,15 +157,7 @@ int
 acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
-  int r;
   struct paxos_request *req;
-
-  // The requester overloads ph_inst to the acceptor it believes to be the
-  // proposer.  If we are incorrectly identified as the proposer (i.e., if
-  // we believe someone higher-ranked is still live), send a redirect.
-  if (hdr->ph_inum == pax->self_id) {
-    r = paxos_redirect(source, hdr);
-  }
 
   // Allocate a request and unpack into it.
   req = g_malloc0(sizeof(*req));
@@ -174,7 +166,14 @@ acceptor_ack_request(struct paxos_peer *source, struct paxos_header *hdr,
   // Add it to the request cache.
   request_insert(&pax->rcache, req);
 
-  return r;
+  // The requester overloads ph_inst to the acceptor it believes to be the
+  // proposer.  If we are incorrectly identified as the proposer (i.e., if
+  // we believe someone higher-ranked is still live), send a redirect.
+  if (hdr->ph_inum == pax->self_id) {
+    return acceptor_refuse(source, hdr, req);
+  }
+
+  return 0;
 }
 
 /**

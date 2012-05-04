@@ -33,7 +33,7 @@ acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
   // send a redirect.
   if (ballot_compare(hdr->ph_ballot, pax->ballot) <= 0 ||
       pax->proposer->pa_peer != source) {
-    return paxos_redirect(source, hdr);
+    return acceptor_redirect(source, hdr);
   }
 
   return acceptor_promise(hdr);

@@ -44,7 +44,8 @@ typedef enum paxos_opcode {
   OP_RESEND,            // resend request data
 
   /* Participant reconnection. */
-  OP_REDIRECT,          // suggests the true identity of the proposer
+  OP_REDIRECT,          // redirect an illigitimately preparing proposer
+  OP_REFUSE,            // refuse a request due to lack of proposership
   OP_REJECT,            // reject a part decree due to live connection
 
   /* Retry protocol. */

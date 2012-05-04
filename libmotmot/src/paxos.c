@@ -277,6 +277,12 @@ proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
     case OP_REDIRECT:
       r = proposer_ack_redirect(hdr, o);
       break;
+    case OP_REFUSE:
+      // If an acceptor refuses our request, we identify them as higher-ranked
+      // than we are, even if they are not the proposer.  If we are the proposer
+      // now, the sending acceptor must have died.  This is an invalid system
+      // state; kill the offender.
+      r = proposer_force_kill(source);
     case OP_REJECT:
       r = proposer_ack_reject(hdr);
       break;
@@ -353,7 +359,10 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_REDIRECT:
-      r = acceptor_ack_redirect(hdr, o);
+      // Ignore redirects.
+      break;
+    case OP_REFUSE:
+      r = acceptor_ack_refuse(hdr, o);
       break;
     case OP_REJECT:
       // Ignore rejects.

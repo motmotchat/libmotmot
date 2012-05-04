@@ -45,9 +45,11 @@ int paxos_resend(struct paxos_acceptor *, struct paxos_header *,
 int paxos_ack_resend(struct paxos_header *, msgpack_object *);
 
 /* Reconnect protocol. */
-int paxos_redirect(struct paxos_peer *, struct paxos_header *);
+int acceptor_redirect(struct paxos_peer *, struct paxos_header *);
 int proposer_ack_redirect(struct paxos_header *, msgpack_object *);
-int acceptor_ack_redirect(struct paxos_header *, msgpack_object *);
+int acceptor_refuse(struct paxos_peer *, struct paxos_header *,
+    struct paxos_request *);
+int acceptor_ack_refuse(struct paxos_header *, msgpack_object *);
 int acceptor_reject(struct paxos_header *);
 int proposer_ack_reject(struct paxos_header *);
 
