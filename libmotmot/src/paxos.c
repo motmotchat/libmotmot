@@ -29,11 +29,12 @@ int proposer_force_kill(struct paxos_peer *);
  * Most of our state is worthless until we are welcomed to the system.
  */
 int
-paxos_init(connect_t connect, disconnect_t disconnect,
-    struct learn_table *learn)
+paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
+    leave_t leave)
 {
   state.connect = connect;
-  state.disconnect = disconnect;
+  state.enter = enter;
+  state.leave = leave;
   state.learn.chat = learn->chat;
   state.learn.join = learn->join;
   state.learn.part = learn->part;
@@ -157,7 +158,7 @@ paxos_end(void *session)
   request_list_destroy(&pax->rcache);
 
   // Reinitialize our state.
-  paxos_init(state.connect, state.disconnect, &state.learn);
+  paxos_init(state.connect, &state.learn, state.enter, state.leave);
 
   return 0;
 }

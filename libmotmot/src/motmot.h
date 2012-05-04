@@ -32,12 +32,21 @@ typedef GIOChannel *(*connect_t)(const void *desc, size_t size);
 typedef int (*learn_t)(const void *message, size_t size, void *data);
 
 /**
- * disconnect_t - Disconnection notification callback type.  This is called
- * when motmot is ready for the client to register that a sessions has ended.
+ * enter_t - Chatroom entrance callback type.
+ *
+ * @param data      Pointer to motmot's internal session data.  This object
+ *                  should be treated as opaque by the client and should be
+ *                  passed as an argument to relevant motmot functions.
+ * @returns         Data pointer used by the client to identify the session.
+ */
+typedef void *(*enter_t)(void *data);
+
+/**
+ * leave_t - Chatroom departure callback type.
  *
  * @param data      Data pointer used by the client to identify the session.
  */
-typedef void (*disconnect_t)(void *data);
+typedef void (*leave_t)(void *data);
 
 /**
  * motmot_init - Initialize libmotmot.
@@ -51,7 +60,7 @@ typedef void (*disconnect_t)(void *data);
  * @return          0, on success, nonzero on error.
  */
 int motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
-    disconnect_t disconnect);
+    enter_t enter, leave_t leave);
 
 /**
  * motmot_session - Start a new motmot chat.

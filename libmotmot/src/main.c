@@ -21,6 +21,7 @@
 
 GMainLoop *gmain;
 GIOChannel *self_channel;
+void *session;
 
 /**
  * socket_open - Create a local UNIX socket and wrap it in a GIOChannel.
@@ -120,17 +121,17 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
     // \invite socket - Handle inviting others.
     tmp = msg + 7;
     while (*++tmp == ' ');  // Move past all the spaces.
-    motmot_invite(tmp, strlen(tmp), NULL);
+    motmot_invite(tmp, strlen(tmp), session);
   } else if (g_str_has_prefix(msg, "/part")) {
     // \part - Only do it if it's followed by a space or EOF.
     if (msg[6] == '\0' || msg[6] == ' ') {
-      motmot_disconnect(NULL);
+      motmot_disconnect(session);
       g_io_channel_shutdown(self_channel, TRUE, &gerr);
       exit(0);
     }
   } else {
     // Broadcast via motmot.
-    motmot_send(msg, eol + 1, NULL);
+    motmot_send(msg, eol + 1, session);
   }
 
   g_free(msg);
@@ -161,8 +162,16 @@ print_part(const void *buf, size_t len, void *data)
   return 0;
 }
 
+void *
+enter(void *data)
+{
+  printf("Welcome to your Motmot session!\n");
+  session = data;
+  return NULL;
+}
+
 void
-disconnect(void *data)
+leave(void *data)
 {
   printf("PART succeeded.  Exiting...\n");
   exit(0);
@@ -189,16 +198,16 @@ main(int argc, char *argv[])
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   // Initialize motmot.
-  motmot_init(connect_unix, print_chat, print_join, print_part, disconnect);
+  motmot_init(connect_unix, print_chat, print_join, print_part, enter, leave);
 
   // Start a new chat.
   if (argc > 2) {
-    motmot_session(argv[1], strlen(argv[1]), NULL);
+    session = motmot_session(argv[1], strlen(argv[1]), NULL);
   }
 
   // Invite our friends!
   for (i = 2; i < argc; i++) {
-    motmot_invite(argv[i], strlen(argv[i]), NULL);
+    motmot_invite(argv[i], strlen(argv[i]), session);
   }
 
   g_main_loop_run(gmain);

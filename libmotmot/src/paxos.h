@@ -257,7 +257,8 @@ struct learn_table {
 /* Global state. */
 struct paxos_state {
   connect_t connect;                  // callback for initiating connections
-  disconnect_t disconnect;            // callback for registering disconnection
+  enter_t enter;                      // callback for entering chat
+  leave_t leave;                      // callback for leaving chat
   struct learn_table learn;           // callbacks for paxos_learn
 };
 
@@ -265,7 +266,7 @@ extern struct paxos_state state;
 extern struct paxos_session *pax;
 
 /* Paxos protocol interface. */
-int paxos_init(connect_t, disconnect_t, struct learn_table *);
+int paxos_init(connect_t, struct learn_table *, enter_t, leave_t);
 void *paxos_start(const void *, size_t, void *);
 int paxos_end(void *data);
 
