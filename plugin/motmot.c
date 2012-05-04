@@ -401,7 +401,9 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
 /**
  * connectSuccess - Callback for when a p2p connection is established for libmotmot.
  *
- * @param data - User data.
+ * @param data  User data.
+ * @param source The file descriptor for the socket, -1 on error.
+ * @param error_message Error message
  */
 static void connectSuccess(gpointer data, gint source, const gchar *error_message)
 {
@@ -415,7 +417,13 @@ static void connectSuccess(gpointer data, gint source, const gchar *error_messag
   return;
 }
 
-
+/**
+ * connect_motmot - Connect callback for motmot_init to initiate a function
+ *
+ * @param desc username
+ * @param len length of the username
+ * @param motmot_connect_cb continuation necessary for libmotmot
+ */
 int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
 {
   PurpleBuddy *bud = purple_find_buddy(GLOBAL_ACCOUNT, (const char *) desc);
@@ -433,6 +441,15 @@ int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
 //                        const char *message, PurpleMessageFlags flags)
 
 // libmotmot callback. Calls receive_chat_message.
+/**
+ * print_chat_motmot - callback for receiving a chat, prints message
+ *
+ * @param message the message
+ * @param len length of the message
+ * @param desc user who sent it
+ * @param size length of username's message
+ * @param data MotmotInfo struct to identify chat to libpurple
+ */
 int print_chat_motmot(const void *message, size_t len, void *desc, size_t size, void *data)
 {
   MotmotInfo *minfo = data;

@@ -336,7 +336,11 @@ opcode, and calls the appropriate \libpurple functions based on the opcode and
 the rest of the data sent by the message. Writes to the discovery server are
 handled in individual purple functions. Based on the user action, a message pack
 object is created, and the data is sent to the server across the connection.
-Messages are asynchronous.
+Messages are asynchronous. Status updates also include the address and port
+of a user so the client can know the location of a user to connect to.
+
+The code to interact with the discovery server currently has a bug involving
+status updates after accepting a friend request.
 
 \subsection{Plugin Interactions with \libmotmot}
 There were a few major difficulties that had to be addressed when calling
@@ -387,6 +391,11 @@ with this \verb`GLOBAL_ACCOUNT`.  Though this ``works'' if a user only signs in
 with one account, this breaks when a user decides to sign in with multiple
 accounts at once (something that \libpurple allows), and should be addressed in
 future versions.
+
+We were unable to fully integrate the \libmotmot protocol in the plugin.
+The code is outlined with in the plugin file, however it is not currently
+functional. Hopefully this will be fixed in future versions so that
+\libmotmot can be used as a \libpurple plugin.
 
 \section{Conclusions}
 
