@@ -48,8 +48,9 @@ typedef void (*disconnect_t)(void *data);
  * @param chat      Client callback invoked when a chat is received.
  * @param join      Client callback invoked when a user joins the chat.
  * @param part      Client callback invoked when a user parts the chat.
+ * @return          0, on success, nonzero on error.
  */
-void motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
+int motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
     disconnect_t disconnect);
 
 /**
@@ -84,7 +85,7 @@ int motmot_watch(GIOChannel *channel);
 int motmot_invite(const void *desc, size_t size, void *data);
 
 /**
- * motmot_disconnect - Disconnect from a chat.
+ * motmot_disconnect - Request to disconnect from a chat.
  *
  * @param data      Data pointer used by motmot to identify the session.
  * @returns         0 on success, nonzero on error.

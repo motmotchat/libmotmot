@@ -28,7 +28,7 @@ int proposer_force_kill(struct paxos_peer *);
  *
  * Most of our state is worthless until we are welcomed to the system.
  */
-void
+int
 paxos_init(connect_t connect, disconnect_t disconnect,
     struct learn_table *learn)
 {
@@ -64,6 +64,8 @@ paxos_init(connect_t connect, disconnect_t disconnect,
   LIST_INIT(&pax->ilist);
   LIST_INIT(&pax->idefer);
   LIST_INIT(&pax->rcache);
+
+  return 0;
 }
 
 /**

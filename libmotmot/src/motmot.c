@@ -11,7 +11,7 @@
 /**
  * motmot_init - Initialize libmotmot.
  */
-void
+int
 motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
     disconnect_t disconnect)
 {
@@ -21,8 +21,8 @@ motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
   learn.join = join;
   learn.part = part;
 
-  paxos_init(connect, disconnect, &learn);
   g_timeout_add_seconds(1, paxos_sync, NULL);
+  return paxos_init(connect, disconnect, &learn);
 }
 
 /**
@@ -54,7 +54,7 @@ motmot_invite(const void *handle, size_t len, void *data)
 }
 
 /**
- * motmot_disconnect - Disconnect from a chat.
+ * motmot_disconnect - Request to disconnect from a chat.
  */
 int
 motmot_disconnect(void *data)

@@ -265,7 +265,7 @@ extern struct paxos_state state;
 extern struct paxos_session *pax;
 
 /* Paxos protocol interface. */
-void paxos_init(connect_t, disconnect_t, struct learn_table *);
+int paxos_init(connect_t, disconnect_t, struct learn_table *);
 void *paxos_start(const void *, size_t, void *);
 int paxos_end(void *data);
 
