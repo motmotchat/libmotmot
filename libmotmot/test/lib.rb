@@ -13,19 +13,17 @@ class MotMot
 
   def initialize connect=[]
     @unix = CONN_PATH + rand(100000).to_s
-    @proxy = IO.popen [PROXY_PATH, proxy, unix, 'quiet'], 'w+'
+    #@proxy = IO.popen [PROXY_PATH, proxy, unix, 'quiet'], 'w+'
     @sock = IO.popen ([MOTMOT_PATH, unix] + connect), 'w+'
-    sleep 0.2
+    #sleep 0.1
     # XXX: this is gross
     `echo attach #{pid} > /tmp/#{pid}`
     `echo continue >> /tmp/#{pid}`
-    sleep 0.05
-    `screen gdb #{pid} -x /tmp/#{pid}`
-    sleep 0.05
-    `sleep 1 && rm /tmp/#{pid} &`
+    `screen gdb -x /tmp/#{pid}`
   end
 
   def kill
+    FileUtils.rm_f "/tmp/#{pid}"
     Process.kill 'TERM', @sock.pid
     Process.kill 'TERM', @proxy.pid
     @sock.close
@@ -35,7 +33,7 @@ class MotMot
   end
 
   def proxy
-    @unix + 'p'
+    @unix# + 'p'
   end
 
   # Proxy all other methods to the socket
@@ -49,7 +47,7 @@ class MotMotPool < Hash
   def initialize n=1
     n.times do
       spawn
-      sleep 0.1
+      sleep 0.7
     end
     @reaper = Thread.new do
       puts "REAPER"
@@ -69,6 +67,7 @@ class MotMotPool < Hash
               delete r.pid
               next
             end
+            puts chat
             if chat.match /^CHAT/
               print '.'
               print "\n" if rand < 0.001
@@ -129,8 +128,8 @@ module Kernel
       yield clients
     ensure
       # Kill them all with FIRE
-      clients.kill_all
       clients.reaper.join
+      clients.kill_all
       #clients.reaper.raise "get outta there"
     end
   end
