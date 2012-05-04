@@ -1,5 +1,5 @@
 DEPDIR = .deps/
-INSTALLDIR = /usr/local/lib/purple-2/
+INSTALLDIR = /home/jeff/262proj/build/lib/purple-2/
 LIBMOTMOTDIR=../motmot/
 
 CC = gcc

@@ -397,6 +397,12 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
 */
 // returns fd on success, -1 on failure—>TODO(Julie) fix this once MAX does his shit
 // it'll also be a GIOChannel * then.  So yeah.
+
+/**
+ * connectSuccess - Callback for when a p2p connection is established for libmotmot.
+ *
+ * @param data - User data.
+ */
 static void connectSuccess(gpointer data, gint source, const gchar *error_message)
 {
   //MotmotInfo *info = data;
@@ -1364,7 +1370,13 @@ static void purplemot_change_passwd(PurpleConnection *gc, const char *old_pass,
 static gint motmot_node_cmp(const char *a, const char *b){
   return strcmp(a, b);
 }
-
+/**
+ * purple_mot_add_buddy - code called when a buddy is added in libpurple
+ *
+ * @param gc The account connection
+ * @param buddy The buddy to be added
+ * @param group The group (we don't use this)
+ */
 static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
                                PurpleGroup *group)
 {
@@ -1380,6 +1392,9 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
   GList *el = g_list_find_custom(conn -> acceptance_list, 
     purple_buddy_get_name(buddy), (GCompareFunc) motmot_node_cmp);
+
+  // This is a hack so that the acceptance to a friend request is only sent once the buddy is added on our end,
+  // not when the add is authorized.
   if(el != NULL){
     name = el -> data;
     msgpack_pack_array(pk, 2);
@@ -1398,7 +1413,8 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
     
     return;
   }
-  
+
+  // send out the request
   msgpack_pack_array(pk, 2);
   msgpack_pack_int(pk, REGISTER_FRIEND);
   msgpack_pack_raw(pk, strlen(purple_buddy_get_name(buddy)));
