@@ -288,18 +288,18 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_request *req;
 
   // Grab the instance for which we wanted the request.  If we find that it
-  // has already been learned since we began our retrieval, we can just
+  // has already been cached since we began our retrieval, we can just
   // return.
   //
   // Note also that an instance should only be NULL if it was committed and
   // learned and then truncated in a sync operation.
   inst = instance_find(&pax->ilist, hdr->ph_inum);
-  if (inst == NULL || inst->pi_learned) {
+  if (inst == NULL || inst->pi_cached) {
     return 0;
   }
 
-  // If we had already obtained the request, we would have committed, so
-  // let's ensure that we haven't.
+  // If we had already obtained the request, we would have marked the instance
+  // cached, so let's ensure that we haven't.
   req = request_find(&pax->rcache, inst->pi_val.pv_reqid);
   assert(req == NULL);
 
