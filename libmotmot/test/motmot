@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+
+# Motmot wrapper that proxies stdin from elsewhere.
+
+MOTMOT_PATH = File.dirname(__FILE__) + '/../src/motmot'
+CONN = ARGV[0]
+
+# Fork a child motmot
+pid = Process.fork
+if pid.nil?
+  $stdin.reopen CONN + 'in', 'r'
+  exec MOTMOT_PATH, *ARGV
+end
+
+# Open a control file for gdb to attach to the given pid
+open CONN + 'gdb', 'w' do |f|
+  f.write "attach #{pid}\n"
+  f.write "continue\n"
+end
+
+# Fork away from the gdb
+if Process.fork
+  exec 'gdb', '-x', CONN + 'gdb'
+end
+
+# Wait around and kill the silly extra file
+sleep 3
+File.delete CONN + 'gdb'
+
+exit 0
