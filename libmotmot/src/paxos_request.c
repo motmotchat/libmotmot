@@ -288,27 +288,30 @@ paxos_ack_resend(struct paxos_header *hdr, msgpack_object *o)
   struct paxos_request *req;
 
   // Grab the instance for which we wanted the request.  If we find that it
-  // has already been cached since we began our retrieval, we can just
-  // return.
+  // has already been cached and learned since we began our retrieval, we can
+  // just return.
   //
   // Note also that an instance should only be NULL if it was committed and
   // learned and then truncated in a sync operation.
   inst = instance_find(&pax->ilist, hdr->ph_inum);
   if (inst == NULL || inst->pi_cached) {
+    assert(inst->pi_learned);
     return 0;
   }
 
-  // If we had already obtained the request, we would have marked the instance
-  // cached, so let's ensure that we haven't.
+  // See if we already got the request.  It is possible that we received a
+  // commit message for the instance before the original request broadcast
+  // reached us.  However, since the instance-request mapping is one way, we
+  // wait until a resend is received before committing.
   req = request_find(&pax->rcache, inst->pi_val.pv_reqid);
-  assert(req == NULL);
+  if (req == NULL) {
+    // Allocate a request and unpack it.
+    req = g_malloc0(sizeof(*req));
+    paxos_request_unpack(req, o);
 
-  // Allocate a request and unpack it.
-  req = g_malloc0(sizeof(*req));
-  paxos_request_unpack(req, o);
-
-  // Insert it to our request cache.
-  request_insert(&pax->rcache, req);
+    // Insert it to our request cache.
+    request_insert(&pax->rcache, req);
+  }
 
   // Commit again, now that we have the associated request.
   return paxos_commit(inst);
