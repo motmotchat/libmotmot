@@ -10,11 +10,7 @@ class MotMot
   def initialize connect, screen=true
     @conn = CONN + rand(1...1000000).to_s
     `mkfifo #{@conn}in`
-    if screen
-      `screen #{ROOT}/motmot #{@conn} #{connect.join ' '}`
-    else
-      `#{ROOT}/motmot #{@conn} #{connect.join ' '} &`
-    end
+    `screen #{ROOT}/motmot #{@conn} #{connect.join ' '}`
     @stdin = open(@conn + 'in', 'a')
     @stdin.sync = true
   end
@@ -30,6 +26,7 @@ begin
     when /> run (\S+)(\s.*|)/ then
       others = $2.strip.split.map { |k| motmots[k] }
       motmots[$1] = MotMot.new (others.map &:conn), ENV['SILENT'].nil?
+      sleep 1
     when /([^ ]+): \/invite (\S+)/ then
       invited = motmots[$2].conn
       motmots[$1].stdin << "/invite " << invited << "\n"
@@ -39,4 +36,5 @@ begin
     sleep 0.001
   end
 rescue EOFError
+  sleep 1
 end

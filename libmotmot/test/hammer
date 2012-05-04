@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+
+# Makes testing traces.
+
+$stdout.sync = true
+
+# Always start out like this
+puts "> run 1"
+puts "> run 2"
+puts "> run 3 1 2"
+
+$i = 4
+$alive = ['1', '2', '3']
+
+def say msg
+  guy = $alive[rand $alive.length]
+  puts "#{guy}: #{msg}"
+  $alive.delete guy if msg == '/part'
+end
+
+def newguy
+  puts "> run #{$i}"
+  say "/invite #{$i}"
+  $alive << $i
+  $i += 1
+end
+
+def randmsg
+  (0..9).map{65.+(rand(25)).chr}.join
+end
+
+# Do a small-step in the system
+fn = lambda do
+  case rand 100
+  when 0..97 then
+    say randmsg
+  when 98 then
+    say "/part" if $alive.length > 5
+  when 99 then
+    newguy if $i < 15
+  end
+end
+
+if ARGV[0].nil?
+  loop &fn
+else
+  ARGV[0].to_i.times { |i| fn.call }
+end
