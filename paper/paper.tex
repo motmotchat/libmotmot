@@ -270,7 +270,30 @@ these side protocols in detail.
     broadcast.  We implement a basic protocol for retrieving and resending
     these messages if they cannot be found.
 
-  \item[Reconnection:]
+  \item[Redirection:]
+    In the presence of connection failures, protocol participants may at times
+    have an incorrect notion of who the designated proposer is.  In particular,
+    we have the following three cases:
+    \begin{enumerate}
+      \item A participant thinks it is the proposer and tries to prepare, but
+        a majority of participants are still connected to the true proposer.
+      \item A proposer thinks that a participant has been disconnected from
+        the system, but a majority of participants are still connected to it.
+      \item A participant issues a request to another participant who it
+        incorrectly identifies as the proposer.
+    \end{enumerate}
+    To deal with the former two cases, we implement a majority rejection
+    mechanism for prepares and part decrees.  When a majority rejects a
+    prepare, they indicate their identification of the true proposer.
+    The preparer, who belives himself to be the proposer, then attempts
+    to reconnect to this true proposer.  Similarly, rejections of part
+    induce the issuer of the decree to attempt reconnection to the target
+    of the part.
+
+    If participants misidentify the proposer when making a request, the
+    individual that they identified as the proposer will return the true
+    identity of the proposer.  A single such response is enough to cause
+    the requester to attempt reconnection.
 
   \item[In-order learn:]
     \libmotmot's clients are notified of Paxos commits via a set of callbacks.
@@ -293,11 +316,7 @@ these side protocols in detail.
     a response from \emph{all} participants, it can take the minimum instance
     number of those commits and safely command all participants to truncate
     up to that point.
-
-  \item[Connection continuations:]
 \end{description}
-
-\subsection{Implementation}
 
 \subsection{Testing}
 
@@ -541,8 +560,6 @@ While we have not had a chance to test the protocol in practice, we believe that
 in practice.
 
 In summary, we believe that \Motmot is the best thing since sliced bread.
-
-\section{Acknowledgments}
 
 \thebibliography{7}{
   \bibitem{paxlive}
