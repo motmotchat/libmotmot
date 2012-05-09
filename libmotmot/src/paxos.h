@@ -19,8 +19,8 @@ typedef paxid_t   uuid_t;
 
 /* Totally ordered pair of paxid's. */
 typedef struct paxid_pair {
-  paxid_t id;           // ID of participant
-  paxid_t gen;          // generation number of some sort
+  paxid_t id;             // ID of participant
+  paxid_t gen;            // generation number of some sort
 } ppair_t;
 
 /* Alias ballots as (proposer ID, ballot number). */
@@ -29,34 +29,34 @@ typedef ppair_t ballot_t;
 /* Paxos message types. */
 typedef enum paxos_opcode {
   /* Standard protocol operations. */
-  OP_PREPARE = 0,       // declare new ballot (NextBallot)
-  OP_PROMISE,           // promise to ignore earlier ballots (LastVote)
-  OP_DECREE,            // propose a decree (BeginBallot)
-  OP_ACCEPT,            // accept a decree (Voted)
-  OP_COMMIT,            // commit a decree (Success)
+  OP_PREPARE = 0,         // declare new ballot (NextBallot)
+  OP_PROMISE,             // promise to ignore earlier ballots (LastVote)
+  OP_DECREE,              // propose a decree (BeginBallot)
+  OP_ACCEPT,              // accept a decree (Voted)
+  OP_COMMIT,              // commit a decree (Success)
 
   /* Participant initiation. */
-  OP_WELCOME,           // welcome the new acceptor into our proposership
-  OP_HELLO,             // introduce ourselves after connecting
+  OP_WELCOME,             // welcome the new acceptor into our proposership
+  OP_HELLO,               // introduce ourselves after connecting
 
   /* Out-of-band decree requests. */
-  OP_REQUEST,           // request a decree from the proposer
-  OP_RETRIEVE,          // retrieve missing request data for commit
-  OP_RESEND,            // resend request data
+  OP_REQUEST,             // request a decree from the proposer
+  OP_RETRIEVE,            // retrieve missing request data for commit
+  OP_RESEND,              // resend request data
 
   /* Participant reconnection. */
-  OP_REDIRECT,          // redirect an illigitimately preparing proposer
-  OP_REFUSE,            // refuse a request due to lack of proposership
-  OP_REJECT,            // reject a part decree due to live connection
+  OP_REDIRECT,            // redirect an illigitimately preparing proposer
+  OP_REFUSE,              // refuse a request due to lack of proposership
+  OP_REJECT,              // reject a part decree due to live connection
 
   /* Retry protocol. */
-  OP_RETRY,             // obtain a missing commit
-  OP_RECOMMIT,          // resend a commit
+  OP_RETRY,               // obtain a missing commit
+  OP_RECOMMIT,            // resend a commit
 
   /* Log synchronization. */
-  OP_SYNC,              // sync up ilists in preparation for a truncate
-  OP_LAST,              // give the proposer our sync information
-  OP_TRUNCATE,          // order acceptors to truncate their ilists
+  OP_SYNC,                // sync up ilists in preparation for a truncate
+  OP_LAST,                // give the proposer our sync information
+  OP_TRUNCATE,            // order acceptors to truncate their ilists
 } paxop_t;
 
 /* Paxos message header that is included with any message. */

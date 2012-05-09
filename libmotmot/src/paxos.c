@@ -115,8 +115,8 @@ paxos_start(const void *desc, size_t size, void *data)
 
   memcpy(&inst->pi_val, &req->pr_val, sizeof(req->pr_val));
 
+  // Initialize the ilist.
   LIST_INSERT_HEAD(&pax->ilist, inst, pi_le);
-
   pax->ibase = 1;
 
   // Set up the learn protocol parameters to start at the next instance.
@@ -129,8 +129,8 @@ paxos_start(const void *desc, size_t size, void *data)
   acc->pa_peer = NULL;
   acc->pa_size = size;
   acc->pa_desc = g_memdup(desc, size);
-  LIST_INSERT_HEAD(&pax->alist, acc, pa_le);
 
+  LIST_INSERT_HEAD(&pax->alist, acc, pa_le);
   pax->live_count = 1;
 
   // Set ourselves as the proposer.

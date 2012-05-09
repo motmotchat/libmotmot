@@ -40,8 +40,7 @@ motmot_session(const void *desc, size_t size, void *data)
 int
 motmot_watch(GIOChannel *channel)
 {
-  paxos_register_connection(channel);
-  return 0;
+  return paxos_register_connection(channel);
 }
 
 /**
