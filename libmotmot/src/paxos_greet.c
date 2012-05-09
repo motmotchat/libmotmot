@@ -247,7 +247,9 @@ paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
   // part decree, we know that, despite our local disconnect, the proposer is
   // still supported by a majority, and hence the prepare for which we updated
   // our ballot will fail.
-  // XXX: Think about this case some more.
+  // XXX: Think about this case some more.  In particular, what if the proposer
+  // sends the hello and then fails, but we get the prepare before we get this
+  // hello?
   //
   // 3. Our local ballot number is lower.  The proposer is past the prepare
   // phase, which means that a quorum of those votes which the proposer didn't
