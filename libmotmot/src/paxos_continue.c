@@ -18,6 +18,7 @@
   int                                                           \
   continue_##op(GIOChannel *chan, void *data)                   \
   {                                                             \
+    int r = 0;                                                  \
     struct paxos_continuation *conn;                            \
     struct paxos_acceptor *acc;                                 \
                                                                 \
@@ -27,17 +28,17 @@
       return 0;                                                 \
     }                                                           \
                                                                 \
-    /* Obtain the acceptor, returning if it has been parted. */ \
+    /* Obtain the acceptor.  Only do the continue if the  */    \
+    /* acceptor has not been parted in the meantime.      */    \
     acc = acceptor_find(&pax->alist, conn->pc_paxid);           \
+    if (acc != NULL) {                                          \
+      r = do_continue_##op(chan, acc, conn);                    \
+    }                                                           \
                                                                 \
     LIST_REMOVE(&pax->clist, conn, pc_le);                      \
     continuation_destroy(conn);                                 \
                                                                 \
-    if (acc == NULL || acc->pa_peer != NULL) {                  \
-      return 0;                                                 \
-    }                                                           \
-                                                                \
-    return do_continue_##op(chan, acc);                         \
+    return r;                                                   \
   }
 
 /**
@@ -45,7 +46,8 @@
  * a part if connection failed.
  */
 int
-do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc)
+do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *conn)
 {
   int r;
   struct paxos_header hdr;
@@ -100,7 +102,8 @@ CONNECTINUATE(welcome);
  * acceptors.
  */
 int
-do_continue_ack_welcome(GIOChannel *chan, struct paxos_acceptor *acc)
+do_continue_ack_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *conn)
 {
   int r;
 
@@ -120,7 +123,8 @@ CONNECTINUATE(ack_welcome);
  * and reintroduce ourselves.  Otherwise, try preparing again.
  */
 int
-do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc)
+do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *conn)
 {
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
@@ -139,7 +143,8 @@ CONNECTINUATE(ack_redirect);
  * purported proposer, reset our proposer and reintroduce ourselves.
  */
 int
-do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc)
+do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *conn)
 {
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
@@ -159,32 +164,15 @@ CONNECTINUATE(ack_refuse);
  * decreeing the part again.
  */
 int
-continue_ack_reject(GIOChannel *chan, void *data)
+do_continue_ack_reject(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *conn)
 {
   int r;
-  struct paxos_continuation *conn;
-  struct paxos_acceptor *acc;
   struct paxos_instance *inst;
 
-  conn = data;
-  pax = session_find(&state.sessions, conn->pc_session_id);
-  if (pax == NULL) {
-    return 0;
-  }
-
-  // Obtain the acceptor and rejected instance.
-  acc = acceptor_find(&pax->alist, conn->pc_paxid);
+  // Obtain the rejected instance.  If we can't find it, it must have been
+  // sync'd away, so just return.
   inst = instance_find(&pax->ilist, conn->pc_inum);
-
-  LIST_REMOVE(&pax->clist, conn, pc_le);
-  continuation_destroy(conn);
-
-  // If the acceptor has been parted, just return.
-  if (acc == NULL || acc->pa_peer != NULL) {
-    return 0;
-  }
-
-  // If the instance is gone, it must have been sync'd away, so just return.
   if (inst == NULL) {
     return 0;
   }
@@ -209,3 +197,4 @@ continue_ack_reject(GIOChannel *chan, void *data)
   // Decree null if the reconnect succeeded, else redecree the part.
   return paxos_broadcast_instance(inst);
 }
+CONNECTINUATE(ack_reject);
