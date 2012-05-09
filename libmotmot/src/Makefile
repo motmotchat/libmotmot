@@ -9,7 +9,7 @@ ifdef DEBUG
 	CFLAGS += -DDEBUG
 endif
 
-all: motmot
+all: motmot tags
 
 motmot: $(SRC:.c=.o)
 	$(CC) $(LDFLAGS) -o motmot $(SRC:.c=.o)
@@ -19,7 +19,7 @@ motmot: $(SRC:.c=.o)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPDIR)$(<:.c=.d) -c $< -o $@
 
 tags:
-	-ctags -R
+	ctags -R
 
 clean: disconn
 	-rm -rf $(DEPDIR) $(SRC:.c=.o) motmot
