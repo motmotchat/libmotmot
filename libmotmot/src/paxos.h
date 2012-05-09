@@ -13,6 +13,12 @@
 #include <msgpack.h>
 #include <glib.h>
 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Primitive types.
+//
+
 /* Paxos ID type. */
 typedef uint32_t  paxid_t;
 typedef uint64_t  pax_uuid_t;
@@ -22,6 +28,12 @@ typedef struct paxid_pair {
   paxid_t id;             // ID of participant
   paxid_t gen;            // generation number of some sort
 } ppair_t;
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Message types and headers.
+//
 
 /* Alias ballots as (proposer ID, ballot number). */
 typedef ppair_t ballot_t;
@@ -144,6 +156,12 @@ struct paxos_header {
  * paxos_msgpack.c.
  */
 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Message values.
+//
+
 /* Kinds of decrees. */
 typedef enum decree_kind {
   DEC_NULL = 0,       // null value
@@ -170,6 +188,12 @@ struct paxos_value {
    * orders commits with values taking the form of this request ID.
    */
 };
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Session-local state.
+//
 
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
@@ -205,6 +229,16 @@ struct paxos_request {
 };
 LIST_HEAD(request_list, paxos_request);
 
+/* Continuation-style callbacks for connect_t calls. */
+struct paxos_continuation {
+  struct motmot_connect_cb pc_cb;     // Callback object
+  pax_uuid_t pc_session_id;           // session ID of the continuation
+  paxid_t pc_paxid;                   // ID of the target acceptor
+  paxid_t pc_inum;                    // instance number for ack_reject
+  LIST_ENTRY(paxos_continuation) pc_le;   // list entry
+};
+LIST_HEAD(continuation_list, paxos_continuation);
+
 /* Preparation state used by new proposers. */
 struct paxos_prep {
   ballot_t pp_ballot;                 // ballot being prepared
@@ -219,16 +253,6 @@ struct paxos_sync {
   unsigned ps_skips;      // number of times we skipped starting a new sync
   paxid_t ps_last;        // the last contiguous learn across the system
 };
-
-/* Continuation-style callbacks for connect_t calls. */
-struct paxos_continuation {
-  struct motmot_connect_cb pc_cb;     // Callback object
-  pax_uuid_t pc_session_id;           // session ID of the continuation
-  paxid_t pc_paxid;                   // ID of the target acceptor
-  paxid_t pc_inum;                    // instance number for ack_reject
-  LIST_ENTRY(paxos_continuation) pc_le;   // list entry
-};
-LIST_HEAD(continuation_list, paxos_continuation);
 
 /* Session state. */
 struct paxos_session {
@@ -263,6 +287,12 @@ struct paxos_session {
   LIST_ENTRY(paxos_session) session_le;   // session list entry
 };
 LIST_HEAD(session_list, paxos_session);
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Global state.
+//
 
 /* Table of client learning callbacks. */
 struct learn_table {
