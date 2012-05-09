@@ -56,7 +56,6 @@ paxos_request(struct paxos_session *session, dkind_t dkind, const void *msg,
 
   // Set the session.  The client should pass us a pointer to the correct
   // session object which we returned when the session was created.
-  // XXX: Check for destroyed sessions?  How?
   pax = session;
 
   // We can't make requests if we're not part of a protocol.

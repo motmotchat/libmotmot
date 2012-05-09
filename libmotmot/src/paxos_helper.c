@@ -129,7 +129,6 @@ continuation_new(motmot_connect_continuation_t func, paxid_t paxid)
   conn = g_malloc0(sizeof(*conn));
   conn->pc_cb.func = func;
   conn->pc_cb.data = conn;
-  // XXX: Make this opaque when we have real UUIDs.
   conn->pc_session_id = pax->session_id;
   conn->pc_paxid = paxid;
   conn->pc_inum = 0;

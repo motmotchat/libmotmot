@@ -59,7 +59,7 @@ typedef int (*learn_t)(const void *message, size_t len, void *desc,
     size_t size, void *data);
 
 /**
- * enter_t - Chatroom entrance callback type.
+ * enter_t - Chatroom entrance notification callback type.
  *
  * @param data      Pointer to motmot's internal session data.  This object
  *                  should be treated as opaque by the client and should be
@@ -69,7 +69,9 @@ typedef int (*learn_t)(const void *message, size_t len, void *desc,
 typedef void *(*enter_t)(void *data);
 
 /**
- * leave_t - Chatroom departure callback type.
+ * leave_t - Chatroom departure notification callback type.  Once the leave
+ * callback is called by motmot, the client must ensure that no further calls
+ * are made into the terminating session.
  *
  * @param data      Data pointer used by the client to identify the session.
  */
