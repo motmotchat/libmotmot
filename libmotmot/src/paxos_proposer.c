@@ -261,11 +261,12 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   g_free(pax->prep);
   pax->prep = NULL;
 
-  // Forceably part any dropped acceptors we have in our acceptor list, making
+  // Forcibly kill any dropped acceptors we have in our acceptor list, making
   // sure to skip ourselves since we have no pa_peer.
+  // XXX: We are double-parting if people dropped out while we were preparing.
   LIST_FOREACH(acc, &pax->alist, pa_le) {
     if (acc->pa_peer == NULL && acc->pa_paxid != pax->self_id) {
-      ERR_RET(r, proposer_decree_part(acc));
+      ERR_RET(r, proposer_decree_part(acc, 1));
     }
   }
 

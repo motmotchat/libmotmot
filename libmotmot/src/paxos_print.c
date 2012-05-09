@@ -103,6 +103,9 @@ dkind_print(dkind_t dkind, const char *lead, const char *trail)
     case DEC_PART:
       printf("DEC_PART");
       break;
+    case DEC_KILL:
+      printf("DEC_KILL");
+      break;
   }
   printf("%s", trail);
 }

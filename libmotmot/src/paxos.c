@@ -183,7 +183,7 @@ paxos_drop_connection(struct paxos_peer *source)
 
     // If we are the proposer, decree a part for the acceptor.
     if (was_proposer) {
-      r = r || proposer_decree_part(acc);
+      ERR_ACCUM(r, proposer_decree_part(acc, 0));
     }
 
     // Oh noes!  Did we lose the proposer?
@@ -193,7 +193,7 @@ paxos_drop_connection(struct paxos_peer *source)
 
       // If we're the new proposer, send a prepare.
       if (!was_proposer && is_proposer()) {
-        r = r || proposer_prepare();
+        ERR_ACCUM(r, proposer_prepare());
       }
     }
   }
@@ -430,8 +430,8 @@ proposer_force_kill(struct paxos_peer *source)
   // Find our acceptor object.
   LIST_FOREACH(acc, &pax->alist, pa_le) {
     if (acc->pa_peer == source) {
-      // Decree a part for the acceptor.
-      return proposer_decree_part(acc);
+      // Decree a kill for the acceptor.
+      return proposer_decree_part(acc, 1);
     }
   }
 

@@ -57,7 +57,7 @@ do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc)
   if (acc->pa_peer != NULL) {
     pax->live_count++;
   } else {
-    return proposer_decree_part(acc);
+    return proposer_decree_part(acc, 0);
   }
 
   // Initialize a header.  The new acceptor's ID is also the instance number

@@ -195,6 +195,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       break;
 
     case DEC_PART:
+    case DEC_KILL:
       // Are we the proposer right now?
       was_proposer = is_proposer();
 

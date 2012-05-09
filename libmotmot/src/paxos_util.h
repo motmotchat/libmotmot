@@ -16,6 +16,6 @@ unsigned majority(void);
 /* Protocol wrappers. */
 void instance_insert_and_upstart(struct paxos_instance *);
 int paxos_broadcast_instance(struct paxos_instance *);
-int proposer_decree_part(struct paxos_acceptor *);
+int proposer_decree_part(struct paxos_acceptor *, int force);
 
 #endif /* __PAXOS_UTIL_H__ */

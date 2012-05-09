@@ -150,6 +150,7 @@ typedef enum decree_kind {
   DEC_CHAT,           // chat message
   DEC_JOIN,           // add an acceptor
   DEC_PART,           // remove an acceptor
+  DEC_KILL            // remove an acceptor with force
 } dkind_t;
 
 /* Alias request ID's as (from ID, local request number). */

@@ -134,12 +134,13 @@ proposer_ack_request(struct paxos_header *hdr, msgpack_object *o)
   //
   // It is possible that a higher-ranked acceptor is identified as the
   // proposer.  This should occur only in the case that we are preparing but
-  // have lost our connection to the true proposer.  If we indeed are not the
-  // proposer, our prepare will fail, and we will be redirected at that point.
+  // have lost our connection to the true proposer; in this case we will defer
+  // our decree until after our prepare.  If we indeed are not the proposer,
+  // our prepare will fail, and we will be redirected at that point.
   if (hdr->ph_inum > pax->self_id) {
     acc = acceptor_find(&pax->alist, req->pr_val.pv_reqid.id);
     request_destroy(req);
-    return proposer_decree_part(acc);
+    return proposer_decree_part(acc, 1);
   }
 
   // Add it to the request cache if needed.

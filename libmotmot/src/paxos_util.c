@@ -14,6 +14,12 @@
 #include <assert.h>
 #include <glib.h>
 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Primitives.
+//
+
 /**
  * is_proposer - Check if we think we are the proposer.
  */
@@ -49,6 +55,15 @@ next_instance()
 }
 
 /**
+ * majority - Get the minimum number of acceptors needed in a simple majority.
+ */
+unsigned
+majority()
+{
+  return (LIST_COUNT(&pax->alist) / 2) + 1;
+}
+
+/**
  * request_needs_cached - Convenience function for denoting which dkinds are
  * requests.
  */
@@ -58,14 +73,11 @@ request_needs_cached(dkind_t dkind)
   return (dkind == DEC_CHAT || dkind == DEC_JOIN);
 }
 
-/**
- * majority - Get the minimum number of acceptors needed in a simple majority.
- */
-unsigned
-majority()
-{
-  return (LIST_COUNT(&pax->alist) / 2) + 1;
-}
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Protocol utilities.
+//
 
 /**
  * instance_insert_and_upstart - Insert a newly allocated instance into the
@@ -106,13 +118,17 @@ paxos_broadcast_instance(struct paxos_instance *inst)
  * proposer_decree_part - Decree a part, deferring as necessary.
  */
 int
-proposer_decree_part(struct paxos_acceptor *acc)
+proposer_decree_part(struct paxos_acceptor *acc, int force)
 {
   struct paxos_instance *inst;
 
   inst = g_malloc0(sizeof(*inst));
 
-  inst->pi_val.pv_dkind = DEC_PART;
+  if (force) {
+    inst->pi_val.pv_dkind = DEC_KILL;
+  } else {
+    inst->pi_val.pv_dkind = DEC_PART;
+  }
   inst->pi_val.pv_reqid.id = pax->self_id;
   inst->pi_val.pv_reqid.gen = (++pax->req_id);
   inst->pi_val.pv_extra = acc->pa_paxid;

@@ -11,9 +11,11 @@
 
 /* Error handling. */
 #define ERR_RET(r, cmd)   \
-  if ((r = cmd)) {        \
-    return r;             \
+  if (((r) = (cmd))) {    \
+    return (r);           \
   }
+#define ERR_ACCUM(r, cmd) \
+  (r) = (r) || (cmd);
 
 /* Paxid pair comparison functions. */
 int ppair_compare(ppair_t, ppair_t);
