@@ -177,6 +177,7 @@ void
 leave(void *data)
 {
   printf("PART succeeded.  Exiting...\n");
+  session = NULL;
   exit(0);
 }
 

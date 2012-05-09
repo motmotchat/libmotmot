@@ -218,7 +218,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
         acceptor_destroy(acc);
       } else {
         // We are leaving the protocol, so wipe all our state clean.
-        paxos_end(&pax);
+        paxos_end(pax);
         return 1;
       }
 
