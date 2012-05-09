@@ -116,9 +116,13 @@ struct paxos_header {
    */
 };
 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Wire protocol.
+//
+
 /**
- * We describe the wire protocol for our Paxos system
- *
  * Each message sent between two Paxos participants is a msgpack array of
  * either one or two elements.  The first, included in all messages, whether
  * in- or out-of-band, is a paxos_header.  The second is optional and
@@ -313,6 +317,12 @@ struct paxos_state {
 
 extern struct paxos_state state;
 extern struct paxos_session *pax;
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Exposed functions.
+//
 
 /* Paxos protocol interface. */
 int paxos_init(connect_t, struct learn_table *, enter_t, leave_t);
