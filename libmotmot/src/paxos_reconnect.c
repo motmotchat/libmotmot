@@ -74,7 +74,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   int r;
   struct paxos_header orig_hdr;
   struct paxos_acceptor *acc;
-  struct paxos_connectinue *conn;
+  struct paxos_continuation *conn;
 
   // We dispatched as the proposer, so we do not need to check again whether
   // we think ourselves to be the proposer.  Instead, just sanity check that
@@ -116,7 +116,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
     acc = acceptor_find(&pax->alist, hdr->ph_inum);
     assert(acc->pa_peer == NULL);
 
-    conn = connectinue_new(continue_ack_redirect, acc->pa_paxid);
+    conn = continuation_new(continue_ack_redirect, acc->pa_paxid);
     ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
     return 0;
   }
@@ -187,7 +187,7 @@ acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
 {
   int r;
   struct paxos_acceptor *acc;
-  struct paxos_connectinue *conn;
+  struct paxos_continuation *conn;
 
   // Check whether, since we sent our request, we have already found a more
   // suitable proposer, possibly due to another redirect, in which case we
@@ -204,7 +204,7 @@ acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
   acc = acceptor_find(&pax->alist, hdr->ph_inum);
   assert(acc->pa_peer == NULL);
 
-  conn = connectinue_new(continue_ack_refuse, acc->pa_paxid);
+  conn = continuation_new(continue_ack_refuse, acc->pa_paxid);
   ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
   return 0;
 }
@@ -244,7 +244,7 @@ proposer_ack_reject(struct paxos_header *hdr)
   int r;
   struct paxos_instance *inst;
   struct paxos_acceptor *acc;
-  struct paxos_connectinue *conn;
+  struct paxos_continuation *conn;
 
   // Our prepare succeeded, so we have only one possible ballot in our
   // lifetime in the system.
@@ -268,7 +268,7 @@ proposer_ack_reject(struct paxos_header *hdr)
     acc = acceptor_find(&pax->alist, inst->pi_val.pv_extra);
     assert(acc->pa_peer == NULL);
 
-    conn = connectinue_new(continue_ack_reject, acc->pa_paxid);
+    conn = continuation_new(continue_ack_reject, acc->pa_paxid);
     conn->pc_inum = inst->pi_hdr.ph_inum;
     ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
     return 0;

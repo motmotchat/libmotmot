@@ -220,14 +220,14 @@ struct paxos_sync {
 };
 
 /* Continuation-style callbacks for connect_t calls. */
-struct paxos_connectinue {
-  struct motmot_connect_cb pc_cb;       // Callback object
-  pax_uuid_t pc_session_id;             // session ID of the continuation
-  paxid_t pc_paxid;                     // ID of the target acceptor
-  paxid_t pc_inum;                      // instance number for ack_reject
-  LIST_ENTRY(paxos_connectinue) pc_le;
+struct paxos_continuation {
+  struct motmot_connect_cb pc_cb;     // Callback object
+  pax_uuid_t pc_session_id;           // session ID of the continuation
+  paxid_t pc_paxid;                   // ID of the target acceptor
+  paxid_t pc_inum;                    // instance number for ack_reject
+  LIST_ENTRY(paxos_continuation) pc_le;   // list entry
 };
-LIST_HEAD(connectinue_list, paxos_connectinue);
+LIST_HEAD(continuation_list, paxos_continuation);
 
 /* Session state. */
 struct paxos_session {
@@ -249,7 +249,7 @@ struct paxos_session {
   unsigned live_count;                // number of acceptors we think are live
   struct acceptor_list alist;         // list of all Paxos participants
   struct acceptor_list adefer;        // list of deferred hello acks
-  struct connectinue_list clist;      // list of connectinuations
+  struct continuation_list clist;     // list of connectinuations
 
   struct instance_list ilist;         // list of all instances
   struct instance_list idefer;        // list of deferred instances

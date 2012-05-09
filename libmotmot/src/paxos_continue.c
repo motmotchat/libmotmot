@@ -1,5 +1,5 @@
 /**
- * paxos_connectinue.c - Continuation-like callbacks which are invoked by the
+ * paxos_continue.c - Continuation-like callbacks which are invoked by the
  * client once GIOChannel connections are established.
  */
 #include "paxos.h"
@@ -18,7 +18,7 @@
   int                                                           \
   continue_##op(GIOChannel *chan, void *data)                   \
   {                                                             \
-    struct paxos_connectinue *conn;                             \
+    struct paxos_continuation *conn;                            \
     struct paxos_acceptor *acc;                                 \
                                                                 \
     conn = data;                                                \
@@ -31,7 +31,7 @@
     acc = acceptor_find(&pax->alist, conn->pc_paxid);           \
                                                                 \
     LIST_REMOVE(&pax->clist, conn, pc_le);                      \
-    connectinue_destroy(conn);                                  \
+    continuation_destroy(conn);                                 \
                                                                 \
     if (acc == NULL || acc->pa_peer != NULL) {                  \
       return 0;                                                 \
@@ -162,7 +162,7 @@ int
 continue_ack_reject(GIOChannel *chan, void *data)
 {
   int r;
-  struct paxos_connectinue *conn;
+  struct paxos_continuation *conn;
   struct paxos_acceptor *acc;
   struct paxos_instance *inst;
 
@@ -177,7 +177,7 @@ continue_ack_reject(GIOChannel *chan, void *data)
   inst = instance_find(&pax->ilist, conn->pc_inum);
 
   LIST_REMOVE(&pax->clist, conn, pc_le);
-  connectinue_destroy(conn);
+  continuation_destroy(conn);
 
   // If the acceptor has been parted, just return.
   if (acc == NULL || acc->pa_peer != NULL) {

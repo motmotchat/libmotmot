@@ -24,14 +24,14 @@ int reqid_compare(reqid_t, reqid_t);
 struct paxos_session *session_new(void *, int);
 void header_init(struct paxos_header *, paxop_t, paxid_t);
 void instance_init_metadata(struct paxos_instance *);
-struct paxos_connectinue *
-  connectinue_new(motmot_connect_continuation_t, paxid_t);
+struct paxos_continuation *
+  continuation_new(motmot_connect_continuation_t, paxid_t);
 
 /* Destructors. */
 void acceptor_destroy(struct paxos_acceptor *);
 void instance_destroy(struct paxos_instance *);
 void request_destroy(struct paxos_request *);
-void connectinue_destroy(struct paxos_connectinue *);
+void continuation_destroy(struct paxos_continuation *);
 void session_destroy(struct paxos_session *);
 
 /* List helpers. */
@@ -52,7 +52,7 @@ struct paxos_session *session_insert(struct session_list *,
 void acceptor_list_destroy(struct acceptor_list *);
 void instance_list_destroy(struct instance_list *);
 void request_list_destroy(struct request_list *);
-void connectinue_list_destroy(struct connectinue_list *);
+void continuation_list_destroy(struct continuation_list *);
 
 /* UUID helpers. */
 void pax_uuid_gen(pax_uuid_t *);

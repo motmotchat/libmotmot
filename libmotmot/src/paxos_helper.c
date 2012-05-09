@@ -121,10 +121,10 @@ instance_init_metadata(struct paxos_instance *inst)
   inst->pi_rejects = 0;
 }
 
-struct paxos_connectinue *
-connectinue_new(motmot_connect_continuation_t func, paxid_t paxid)
+struct paxos_continuation *
+continuation_new(motmot_connect_continuation_t func, paxid_t paxid)
 {
-  struct paxos_connectinue *conn;
+  struct paxos_continuation *conn;
 
   conn = g_malloc0(sizeof(*conn));
   conn->pc_cb.func = func;
@@ -171,7 +171,7 @@ request_destroy(struct paxos_request *req)
 }
 
 void
-connectinue_destroy(struct paxos_connectinue *conn)
+continuation_destroy(struct paxos_continuation *conn)
 {
   g_free(conn);
 }
@@ -182,7 +182,7 @@ session_destroy(struct paxos_session *session)
   // Wipe all our lists.
   acceptor_list_destroy(&pax->alist);
   acceptor_list_destroy(&pax->adefer);
-  connectinue_list_destroy(&pax->clist);
+  continuation_list_destroy(&pax->clist);
   instance_list_destroy(&pax->ilist);
   instance_list_destroy(&pax->idefer);
   request_list_destroy(&pax->rcache);
@@ -309,7 +309,7 @@ XLIST_INSERT_IMPL(session, session_le, session_id, pax_uuid_compare);
 XLIST_DESTROY_IMPL(acceptor, pa_le, acceptor_destroy);
 XLIST_DESTROY_IMPL(instance, pi_le, instance_destroy);
 XLIST_DESTROY_IMPL(request, pr_le, request_destroy);
-XLIST_DESTROY_IMPL(connectinue, pc_le, connectinue_destroy);
+XLIST_DESTROY_IMPL(continuation, pc_le, continuation_destroy);
 XLIST_DESTROY_IMPL(session, session_le, session_destroy);
 
 
