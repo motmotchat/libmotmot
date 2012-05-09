@@ -140,7 +140,7 @@ paxos_commit(struct paxos_instance *inst)
 int
 paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 {
-  int was_proposer;
+  int r = 0;
   struct paxos_acceptor *acc;
 
   // Mark the learn.
@@ -196,9 +196,6 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 
     case DEC_PART:
     case DEC_KILL:
-      // Are we the proposer right now?
-      was_proposer = is_proposer();
-
       // Pull the acceptor from the alist.
       acc = acceptor_find(&pax->alist, inst->pi_val.pv_extra);
       if (acc == NULL) {
@@ -219,18 +216,20 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
         acceptor_destroy(acc);
       } else {
         // We are leaving the protocol, so wipe all our state clean.
-        paxos_end(pax);
-        return 1;
+        return paxos_end(pax);
       }
 
-      // Prepare if we became the proposer as a result of the part.
-      reset_proposer();
-      if (!was_proposer && is_proposer()) {
-        proposer_prepare();
+      // If we just parted our proposer, "elect" a new one.  If it's us, send
+      // a prepare.
+      if (acc->pa_paxid == pax->proposer->pa_paxid) {
+        reset_proposer();
+        if (is_proposer()) {
+          r = proposer_prepare();
+        }
       }
 
       break;
   }
 
-  return 0;
+  return r;
 }

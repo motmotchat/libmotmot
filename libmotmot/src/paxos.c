@@ -132,7 +132,7 @@ paxos_end(void *session)
   // that no more calls into Paxos will be made for the terminating session.
   state.leave(pax->client_data);
 
-  return 0;
+  return 1;
 }
 
 /**
@@ -160,17 +160,12 @@ paxos_register_connection(GIOChannel *chan)
 int
 paxos_drop_connection(struct paxos_peer *source)
 {
-  int r, was_proposer;
+  int r = 0;
   struct paxos_acceptor *acc;
-
-  r = 0;
 
   // Process the drop for every session.
   // XXX: Have a single global list of connections.
   LIST_FOREACH(pax, &state.sessions, session_le) {
-    // Are we the proposer right now?
-    was_proposer = is_proposer();
-
     // Connection dropped; mark the acceptor as dead.
     LIST_FOREACH(acc, &pax->alist, pa_le) {
       if (acc->pa_peer == source) {
@@ -182,17 +177,17 @@ paxos_drop_connection(struct paxos_peer *source)
     }
 
     // If we are the proposer, decree a part for the acceptor.
-    if (was_proposer) {
+    if (is_proposer()) {
       ERR_ACCUM(r, proposer_decree_part(acc, 0));
     }
 
     // Oh noes!  Did we lose the proposer?
     if (acc->pa_paxid == pax->proposer->pa_paxid) {
-      // Let's find the new one.
-      reset_proposer();
+      assert(!is_proposer());
 
-      // If we're the new proposer, send a prepare.
-      if (!was_proposer && is_proposer()) {
+      // "Elect" the new proposer.  If it's us, send a prepare.
+      reset_proposer();
+      if (is_proposer()) {
         ERR_ACCUM(r, proposer_prepare());
       }
     }
