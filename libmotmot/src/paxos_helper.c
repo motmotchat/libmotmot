@@ -2,10 +2,14 @@
  * paxos_helper.c - Helper functions for Paxos.
  */
 #include "paxos.h"
+#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "list.h"
 
+#include <fcntl.h>
+#include <unistd.h>
 #include <glib.h>
+
 
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -145,6 +149,20 @@ connectinue_destroy(struct paxos_connectinue *conn)
   g_free(conn);
 }
 
+void
+session_destroy(struct paxos_session *session)
+{
+  // Wipe all our lists.
+  acceptor_list_destroy(&pax->alist);
+  acceptor_list_destroy(&pax->adefer);
+  connectinue_list_destroy(&pax->clist);
+  instance_list_destroy(&pax->ilist);
+  instance_list_destroy(&pax->idefer);
+  request_list_destroy(&pax->rcache);
+
+  g_free(session);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -262,6 +280,41 @@ XLIST_INSERT_REV_IMPL(request, pr_le, pr_val.pv_reqid, reqid_compare);
 XLIST_DESTROY_IMPL(acceptor, pa_le, acceptor_destroy);
 XLIST_DESTROY_IMPL(instance, pi_le, instance_destroy);
 XLIST_DESTROY_IMPL(request, pr_le, request_destroy);
+XLIST_DESTROY_IMPL(connectinue, pc_le, connectinue_destroy);
+XLIST_DESTROY_IMPL(session, session_le, session_destroy);
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  UUID helpers
+//
+
+void
+pax_uuid_gen(pax_uuid_t *uuid)
+{
+  int urandom = open("/dev/urandom", O_RDONLY);
+  read(urandom, uuid, sizeof(*uuid));
+  close(urandom);
+}
+
+void
+pax_uuid_destroy(pax_uuid_t *uuid)
+{
+  (void)uuid;
+  return;
+}
+
+int
+pax_uuid_compare(pax_uuid_t x, pax_uuid_t y)
+{
+  if (x < y) {
+    return -1;
+  } else if (x > y) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
 
 
 ///////////////////////////////////////////////////////////////////////////

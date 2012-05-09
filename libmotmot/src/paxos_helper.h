@@ -31,6 +31,7 @@ void acceptor_destroy(struct paxos_acceptor *);
 void instance_destroy(struct paxos_instance *);
 void request_destroy(struct paxos_request *);
 void connectinue_destroy(struct paxos_connectinue *);
+void session_destroy(struct paxos_session *);
 
 /* List helpers. */
 struct paxos_acceptor *acceptor_find(struct acceptor_list *, paxid_t);
@@ -47,6 +48,12 @@ struct paxos_request *request_insert(struct request_list *,
 void acceptor_list_destroy(struct acceptor_list *);
 void instance_list_destroy(struct instance_list *);
 void request_list_destroy(struct request_list *);
+void connectinue_list_destroy(struct connectinue_list *);
+
+/* UUID helpers. */
+void pax_uuid_gen(pax_uuid_t *);
+void pax_uuid_destroy(pax_uuid_t *);
+int pax_uuid_compare(pax_uuid_t, pax_uuid_t);
 
 /* Paxos message sending. */
 int paxos_broadcast(const char *, size_t);

@@ -8,11 +8,29 @@
 #include <msgpack.h>
 #include <assert.h>
 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Artificial msgpack primitives.
+//
+
 void
 msgpack_pack_paxid(msgpack_packer *pk, paxid_t paxid)
 {
   msgpack_pack_uint32(pk, paxid);
 }
+
+void
+msgpack_pack_pax_uuid(msgpack_packer *pk, pax_uuid_t uuid)
+{
+  msgpack_pack_uint64(pk, uuid);
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Paxos yak utilities.
+//
 
 void
 paxos_payload_init(struct paxos_yak *py, size_t n)
@@ -51,6 +69,12 @@ paxos_payload_size(struct paxos_yak *py)
   return py->buf->size;
 }
 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Packing and unpacking.
+//
+
 void
 paxos_paxid_pack(struct paxos_yak *py, paxid_t paxid)
 {
@@ -65,22 +89,23 @@ paxos_paxid_unpack(paxid_t *paxid, msgpack_object *o)
 }
 
 void
-paxos_uuid_pack(struct paxos_yak *py, uuid_t *uuid)
+paxos_uuid_pack(struct paxos_yak *py, pax_uuid_t uuid)
 {
-  paxos_paxid_pack(py, *uuid);
+  msgpack_pack_pax_uuid(py->pk, uuid);
 }
 
 void
-paxos_uuid_unpack(uuid_t *uuid, msgpack_object *o)
+paxos_uuid_unpack(pax_uuid_t *uuid, msgpack_object *o)
 {
-  paxos_paxid_unpack(uuid, o);
+  assert(o->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  *uuid = o->via.u64;
 }
 
 void
 paxos_header_pack(struct paxos_yak *py, struct paxos_header *hdr)
 {
   msgpack_pack_array(py->pk, 5);
-  paxos_uuid_pack(py, &hdr->ph_session);
+  paxos_uuid_pack(py, hdr->ph_session);
   msgpack_pack_paxid(py->pk, hdr->ph_ballot.id);
   msgpack_pack_paxid(py->pk, hdr->ph_ballot.gen);
   msgpack_pack_int(py->pk, hdr->ph_opcode);
@@ -97,8 +122,7 @@ paxos_header_unpack(struct paxos_header *hdr, msgpack_object *o)
   assert(o->via.array.size == 5);
 
   p = o->via.array.ptr;
-  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  hdr->ph_session = (p++)->via.u64;
+  paxos_uuid_unpack(&hdr->ph_session, p++);
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   hdr->ph_ballot.id = (p++)->via.u64;
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);

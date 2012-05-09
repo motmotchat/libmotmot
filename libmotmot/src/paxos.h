@@ -15,7 +15,7 @@
 
 /* Paxos ID type. */
 typedef uint32_t  paxid_t;
-typedef paxid_t   uuid_t;
+typedef uint64_t  pax_uuid_t;
 
 /* Totally ordered pair of paxid's. */
 typedef struct paxid_pair {
@@ -61,10 +61,10 @@ typedef enum paxos_opcode {
 
 /* Paxos message header that is included with any message. */
 struct paxos_header {
-  uuid_t ph_session;    // session ID
-  ballot_t ph_ballot;   // ballot ID
-  paxop_t ph_opcode;    // protocol opcode
-  paxid_t ph_inum;      // Multi-Paxos instance number
+  pax_uuid_t ph_session;  // session ID
+  ballot_t ph_ballot;     // ballot ID
+  paxop_t ph_opcode;      // protocol opcode
+  paxid_t ph_inum;        // Multi-Paxos instance number
   /**
    * The ph_inum field means different things for the different ops:
    *
@@ -221,16 +221,17 @@ struct paxos_sync {
 
 /* Continuation-style callbacks for connect_t calls. */
 struct paxos_connectinue {
-  struct motmot_connect_cb pc_cb;
-  paxid_t pc_paxid;
-  paxid_t pc_inum;
+  struct motmot_connect_cb pc_cb;       // Callback object
+  pax_uuid_t pc_session_id;             // session ID of the continuation
+  paxid_t pc_paxid;                     // ID of the target acceptor
+  paxid_t pc_inum;                      // instance number for ack_reject
   LIST_ENTRY(paxos_connectinue) pc_le;
 };
 LIST_HEAD(connectinue_list, paxos_connectinue);
 
 /* Session state. */
 struct paxos_session {
-  uuid_t session_id;                  // ID of the Paxos session
+  pax_uuid_t session_id;              // ID of the Paxos session
   void *client_data;                  // opaque client session object
 
   paxid_t self_id;                    // our own acceptor ID
@@ -258,7 +259,7 @@ struct paxos_session {
   paxid_t ihole;                      // number of first uncommitted instance
   struct paxos_instance *istart;      // lower bound instance of first hole
 
-  LIST_ENTRY(paxos_session) le;       // session list entry
+  LIST_ENTRY(paxos_session) session_le;   // session list entry
 };
 LIST_HEAD(session_list, paxos_session);
 
@@ -275,6 +276,8 @@ struct paxos_state {
   enter_t enter;                      // callback for entering chat
   leave_t leave;                      // callback for leaving chat
   struct learn_table learn;           // callbacks for paxos_learn
+
+  struct session_list sessions;       // list of active Paxos sessions
 };
 
 extern struct paxos_state state;
