@@ -20,6 +20,13 @@
  */
 int paxos_sync(void *data)
 {
+  pax_uuid_t *uuid;
+
+  // Set the session.  We parametrize paxos_sync with a pointer to a session
+  // ID when we add it to the main event loop.
+  uuid = (pax_uuid_t *)data;
+  pax = session_find(&state.sessions, *uuid);
+
   if (is_proposer()) {
     proposer_sync();
   }

@@ -21,7 +21,6 @@ motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
   learn.join = join;
   learn.part = part;
 
-  g_timeout_add_seconds(1, paxos_sync, NULL);
   return paxos_init(connect, &learn, enter, leave);
 }
 

@@ -21,6 +21,7 @@ int ballot_compare(ballot_t, ballot_t);
 int reqid_compare(reqid_t, reqid_t);
 
 /* Initializers. */
+struct paxos_session *session_new(void *, int);
 void header_init(struct paxos_header *, paxop_t, paxid_t);
 void instance_init_metadata(struct paxos_instance *);
 struct paxos_connectinue *
@@ -37,6 +38,7 @@ void session_destroy(struct paxos_session *);
 struct paxos_acceptor *acceptor_find(struct acceptor_list *, paxid_t);
 struct paxos_instance *instance_find(struct instance_list *, paxid_t);
 struct paxos_request *request_find(struct request_list *, reqid_t);
+struct paxos_session *session_find(struct session_list *, pax_uuid_t);
 
 struct paxos_acceptor *acceptor_insert(struct acceptor_list *,
     struct paxos_acceptor *);
@@ -44,6 +46,8 @@ struct paxos_instance *instance_insert(struct instance_list *,
     struct paxos_instance *);
 struct paxos_request *request_insert(struct request_list *,
     struct paxos_request *);
+struct paxos_session *session_insert(struct session_list *,
+    struct paxos_session *);
 
 void acceptor_list_destroy(struct acceptor_list *);
 void instance_list_destroy(struct instance_list *);

@@ -72,6 +72,7 @@ proposer_prepare()
   pax->prep->pp_redirects = 0;
 
   // Initialize a Paxos header.
+  hdr.ph_session = pax->session_id;
   hdr.ph_ballot.id = pax->prep->pp_ballot.id;
   hdr.ph_ballot.gen = pax->prep->pp_ballot.gen;
   hdr.ph_opcode = OP_PREPARE;

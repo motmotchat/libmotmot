@@ -37,33 +37,7 @@ paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
   state.learn.join = learn->join;
   state.learn.part = learn->part;
 
-  pax = g_malloc0(sizeof(*pax));
-
-  pax->self_id = 0;
-  pax->req_id = 0;
-  pax->proposer = NULL;
-  pax->ballot.id = 0;
-  pax->ballot.gen = 0;
-
-  pax->ibase = 0;
-  pax->ihole = 0;
-  pax->istart = NULL;
-
-  pax->gen_high = 0;
-  pax->prep = NULL;
-
-  pax->sync_id = 0;
-  pax->sync_prev = 0;
-  pax->sync = NULL;
-
-  pax->live_count = 0;
-  LIST_INIT(&pax->alist);
-  LIST_INIT(&pax->adefer);
-  LIST_INIT(&pax->clist);
-
-  LIST_INIT(&pax->ilist);
-  LIST_INIT(&pax->idefer);
-  LIST_INIT(&pax->rcache);
+  LIST_INIT(&state.sessions);
 
   return 0;
 }
@@ -74,13 +48,13 @@ paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
 void *
 paxos_start(const void *desc, size_t size, void *data)
 {
+  pax_uuid_t *uuid;
   struct paxos_request *req;
   struct paxos_instance *inst;
   struct paxos_acceptor *acc;
 
-  // Initialize a new session.
-  // XXX: Do that.
-  pax->client_data = data;
+  // Create a new session with a fresh UUID.
+  pax = session_new(data, 1);
 
   // Give ourselves ID 1.
   pax->self_id = 1;
@@ -136,7 +110,12 @@ paxos_start(const void *desc, size_t size, void *data)
   // Set ourselves as the proposer.
   pax->proposer = acc;
 
-  return &pax;
+  // Add a sync for this session.
+  uuid = g_malloc0(sizeof(*uuid));
+  *uuid = pax->session_id;
+  g_timeout_add_seconds(1, paxos_sync, uuid);
+
+  return pax;
 }
 
 /**
@@ -145,15 +124,13 @@ paxos_start(const void *desc, size_t size, void *data)
 int
 paxos_end(void *session)
 {
-  // Wipe all our lists.
-  acceptor_list_destroy(&pax->alist);
-  acceptor_list_destroy(&pax->adefer);
-  instance_list_destroy(&pax->ilist);
-  instance_list_destroy(&pax->idefer);
-  request_list_destroy(&pax->rcache);
+  // Destroy the session.
+  LIST_REMOVE(&state.sessions, pax, session_le);
+  session_destroy(pax);
 
-  // Reinitialize our state.
-  paxos_init(state.connect, &state.learn, state.enter, state.leave);
+  // Tell the client that the session is ending.  The client must promise us
+  // that no more calls into Paxos will be made for the terminating session.
+  state.leave(pax->client_data);
 
   return 0;
 }
@@ -183,39 +160,45 @@ paxos_register_connection(GIOChannel *chan)
 int
 paxos_drop_connection(struct paxos_peer *source)
 {
-  int was_proposer;
+  int r, was_proposer;
   struct paxos_acceptor *acc;
 
-  // Are we the proposer right now?
-  was_proposer = is_proposer();
+  r = 0;
 
-  // Connection dropped; mark the acceptor as dead.
-  LIST_FOREACH(acc, &pax->alist, pa_le) {
-    if (acc->pa_peer == source) {
-      paxos_peer_destroy(acc->pa_peer);
-      acc->pa_peer = NULL;
-      pax->live_count--;
-      break;
+  // Process the drop for every session.
+  // XXX: Have a single global list of connections.
+  LIST_FOREACH(pax, &state.sessions, session_le) {
+    // Are we the proposer right now?
+    was_proposer = is_proposer();
+
+    // Connection dropped; mark the acceptor as dead.
+    LIST_FOREACH(acc, &pax->alist, pa_le) {
+      if (acc->pa_peer == source) {
+        paxos_peer_destroy(acc->pa_peer);
+        acc->pa_peer = NULL;
+        pax->live_count--;
+        break;
+      }
+    }
+
+    // If we are the proposer, decree a part for the acceptor.
+    if (was_proposer) {
+      r = r || proposer_decree_part(acc);
+    }
+
+    // Oh noes!  Did we lose the proposer?
+    if (acc->pa_paxid == pax->proposer->pa_paxid) {
+      // Let's find the new one.
+      reset_proposer();
+
+      // If we're the new proposer, send a prepare.
+      if (!was_proposer && is_proposer()) {
+        r = r || proposer_prepare();
+      }
     }
   }
 
-  // If we are the proposer, decree a part for the acceptor.
-  if (was_proposer) {
-    return proposer_decree_part(acc);
-  }
-
-  // Oh noes!  Did we lose the proposer?
-  if (acc->pa_paxid == pax->proposer->pa_paxid) {
-    // Let's find the new one.
-    reset_proposer();
-
-    // If we're the new proposer, send a prepare.
-    if (!was_proposer && is_proposer()) {
-      return proposer_prepare();
-    }
-  }
-
-  return 0;
+  return r;
 }
 
 /**
@@ -347,7 +330,7 @@ acceptor_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
       break;
 
     case OP_WELCOME:
-      r = acceptor_ack_welcome(source, hdr, o);
+      // Ignore welcomes; they should be handled in paxos_dispatch().
       break;
     case OP_HELLO:
       r = paxos_ack_hello(source, hdr);
@@ -400,6 +383,17 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
   // routines which the dispatch functions call.
   hdr = g_malloc0(sizeof(*hdr));
   paxos_header_unpack(hdr, o->via.array.ptr);
+
+  // Find the session to which the message belongs.  If there is none, just
+  // ignore it unless it is a welcome.
+  pax = session_find(&state.sessions, hdr->ph_session);
+  if (pax == NULL) {
+    if (hdr->ph_opcode == OP_WELCOME) {
+      return acceptor_ack_welcome(source, hdr, o->via.array.ptr + 1);
+    } else {
+      return 0;
+    }
+  }
 
   // Switch on the type of message received.
   if (is_proposer()) {

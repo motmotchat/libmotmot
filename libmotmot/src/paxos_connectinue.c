@@ -22,6 +22,10 @@
     struct paxos_acceptor *acc;                                 \
                                                                 \
     conn = data;                                                \
+    pax = session_find(&state.sessions, conn->pc_session_id);   \
+    if (pax == NULL) {                                          \
+      return 0;                                                 \
+    }                                                           \
                                                                 \
     /* Obtain the acceptor, returning if it has been parted. */ \
     acc = acceptor_find(&pax->alist, conn->pc_paxid);           \
@@ -63,9 +67,11 @@ do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc)
   // Pack the header into a new payload.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &hdr);
-
-  // Start off the info payload with the ibase.
   paxos_payload_begin_array(&py, 3);
+
+  // Start off the info payload with the session ID and ibase.
+  paxos_payload_begin_array(&py, 2);
+  paxos_uuid_pack(&py, pax->session_id);
   paxos_paxid_pack(&py, pax->ibase);
 
   // Pack the entire alist.  Hopefully we don't have too many un-parted
@@ -161,6 +167,10 @@ continue_ack_reject(GIOChannel *chan, void *data)
   struct paxos_instance *inst;
 
   conn = data;
+  pax = session_find(&state.sessions, conn->pc_session_id);
+  if (pax == NULL) {
+    return 0;
+  }
 
   // Obtain the acceptor and rejected instance.
   acc = acceptor_find(&pax->alist, conn->pc_paxid);

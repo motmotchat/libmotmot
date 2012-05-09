@@ -61,10 +61,15 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     msgpack_object *o)
 {
   int r;
+  pax_uuid_t *uuid;
   msgpack_object *arr, *p, *pend;
   struct paxos_acceptor *acc;
   struct paxos_instance *inst;
   struct paxos_connectinue *conn;
+
+  // Create a new session.
+  pax = session_new(NULL, 0);
+  pax->client_data = state.enter(pax);
 
   // Set our local state.
   pax->ballot.id = hdr->ph_ballot.id;
@@ -77,9 +82,18 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   assert(o->via.array.size == 3);
   arr = o->via.array.ptr;
 
-  // Unpack the ibase.
-  assert(arr->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  pax->ibase = (arr++)->via.u64;
+  // Unpack the session ID and ibase.
+  assert(arr->type == MSGPACK_OBJECT_ARRAY);
+  p = (arr++)->via.array.ptr;
+
+  paxos_uuid_unpack(&pax->session_id, p++);
+  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
+  pax->ibase = (p++)->via.u64;
+
+  // Add a sync for this session.
+  uuid = g_malloc0(sizeof(*uuid));
+  *uuid = pax->session_id;
+  g_timeout_add_seconds(1, paxos_sync, uuid);
 
   // Make sure the alist is well-formed.
   assert(arr->type == MSGPACK_OBJECT_ARRAY);

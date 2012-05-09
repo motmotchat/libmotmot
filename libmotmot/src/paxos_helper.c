@@ -76,6 +76,31 @@ reqid_compare(reqid_t x, reqid_t y)
 //  Initializer routines.
 //
 
+struct paxos_session *
+session_new(void *data, int gen_uuid)
+{
+  struct paxos_session *session;
+
+  session = g_malloc0(sizeof(*session));
+  session_insert(&state.sessions, session);
+
+  // Generate a UUID and set client data pointer if desired.
+  if (gen_uuid) {
+    pax_uuid_gen(&session->session_id);
+  }
+  session->client_data = data;
+
+  // Initialize all our lists.
+  LIST_INIT(&session->alist);
+  LIST_INIT(&session->adefer);
+  LIST_INIT(&session->clist);
+  LIST_INIT(&session->ilist);
+  LIST_INIT(&session->idefer);
+  LIST_INIT(&session->rcache);
+
+  return session;
+}
+
 void
 header_init(struct paxos_header *hdr, paxop_t opcode, paxid_t inum)
 {
@@ -104,6 +129,8 @@ connectinue_new(motmot_connect_continuation_t func, paxid_t paxid)
   conn = g_malloc0(sizeof(*conn));
   conn->pc_cb.func = func;
   conn->pc_cb.data = conn;
+  // XXX: Make this opaque when we have real UUIDs.
+  conn->pc_session_id = pax->session_id;
   conn->pc_paxid = paxid;
   conn->pc_inum = 0;
 
@@ -272,10 +299,12 @@ session_destroy(struct paxos_session *session)
 XLIST_FIND_IMPL(acceptor, paxid_t, pa_le, pa_paxid, paxid_compare);
 XLIST_FIND_REV_IMPL(instance, paxid_t, pi_le, pi_hdr.ph_inum, paxid_compare);
 XLIST_FIND_IMPL(request, reqid_t, pr_le, pr_val.pv_reqid, reqid_compare);
+XLIST_FIND_IMPL(session, pax_uuid_t, session_le, session_id, pax_uuid_compare);
 
 XLIST_INSERT_REV_IMPL(acceptor, pa_le, pa_paxid, paxid_compare);
 XLIST_INSERT_REV_IMPL(instance, pi_le, pi_hdr.ph_inum, paxid_compare);
 XLIST_INSERT_REV_IMPL(request, pr_le, pr_val.pv_reqid, reqid_compare);
+XLIST_INSERT_IMPL(session, session_le, session_id, pax_uuid_compare);
 
 XLIST_DESTROY_IMPL(acceptor, pa_le, acceptor_destroy);
 XLIST_DESTROY_IMPL(instance, pi_le, instance_destroy);
