@@ -40,11 +40,11 @@ int
 proposer_welcome(struct paxos_acceptor *acc)
 {
   int r;
-  struct paxos_continuation *conn;
+  struct paxos_continuation *k;
 
   // Initiate a connection with the new acceptor.
-  conn = continuation_new(continue_welcome, acc->pa_paxid);
-  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pk_cb));
+  k = continuation_new(continue_welcome, acc->pa_paxid);
+  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &k->pk_cb));
 
   return 0;
 }
@@ -65,7 +65,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   msgpack_object *arr, *p, *pend;
   struct paxos_acceptor *acc;
   struct paxos_instance *inst;
-  struct paxos_continuation *conn;
+  struct paxos_continuation *k;
 
   // Create a new session.
   pax = session_new(NULL, 0);
@@ -118,8 +118,8 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
     } else if (acc->pa_paxid != pax->self_id) {
       // Connect to everyone but ourselves.  When we continue, we will say
       // hello to these acceptors.
-      conn = continuation_new(continue_ack_welcome, acc->pa_paxid);
-      ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pk_cb));
+      k = continuation_new(continue_ack_welcome, acc->pa_paxid);
+      ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &k->pk_cb));
     }
   }
 

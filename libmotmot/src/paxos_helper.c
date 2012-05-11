@@ -124,18 +124,18 @@ instance_init_metadata(struct paxos_instance *inst)
 struct paxos_continuation *
 continuation_new(motmot_connect_continuation_t func, paxid_t paxid)
 {
-  struct paxos_continuation *conn;
+  struct paxos_continuation *k;
 
-  conn = g_malloc0(sizeof(*conn));
-  conn->pk_cb.func = func;
-  conn->pk_cb.data = conn;
-  conn->pk_session_id = pax->session_id;
-  conn->pk_paxid = paxid;
-  conn->pk_inum = 0;
+  k = g_malloc0(sizeof(*k));
+  k->pk_cb.func = func;
+  k->pk_cb.data = k;
+  k->pk_session_id = pax->session_id;
+  k->pk_paxid = paxid;
+  k->pk_inum = 0;
 
-  LIST_INSERT_TAIL(&pax->clist, conn, pk_le);
+  LIST_INSERT_TAIL(&pax->clist, k, pk_le);
 
-  return conn;
+  return k;
 }
 
 
@@ -170,9 +170,9 @@ request_destroy(struct paxos_request *req)
 }
 
 void
-continuation_destroy(struct paxos_continuation *conn)
+continuation_destroy(struct paxos_continuation *k)
 {
-  g_free(conn);
+  g_free(k);
 }
 
 void

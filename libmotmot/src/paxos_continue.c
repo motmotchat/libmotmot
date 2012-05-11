@@ -19,24 +19,24 @@
   continue_##op(GIOChannel *chan, void *data)                   \
   {                                                             \
     int r = 0;                                                  \
-    struct paxos_continuation *conn;                            \
+    struct paxos_continuation *k;                               \
     struct paxos_acceptor *acc;                                 \
                                                                 \
-    conn = data;                                                \
-    pax = session_find(&state.sessions, conn->pk_session_id);   \
+    k = data;                                                   \
+    pax = session_find(&state.sessions, k->pk_session_id);      \
     if (pax == NULL) {                                          \
       return 0;                                                 \
     }                                                           \
                                                                 \
     /* Obtain the acceptor.  Only do the continue if the  */    \
     /* acceptor has not been parted in the meantime.      */    \
-    acc = acceptor_find(&pax->alist, conn->pk_paxid);           \
+    acc = acceptor_find(&pax->alist, k->pk_paxid);              \
     if (acc != NULL) {                                          \
-      r = do_continue_##op(chan, acc, conn);                    \
+      r = do_continue_##op(chan, acc, k);                       \
     }                                                           \
                                                                 \
-    LIST_REMOVE(&pax->clist, conn, pk_le);                      \
-    continuation_destroy(conn);                                 \
+    LIST_REMOVE(&pax->clist, k, pk_le);                         \
+    continuation_destroy(k);                                    \
                                                                 \
     return r;                                                   \
   }
@@ -47,7 +47,7 @@
  */
 int
 do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
-    struct paxos_continuation *conn)
+    struct paxos_continuation *k)
 {
   int r;
   struct paxos_header hdr;
@@ -103,7 +103,7 @@ CONNECTINUATE(welcome);
  */
 int
 do_continue_ack_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
-    struct paxos_continuation *conn)
+    struct paxos_continuation *k)
 {
   int r;
 
@@ -124,7 +124,7 @@ CONNECTINUATE(ack_welcome);
  */
 int
 do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
-    struct paxos_continuation *conn)
+    struct paxos_continuation *k)
 {
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
@@ -144,7 +144,7 @@ CONNECTINUATE(ack_redirect);
  */
 int
 do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
-    struct paxos_continuation *conn)
+    struct paxos_continuation *k)
 {
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
@@ -165,14 +165,14 @@ CONNECTINUATE(ack_refuse);
  */
 int
 do_continue_ack_reject(GIOChannel *chan, struct paxos_acceptor *acc,
-    struct paxos_continuation *conn)
+    struct paxos_continuation *k)
 {
   int r;
   struct paxos_instance *inst;
 
   // Obtain the rejected instance.  If we can't find it, it must have been
   // sync'd away, so just return.
-  inst = instance_find(&pax->ilist, conn->pk_inum);
+  inst = instance_find(&pax->ilist, k->pk_inum);
   if (inst == NULL) {
     return 0;
   }
