@@ -259,7 +259,11 @@ proposer_ack_reject(struct paxos_header *hdr)
     return 0;
   }
 
-  // We only reject parts.
+  // We only reject parts.  However, we may continue to receive rejects even
+  // after a majority rejects, in which case we may have re-decreed null.
+  if (inst->pi_val.pv_dkind == DEC_NULL) {
+    return 0;
+  }
   assert(inst->pi_val.pv_dkind == DEC_PART);
 
   // If we have been rejected by a majority, attempt reconnection.
