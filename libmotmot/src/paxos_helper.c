@@ -127,13 +127,13 @@ continuation_new(motmot_connect_continuation_t func, paxid_t paxid)
   struct paxos_continuation *conn;
 
   conn = g_malloc0(sizeof(*conn));
-  conn->pc_cb.func = func;
-  conn->pc_cb.data = conn;
-  conn->pc_session_id = pax->session_id;
-  conn->pc_paxid = paxid;
-  conn->pc_inum = 0;
+  conn->pk_cb.func = func;
+  conn->pk_cb.data = conn;
+  conn->pk_session_id = pax->session_id;
+  conn->pk_paxid = paxid;
+  conn->pk_inum = 0;
 
-  LIST_INSERT_TAIL(&pax->clist, conn, pc_le);
+  LIST_INSERT_TAIL(&pax->clist, conn, pk_le);
 
   return conn;
 }
@@ -308,7 +308,7 @@ XLIST_INSERT_IMPL(session, session_le, session_id, pax_uuid_compare);
 XLIST_DESTROY_IMPL(acceptor, pa_le, acceptor_destroy);
 XLIST_DESTROY_IMPL(instance, pi_le, instance_destroy);
 XLIST_DESTROY_IMPL(request, pr_le, request_destroy);
-XLIST_DESTROY_IMPL(continuation, pc_le, continuation_destroy);
+XLIST_DESTROY_IMPL(continuation, pk_le, continuation_destroy);
 XLIST_DESTROY_IMPL(session, session_le, session_destroy);
 
 

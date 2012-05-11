@@ -235,11 +235,11 @@ LIST_HEAD(request_list, paxos_request);
 
 /* Continuation-style callbacks for connect_t calls. */
 struct paxos_continuation {
-  struct motmot_connect_cb pc_cb;     // Callback object
-  pax_uuid_t pc_session_id;           // session ID of the continuation
-  paxid_t pc_paxid;                   // ID of the target acceptor
-  paxid_t pc_inum;                    // instance number for ack_reject
-  LIST_ENTRY(paxos_continuation) pc_le;   // list entry
+  struct motmot_connect_cb pk_cb;     // Callback object
+  pax_uuid_t pk_session_id;           // session ID of the continuation
+  paxid_t pk_paxid;                   // ID of the target acceptor
+  paxid_t pk_inum;                    // instance number for ack_reject
+  LIST_ENTRY(paxos_continuation) pk_le;   // list entry
 };
 LIST_HEAD(continuation_list, paxos_continuation);
 

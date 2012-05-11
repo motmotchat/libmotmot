@@ -44,7 +44,7 @@ proposer_welcome(struct paxos_acceptor *acc)
 
   // Initiate a connection with the new acceptor.
   conn = continuation_new(continue_welcome, acc->pa_paxid);
-  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pk_cb));
 
   return 0;
 }
@@ -119,7 +119,7 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
       // Connect to everyone but ourselves.  When we continue, we will say
       // hello to these acceptors.
       conn = continuation_new(continue_ack_welcome, acc->pa_paxid);
-      ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+      ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pk_cb));
     }
   }
 

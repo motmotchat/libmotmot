@@ -117,7 +117,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
     assert(acc->pa_peer == NULL);
 
     conn = continuation_new(continue_ack_redirect, acc->pa_paxid);
-    ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+    ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pk_cb));
     return 0;
   }
 
@@ -205,7 +205,7 @@ acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
   assert(acc->pa_peer == NULL);
 
   conn = continuation_new(continue_ack_refuse, acc->pa_paxid);
-  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+  ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pk_cb));
   return 0;
 }
 
@@ -273,8 +273,8 @@ proposer_ack_reject(struct paxos_header *hdr)
     assert(acc->pa_peer == NULL);
 
     conn = continuation_new(continue_ack_reject, acc->pa_paxid);
-    conn->pc_inum = inst->pi_hdr.ph_inum;
-    ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pc_cb));
+    conn->pk_inum = inst->pi_hdr.ph_inum;
+    ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &conn->pk_cb));
     return 0;
   }
 

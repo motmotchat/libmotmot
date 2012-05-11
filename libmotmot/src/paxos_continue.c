@@ -23,19 +23,19 @@
     struct paxos_acceptor *acc;                                 \
                                                                 \
     conn = data;                                                \
-    pax = session_find(&state.sessions, conn->pc_session_id);   \
+    pax = session_find(&state.sessions, conn->pk_session_id);   \
     if (pax == NULL) {                                          \
       return 0;                                                 \
     }                                                           \
                                                                 \
     /* Obtain the acceptor.  Only do the continue if the  */    \
     /* acceptor has not been parted in the meantime.      */    \
-    acc = acceptor_find(&pax->alist, conn->pc_paxid);           \
+    acc = acceptor_find(&pax->alist, conn->pk_paxid);           \
     if (acc != NULL) {                                          \
       r = do_continue_##op(chan, acc, conn);                    \
     }                                                           \
                                                                 \
-    LIST_REMOVE(&pax->clist, conn, pc_le);                      \
+    LIST_REMOVE(&pax->clist, conn, pk_le);                      \
     continuation_destroy(conn);                                 \
                                                                 \
     return r;                                                   \
@@ -172,7 +172,7 @@ do_continue_ack_reject(GIOChannel *chan, struct paxos_acceptor *acc,
 
   // Obtain the rejected instance.  If we can't find it, it must have been
   // sync'd away, so just return.
-  inst = instance_find(&pax->ilist, conn->pc_inum);
+  inst = instance_find(&pax->ilist, conn->pk_inum);
   if (inst == NULL) {
     return 0;
   }
