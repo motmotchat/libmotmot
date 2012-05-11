@@ -119,6 +119,14 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
   // Kill the trailing newline.
   msg[eol] = '\0';
 
+  // Ignore if no session has been initiated.
+  if (session == NULL) {
+    printf("input_loop: No session initiated; request ignored.\n");
+    fflush(stdout);
+    g_free(msg);
+    return TRUE;
+  }
+
   // Do rudimentary command line parsing.
   if (g_str_has_prefix(msg, "/invite ")) {
     // \invite socket - Handle inviting others.
@@ -169,6 +177,7 @@ void *
 enter(void *data)
 {
   printf("Welcome to your Motmot session!\n");
+  fflush(stdout);
   session = data;
   return NULL;
 }
@@ -177,6 +186,7 @@ void
 leave(void *data)
 {
   printf("PART succeeded.  Exiting...\n");
+  fflush(stdout);
   session = NULL;
   exit(0);
 }
