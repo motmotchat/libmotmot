@@ -25,28 +25,15 @@
  * nullprpl.
  */
 
+#include <ctype.h>
+#include <errno.h>
+#include <glib.h>
+#include <msgpack.h>
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
 
-#include <glib.h>
-
-#include <ctype.h>
-#include <msgpack.h>
-#include <errno.h>
-
-
-// Nop!
-#define PURPLE_PLUGINS 1
-#define _
-#define N_
-
-#define DISPLAY_VERSION "1"
-#define MOTMOT_WEBSITE "https://github.com/zenazn/motmot"
-
-#define DEFAULT_SERV "motmottest.com"
-#define DEFAULT_PORT 8888
-
+#include "motmot.h"
 
 #include "account.h"
 #include "accountopt.h"
@@ -65,13 +52,25 @@
 #include "util.h"
 #include "version.h"
 
-#include "motmot.h"
 #include "purplemot.h"
+
+// Nop!
+#define _
+#define N_
+
+#define DISPLAY_VERSION "1"
+#define MOTMOT_WEBSITE "https://motmotchat.com"
+
+#define PURPLE_PLUGINS 1
+
+#define DEFAULT_SERV "motmottest.com"
+#define DEFAULT_PORT 8888
 
 #define BUFF_SIZE 512
 #define PURPLEMOT_ERROR 1
 #define PURPLEMOT_OK 0
 
+// TODO: enum this
 #define AUTHENTICATE_USER 1
 #define REGISTER_FRIEND 2
 #define UNREGISTER_FRIEND 3
@@ -107,11 +106,11 @@
 static void motmot_report_status(const char *id, motmot_conn *conn);
 void get_all_statuses(motmot_conn *conn);
 static void motmot_parse(char *buffer, int len, PurpleConnection *gc);
-static void
-motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
-		gpointer data);
+static void motmot_login_failure(PurpleSslConnection *gsc,
+    PurpleSslErrorType error, gpointer data);
 
-static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond);
+static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc,
+    PurpleInputCondition cond);
 #define PURPLEMOT_ID "prpl-motmot"
 static PurplePlugin *_null_protocol = NULL;
 int chat_id = 0;
@@ -121,7 +120,6 @@ PurpleAccount *GLOBAL_ACCOUNT = NULL;
 #define NULL_STATUS_ONLINE   "online"
 #define NULL_STATUS_AWAY     "away"
 #define NULL_STATUS_OFFLINE  "offline"
-
 
 typedef void (*GcFunc)(PurpleConnection *from,
                        PurpleConnection *to,
@@ -133,53 +131,53 @@ typedef struct {
   gpointer userdata;
 } GcFuncData;
 
-gint check_info(gconstpointer a, gconstpointer data){
+int check_info(const void *a, const void *data) {
   int id = *((int *) data);
   const MotmotInfo *info = a;
-  if(id == info -> id){
+  if (id == info->id) {
     return 0;
   }
   return 1;
 }
 
 // finds an info
-MotmotInfo *find_info(motmot_conn *conn, int id){
-  GList *res = g_list_find_custom(conn -> info_list, &id, check_info);
-  if(res == NULL){
+MotmotInfo *find_info(motmot_conn *conn, int id) {
+  GList *res = g_list_find_custom(conn->info_list, &id, check_info);
+  if (res == NULL) {
     return NULL;
   }
 
-  return res -> data;
+  return res->data;
 }
 // callbacks to momotinit
 // enter function
-void *enter(void *data){
+void *enter(void *data) {
   int id;
   MotmotInfo *info = g_new0(MotmotInfo, 1);
-  info -> internal_data = data;
+  info->internal_data = data;
 
-  PurpleConnection *gc = GLOBAL_ACCOUNT -> gc;
-  motmot_conn *proto = gc -> proto_data;
-  while(purple_find_chat(gc, chat_id) != NULL){
-    chat_id += 1;
+  PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
+  motmot_conn *proto = gc->proto_data;
+  while (purple_find_chat(gc, chat_id) != NULL) {
+    chat_id++;
   }
   id = chat_id;
-  chat_id += 1;
+  chat_id++;
 
   serv_got_joined_chat(gc, id, "Chat");
 
-  info -> id = id;
+  info->id = id;
 
-  proto -> info_list = g_list_prepend(proto -> info_list, info);
+  proto->info_list = g_list_prepend(proto->info_list, info);
 
   return info;
 }
 
 // leaving functions
-void leave_cb(void *data){
+void leave_cb(void *data) {
   MotmotInfo *info = data;
 
-  serv_chat_leave(GLOBAL_ACCOUNT -> gc, info -> id);
+  serv_chat_leave(GLOBAL_ACCOUNT->gc, info->id);
 }
 
 /*
@@ -220,17 +218,17 @@ static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
  * @param username The username of the buddy
  * @param conn The motmot connection handle
  */
-static void query_status(const char *username, motmot_conn *conn){
+static void query_status(const char *username, motmot_conn *conn) {
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
 
   msgpack_pack_array(pk, 2);
   msgpack_pack_int(pk, GET_USER_STATUS);
 
-  msgpack_pack_raw(pk, strlen(username) );
-  msgpack_pack_raw_body(pk, username, strlen(username) );
+  msgpack_pack_raw(pk, strlen(username));
+  msgpack_pack_raw_body(pk, username, strlen(username));
 
-  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size); 
+  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
 
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
@@ -247,13 +245,13 @@ static void query_status(const char *username, motmot_conn *conn){
  *
  * @returns deserialized array, undefined on failure
  */
-static msgpack_object_array deser_get_array(char *buffer, int len, int *error){
+static msgpack_object_array deser_get_array(char *buffer, int len, int *error) {
   bool success;
   msgpack_object_array ar;
   msgpack_unpacked msg;
   msgpack_unpacked_init(&msg);
   success = msgpack_unpack_next(&msg, buffer, len, NULL);
-  if(!success || msg.data.type != MSGPACK_OBJECT_ARRAY){
+  if (!success || msg.data.type != MSGPACK_OBJECT_ARRAY) {
     *error = PURPLEMOT_ERROR;
     return ar;
   }
@@ -275,9 +273,9 @@ static msgpack_object_array deser_get_array(char *buffer, int len, int *error){
  *
  * @returns msgpack_object_array, undefined on failure
  */
-static msgpack_object_array get_array2(msgpack_object obj, int *error){
+static msgpack_object_array get_array2(msgpack_object obj, int *error) {
   msgpack_object_array ar;
-  if(obj.type != MSGPACK_OBJECT_ARRAY){
+  if (obj.type != MSGPACK_OBJECT_ARRAY) {
     *error = PURPLEMOT_ERROR;
     return ar;
   }
@@ -297,14 +295,14 @@ static msgpack_object_array get_array2(msgpack_object obj, int *error){
  *
  * @returns the int, 0 on failure (but it could just be 0 on success)
  */
-static uint64_t deser_get_pos_int(msgpack_object_array ar, int i, int *error){
+static uint64_t deser_get_pos_int(msgpack_object_array ar, int i, int *error) {
   msgpack_object x;
-  if(ar.size < i + 1){
+  if (ar.size < i + 1) {
     *error = PURPLEMOT_ERROR;
     return 0;
   }
   x = (ar.ptr)[i];
-  if(x.type != MSGPACK_OBJECT_POSITIVE_INTEGER){
+  if (x.type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
     *error = PURPLEMOT_ERROR;
     return 0;
   }
@@ -324,14 +322,14 @@ static uint64_t deser_get_pos_int(msgpack_object_array ar, int i, int *error){
  *
  * @returns the string, null on failure
  */
-static char *deser_get_string(msgpack_object_array ar, int i, int *error){
+static char *deser_get_string(msgpack_object_array ar, int i, int *error) {
   char *ptr;
-  if(ar.size < i + 1){
+  if (ar.size < i + 1) {
     *error = PURPLEMOT_ERROR;
     return NULL;
   }
   msgpack_object x = (ar.ptr)[i];
-  if(x.type != MSGPACK_OBJECT_RAW){
+  if (x.type != MSGPACK_OBJECT_RAW) {
     *error = PURPLEMOT_ERROR;
     return NULL;
   }
@@ -412,11 +410,11 @@ static void connectSuccess(gpointer data, gint source, const gchar *error_messag
 {
   //MotmotInfo *info = data;
   struct motmot_connect_cb *cb = data;
-  if(source < 0){
-    (cb -> func)(NULL, cb -> data);
+  if (source < 0) {
+    (cb->func)(NULL, cb->data);
     return;
   }
-  (cb -> func)(g_io_channel_unix_new(source), cb -> data);
+  (cb->func)(g_io_channel_unix_new(source), cb->data);
   return;
 }
 
@@ -430,13 +428,13 @@ static void connectSuccess(gpointer data, gint source, const gchar *error_messag
 int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
 {
   PurpleBuddy *bud = purple_find_buddy(GLOBAL_ACCOUNT, (const char *) desc);
-  if(bud == NULL){
+  if (bud == NULL) {
     return -1;
   }
 
-  motmot_buddy *extra = bud -> proto_data;
-  purple_proxy_connect(GLOBAL_ACCOUNT -> gc, GLOBAL_ACCOUNT, extra -> addr,
-    extra -> port, connectSuccess, cb);
+  motmot_buddy *extra = bud->proto_data;
+  purple_proxy_connect(GLOBAL_ACCOUNT->gc, GLOBAL_ACCOUNT, extra->addr,
+    extra->port, connectSuccess, cb);
   return 0;
 }
 
@@ -456,8 +454,8 @@ int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
 int print_chat_motmot(const void *message, size_t len, void *desc, size_t size, void *data)
 {
   MotmotInfo *minfo = data;
-  int id = minfo -> id;
-  PurpleConnection *gc = GLOBAL_ACCOUNT -> gc;
+  int id = minfo->id;
+  PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
 
   serv_got_chat_in(gc, id, desc, PURPLE_MESSAGE_RECV, message, time(NULL));
   return 0;
@@ -469,13 +467,13 @@ int print_chat_motmot(const void *message, size_t len, void *desc, size_t size, 
 int print_join_motmot(const void *unused, size_t unusedl, void *info, size_t len, void *data)
 {
   MotmotInfo *minfo = data;
-  int id = minfo -> id;
-  PurpleConnection *gc = GLOBAL_ACCOUNT -> gc;
+  int id = minfo->id;
+  PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
 
   PurpleConversation *chat = purple_find_chat(gc, id);
   PurpleConvChat *conv = purple_conversation_get_chat_data(chat);
 
-  if(conv != NULL){
+  if (conv != NULL) {
     purple_conv_chat_add_user(conv, info, NULL, PURPLE_CBFLAGS_NONE, TRUE);
   }
   return 0;
@@ -486,13 +484,13 @@ int print_join_motmot(const void *unused, size_t unusedl, void *info, size_t len
 int print_part_motmot(const void *unused, size_t unusedl,void *info, size_t len, void *data)
 {
   MotmotInfo *minfo = data;
-  int id = minfo -> id;
-  PurpleConnection *gc = GLOBAL_ACCOUNT -> gc;
+  int id = minfo->id;
+  PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
 
   PurpleConversation *conv = purple_find_chat(gc, id);
   PurpleConvChat *chat = purple_conversation_get_chat_data(conv);
 
-  if(conv != NULL){
+  if (conv != NULL) {
     purple_conv_chat_remove_user(chat, info, NULL);
   }
 
@@ -739,7 +737,7 @@ static GList *purplemot_chat_info(PurpleConnection *gc) {
 static GHashTable *purplemot_chat_info_defaults(PurpleConnection *gc,
                                                const char *room) {
 
-  //JULIE -> call motmot_session here?
+  //JULIE->call motmot_session here?
   // motmot_session(self,strlen(self));
   GHashTable *defaults;
 
@@ -763,8 +761,8 @@ static void purplemot_login(PurpleAccount *acct)
   motmot_conn *conn;
   int port;
 /* This doesn't really work.
-  if(GLOBAL_ACCOUNT != NULL){
-		purple_connection_error_reason (acct -> gc,
+  if (GLOBAL_ACCOUNT != NULL) {
+		purple_connection_error_reason (acct->gc,
 			PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
 			_("You can't login to more than one motmot account"));
 		return;
@@ -793,14 +791,14 @@ static void purplemot_login(PurpleAccount *acct)
 		return;
 	}
 
-  gc -> proto_data = conn = g_new0(motmot_conn, 1); 
-  conn -> account = acct;
-  
+  gc->proto_data = conn = g_new0(motmot_conn, 1);
+  conn->account = acct;
+
   userparts = g_strsplit(username, "@", 2);
   purple_connection_set_display_name(gc, userparts[0]);
-  conn -> server = g_strdup(userparts[1]);
-  conn -> acceptance_list = NULL;
-  conn -> info_list = NULL;
+  conn->server = g_strdup(userparts[1]);
+  conn->acceptance_list = NULL;
+  conn->info_list = NULL;
   g_strfreev(userparts);
 
   port = purple_account_get_int(acct, "disc_port", DEFAULT_PORT);
@@ -811,7 +809,7 @@ static void purplemot_login(PurpleAccount *acct)
 
   purple_debug_info("motmot", "connecting to discovery server");
 
-  conn -> gsc = purple_ssl_connect(acct, conn -> server, port, motmot_login_cb,
+  conn->gsc = purple_ssl_connect(acct, conn->server, port, motmot_login_cb,
   (PurpleSslErrorFunction)  motmot_login_failure, gc);
 
 
@@ -841,14 +839,12 @@ static void purplemot_login(PurpleAccount *acct)
 
   g_list_free(offline_messages);
   g_hash_table_remove(goffline_messages, &acct->username);
-  
-
 }
 
-static gboolean do_login(PurpleConnection *gc){
-  msgpack_sbuffer *buffer = msgpack_sbuffer_new(); 
-  motmot_conn *conn = gc -> proto_data;
-  PurpleAccount *a = conn -> account;
+static gboolean do_login(PurpleConnection *gc) {
+  msgpack_sbuffer *buffer = msgpack_sbuffer_new();
+  motmot_conn *conn = gc->proto_data;
+  PurpleAccount *a = conn->account;
 
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
 
@@ -863,78 +859,77 @@ static gboolean do_login(PurpleConnection *gc){
   msgpack_pack_raw(pk, strlen(pass) );
   msgpack_pack_raw_body(pk, pass, strlen(pass) );
 
-  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size); 
+  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
 
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
   return TRUE;
 }
 
-void get_all_statuses(motmot_conn *conn){
+void get_all_statuses(motmot_conn *conn) {
   purple_debug_info("motmot", "querying all statuses");
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
   msgpack_pack_array(pk, 1);
 
   msgpack_pack_int(pk, GET_ALL_STATUSES);
-  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
+  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
 
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
 }
 
 
-void update_remote_status(PurpleAccount *a, const char *friend_name, int status){
+void update_remote_status(PurpleAccount *a, const char *friend_name, int status) {
   purple_debug_info("motmot", "updating status of %s to %d", friend_name, status);
-  switch (status){
-    case ONLINE: 
-      purple_prpl_got_user_status(a, friend_name, NULL_STATUS_ONLINE, NULL); 
+  switch (status) {
+    case ONLINE:
+      purple_prpl_got_user_status(a, friend_name, NULL_STATUS_ONLINE, NULL);
       break;
     case AWAY:
     case BUSY:
-      purple_prpl_got_user_status(a, friend_name, NULL_STATUS_AWAY, NULL); 
+      purple_prpl_got_user_status(a, friend_name, NULL_STATUS_AWAY, NULL);
       break;
     case OFFLINE:
-      purple_prpl_got_user_status(a, friend_name, NULL_STATUS_OFFLINE, NULL); 
+      purple_prpl_got_user_status(a, friend_name, NULL_STATUS_OFFLINE, NULL);
       break;
     default:
       return;
   }
 }
 
-static void auth_cb(void *data){
+static void auth_cb(void *data) {
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc -> proto_data;
-  conn -> acceptance_list = g_list_prepend(conn -> acceptance_list, 
-    conn -> data);
+  motmot_conn *conn = gc->proto_data;
+  conn->acceptance_list = g_list_prepend(conn->acceptance_list,
+    conn->data);
   return;
   /*
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc -> proto_data;
+  motmot_conn *conn = gc->proto_data;
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
-  
+
   msgpack_pack_array(pk, 2);
   msgpack_pack_int(pk, ACCEPT_FRIEND);
 
-  msgpack_pack_raw(pk, strlen(conn -> data));
-  msgpack_pack_raw_body(pk, conn -> data, strlen(conn -> data));
+  msgpack_pack_raw(pk, strlen(conn->data));
+  msgpack_pack_raw_body(pk, conn->data, strlen(conn->data));
 
-  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
+  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
 
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
-  g_free(conn -> data);
+  g_free(conn->data);
   */
 }
-static void deny_cb(void *data){
+static void deny_cb(void *data) {
   /*
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc -> proto_data;
-  g_free(conn -> data);
+  motmot_conn *conn = gc->proto_data;
+  g_free(conn->data);
   */
   return;
-  
 }
 
 /**
@@ -945,7 +940,7 @@ static void deny_cb(void *data){
  * @param gc The connection
  */
 
-static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
+static void motmot_parse(char *buffer, int len, PurpleConnection *gc) {
   char *friend_name;
   int status;
   int opcode;
@@ -958,163 +953,163 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
   msgpack_object_array ar2;
   msgpack_object_array info_list;
   msgpack_object_array tuple;
-  motmot_conn *conn = gc -> proto_data;
-  PurpleAccount *a = conn -> account;
+  motmot_conn *conn = gc->proto_data;
+  PurpleAccount *a = conn->account;
   PurpleBuddy *bud;
   motmot_buddy *proto;
 
   msgpack_object_array ar = deser_get_array(buffer, len, &error);
   purple_debug_info("motmot", "parsing data");
-  if(error == PURPLEMOT_ERROR){
+  if (error == PURPLEMOT_ERROR) {
     purple_debug_info("motmot", "error");
     return;
   }
-  if(ar.size <= 0){
+  if (ar.size <= 0) {
     return;
   }
 
   opcode = deser_get_pos_int(ar, 0, &error);
   purple_debug_info("motmot", "opcode %d", opcode);
-  if(error == PURPLEMOT_ERROR){
+  if (error == PURPLEMOT_ERROR) {
     return;
   }
 
   switch (opcode) {
     case ALL_STATUS_RESPONSE:
-      if(ar.size <= 1){
+      if (ar.size <= 1) {
         return;
       }
       o = (ar.ptr)[1];
       ar2 = get_array2(o, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
-      for(i = 0; i < ar2.size; i++){
+      for (i = 0; i < ar2.size; i++) {
         info_list = get_array2((ar2.ptr)[i], &error);
-        if(error == PURPLEMOT_ERROR || info_list.size <= 3){
+        if (error == PURPLEMOT_ERROR || info_list.size <= 3) {
           return;
         }
         tuple = get_array2((info_list.ptr)[0], &error);
-        if(error == PURPLEMOT_ERROR){
+        if (error == PURPLEMOT_ERROR) {
           return;
         }
 
         friend_name = deser_get_string(tuple, 0, &error);
-        if(error == PURPLEMOT_ERROR){
+        if (error == PURPLEMOT_ERROR) {
           return;
         }
 
         status = deser_get_pos_int(tuple, 1, &error);
-        if(error == PURPLEMOT_ERROR){
+        if (error == PURPLEMOT_ERROR) {
           return;
         }
         addr = deser_get_string(info_list, 1, &error);
-        if(error == PURPLEMOT_ERROR){
+        if (error == PURPLEMOT_ERROR) {
           return;
         }
         port = deser_get_pos_int(info_list, 2, &error);
-        if(error == PURPLEMOT_ERROR){
+        if (error == PURPLEMOT_ERROR) {
           return;
         }
         bud = purple_find_buddy(a, friend_name);
-        if(bud == NULL){
+        if (bud == NULL) {
           bud = purple_buddy_new(a, friend_name, NULL);
           proto = g_new0(motmot_buddy, 1);
-          proto -> addr = addr;
-          proto -> port = port;
-          bud -> proto_data = proto;
+          proto->addr = addr;
+          proto->port = port;
+          bud->proto_data = proto;
           purple_blist_add_buddy(bud, NULL, NULL, NULL);
           update_remote_status(a, friend_name, status);
         }
         else{
           proto = g_new0(motmot_buddy, 1);
-          proto -> addr = addr;
-          proto -> port = port;
-          bud -> proto_data = proto;
+          proto->addr = addr;
+          proto->port = port;
+          bud->proto_data = proto;
           update_remote_status(a, friend_name, status);
           g_free(friend_name);
         }
       }
       break;
     case GET_STATUS_RESP:
-      if(ar.size <= 4){
+      if (ar.size <= 4) {
         return;
       }
       tuple = get_array2((ar.ptr)[1], &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       friend_name = deser_get_string(tuple, 0, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       status = deser_get_pos_int(tuple, 1, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       addr = deser_get_string(tuple, 2, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       port = deser_get_pos_int(tuple, 3, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       update_remote_status(a, friend_name, status);
 
       bud = purple_find_buddy(a, friend_name);
-      if(bud == NULL){
+      if (bud == NULL) {
         return;
       }
-      proto = bud -> proto_data;
-      proto -> addr = addr;
-      proto -> port = port;
+      proto = bud->proto_data;
+      proto->addr = addr;
+      proto->port = port;
       g_free(friend_name);
       break;
     case PUSH_FRIEND_ACCEPT:
     case PUSH_CLIENT_STATUS:
       friend_name = deser_get_string(ar, 1, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       status = deser_get_pos_int(ar, 2, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         g_free(friend_name);
         return;
       }
       update_remote_status(a, friend_name, status);
 
-      if(opcode == PUSH_FRIEND_ACCEPT){
+      if (opcode == PUSH_FRIEND_ACCEPT) {
         break;
       }
 
       addr = deser_get_string(tuple, 2, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       port = deser_get_pos_int(tuple, 3, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
       bud = purple_find_buddy(a, friend_name);
-      if(bud == NULL){
+      if (bud == NULL) {
         return;
       }
-      proto = bud -> proto_data;
-      proto -> addr = addr;
-      proto -> port = port;
+      proto = bud->proto_data;
+      proto->addr = addr;
+      proto->port = port;
       g_free(friend_name);
       break;
     case PUSH_FRIEND_REQUEST:
       purple_debug_info("purplemot", "getting friend request");
       friend_name = deser_get_string(ar, 1, &error);
-      if(error == PURPLEMOT_ERROR){
+      if (error == PURPLEMOT_ERROR) {
         return;
       }
-      if(purple_find_buddy(a, friend_name) != NULL){
+      if (purple_find_buddy(a, friend_name) != NULL) {
         break;
       }
-      conn -> data = friend_name;
+      conn->data = friend_name;
 
       purple_account_request_authorization(a, friend_name, NULL, NULL, NULL,          FALSE, auth_cb, deny_cb, gc);
       break;
@@ -1130,11 +1125,11 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc){
 
 /* read in data, parse, undertake appropriate action */
 
-static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInputCondition cond){
+static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInputCondition cond) {
   PurpleConnection *gc = (PurpleConnection *) data;
   gsize l;
   gsize read_bytes = 0;
-	if(!g_list_find(purple_connections_get_all(), gc)) {
+	if (!g_list_find(purple_connections_get_all(), gc)) {
 		purple_ssl_close(gsc);
 		return;
 	}
@@ -1143,7 +1138,7 @@ static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInpu
   char *nxt = buffer;
 
   purple_debug_info("motmot", "reading data");
-  while(true){
+  for (;;) {
     l = purple_ssl_read(gsc, nxt, BUFF_SIZE);
 
     if (l < 0 && errno == EAGAIN) {
@@ -1158,7 +1153,7 @@ static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInpu
       return;
 	  }
     read_bytes += l;
-    if(l < BUFF_SIZE){
+    if (l < BUFF_SIZE) {
       break;
     }
 
@@ -1188,11 +1183,11 @@ static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInpu
  * @param cond The input condition
  */
 
-static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond){
+static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond) {
   purple_debug_info("motmot", "connection achieved");
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc -> proto_data;
-  PurpleAccount *acct = conn -> account;
+  motmot_conn *conn = gc->proto_data;
+  PurpleAccount *acct = conn->account;
 	if (do_login(gc)) {
 		purple_ssl_input_add(gsc, (PurpleSslInputFunction) motmot_input_cb, gc);
     /* tell purple about everyone on our buddy list who's connected */
@@ -1233,13 +1228,13 @@ motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
 static void purplemot_close(PurpleConnection *gc)
 {
   /* notify other purplemot accounts */
-  motmot_conn *conn = gc -> proto_data;
-  PurpleAccount *a = conn -> account;
+  motmot_conn *conn = gc->proto_data;
+  PurpleAccount *a = conn->account;
   motmot_report_status(purple_status_get_id(purple_account_get_active_status(a)), conn);
 
-  purple_ssl_close(conn -> gsc); 
+  purple_ssl_close(conn->gsc);
 
-  g_list_free_full(conn -> acceptance_list, g_free);
+  g_list_free_full(conn->acceptance_list, g_free);
 }
 
 static int purplemot_send_im(PurpleConnection *gc, const char *who,
@@ -1300,10 +1295,10 @@ static void purplemot_set_info(PurpleConnection *gc, const char *info) {
 
 static const char *typing_state_to_string(PurpleTypingState typing) {
   switch (typing) {
-  case PURPLE_NOT_TYPING:  return "is not typing";
-  case PURPLE_TYPING:      return "is typing";
-  case PURPLE_TYPED:       return "stopped typing momentarily";
-  default:               return "unknown typing state";
+    case PURPLE_NOT_TYPING:  return "is not typing";
+    case PURPLE_TYPING:      return "is typing";
+    case PURPLE_TYPED:       return "stopped typing momentarily";
+    default:               return "unknown typing state";
   }
 }
 
@@ -1365,16 +1360,16 @@ static void purplemot_get_info(PurpleConnection *gc, const char *username) {
  * @param conn A motmot_conn containing what we need to send the data.
  */
 
-static void motmot_report_status(const char *id, motmot_conn *conn){
+static void motmot_report_status(const char *id, motmot_conn *conn) {
   int code;
   msgpack_sbuffer *buffer;
-  if(!strcmp(id, NULL_STATUS_ONLINE)){
+  if (!strcmp(id, NULL_STATUS_ONLINE)) {
     code = ONLINE;
   }
-  else if(!strcmp(id, NULL_STATUS_AWAY)){
+  else if (!strcmp(id, NULL_STATUS_AWAY)) {
     code = AWAY;
   }
-  else if(!strcmp(id, NULL_STATUS_OFFLINE)){
+  else if (!strcmp(id, NULL_STATUS_OFFLINE)) {
     code = OFFLINE;
   }
   else{
@@ -1390,7 +1385,7 @@ static void motmot_report_status(const char *id, motmot_conn *conn){
   msgpack_pack_int(pk, REGISTER_STATUS);
   msgpack_pack_int(pk, code);
 
-  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
+  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
 }
@@ -1402,12 +1397,12 @@ static void motmot_report_status(const char *id, motmot_conn *conn){
  */
 static void purplemot_set_status(PurpleAccount *acct, PurpleStatus *status) {
   PurpleConnection *gc = purple_account_get_connection(acct);
-  motmot_conn *conn = gc -> proto_data;
+  motmot_conn *conn = gc->proto_data;
   purple_debug_info("motmot", "setting status and reporting");
 
-  
+
   motmot_report_status(purple_status_get_id(status), conn);
-  
+
 }
 
 static void purplemot_set_idle(PurpleConnection *gc, int idletime) {
@@ -1423,7 +1418,7 @@ static void purplemot_change_passwd(PurpleConnection *gc, const char *old_pass,
                     gc->account->username);
 }
 
-static gint motmot_node_cmp(const char *a, const char *b){
+static gint motmot_node_cmp(const char *a, const char *b) {
   return strcmp(a, b);
 }
 /**
@@ -1438,35 +1433,35 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
 {
   char *name;
   purple_debug_info("purplemot", "buddy add code");
-  
+
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
-  motmot_conn *conn = gc -> proto_data;
+  motmot_conn *conn = gc->proto_data;
 
   motmot_buddy *proto = g_new0(motmot_buddy, 1);
-  buddy -> proto_data = proto;
+  buddy->proto_data = proto;
 
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
-  GList *el = g_list_find_custom(conn -> acceptance_list, 
+  GList *el = g_list_find_custom(conn->acceptance_list,
     purple_buddy_get_name(buddy), (GCompareFunc) motmot_node_cmp);
 
   // This is a hack so that the acceptance to a friend request is only sent once the buddy is added on our end,
   // not when the add is authorized.
-  if(el != NULL){
-    name = el -> data;
+  if (el != NULL) {
+    name = el->data;
     msgpack_pack_array(pk, 2);
     msgpack_pack_int(pk, ACCEPT_FRIEND);
 
     msgpack_pack_raw(pk, strlen(name));
     msgpack_pack_raw_body(pk, name, strlen(name));
 
-    purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
+    purple_ssl_write(conn->gsc, buffer->data, buffer->size);
     query_status(name, conn);
 
     msgpack_sbuffer_free(buffer);
     msgpack_packer_free(pk);
-    conn -> acceptance_list = g_list_remove(conn -> acceptance_list, name);
+    conn->acceptance_list = g_list_remove(conn->acceptance_list, name);
     g_free(name);
-    
+
     return;
   }
 
@@ -1476,8 +1471,8 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   msgpack_pack_raw(pk, strlen(purple_buddy_get_name(buddy)));
   msgpack_pack_raw_body(pk, purple_buddy_get_name(buddy), strlen(purple_buddy_get_name(buddy)));
 
- 
-  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
+
+  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
   purple_debug_info("motmot", "request sent");
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
@@ -1501,10 +1496,10 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
       purple_debug_info("purplemot", "asking %s if they want to add %s\n",
                         buddy->name, username);
       purple_account_request_add(buddy_acct,
-                                 username, 
-                                 NULL,  
-                                 NULL,   
-                                 NULL);  
+                                 username,
+                                 NULL,
+                                 NULL,
+                                 NULL);
     }
   }
   */
@@ -1528,7 +1523,7 @@ static void purplemot_remove_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
                                   PurpleGroup *group)
 {
   const char *name = purple_buddy_get_name(buddy);
-  motmot_conn *conn = gc -> proto_data;
+  motmot_conn *conn = gc->proto_data;
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
   msgpack_pack_array(pk, 2);
@@ -1537,8 +1532,8 @@ static void purplemot_remove_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   msgpack_pack_raw(pk, strlen(name));
   msgpack_pack_raw_body(pk, name, strlen(name));
 
-  purple_ssl_write(conn -> gsc, buffer -> data, buffer -> size);
- 
+  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
+
   msgpack_sbuffer_free(buffer);
   msgpack_packer_free(pk);
 }
@@ -1703,14 +1698,14 @@ static void purplemot_chat_invite(PurpleConnection *gc, int id,
 // JULIE: add disconnect back in
 // calls motmot_disconnect (libmotmot)
 static void purplemot_chat_leave(PurpleConnection *gc, int id) {
-  motmot_conn *proto = gc -> proto_data;
+  motmot_conn *proto = gc->proto_data;
   MotmotInfo *info =  find_info(proto, id);
 
-  if(info == NULL){
+  if (info == NULL) {
     return;
   }
   // disconnect
-  // motmot_disconnect(info -> internal_data);
+  // motmot_disconnect(info->internal_data);
   purple_debug_info("purplemot", "%s is leaving chat room %s\n",
                     gc->account->username, "THE CHAT");
 
@@ -1784,13 +1779,13 @@ static void purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who
 // calls motmot_send (libmotmot function)
 static int purplemot_chat_send(PurpleConnection *gc, int id, const char *message,
                               PurpleMessageFlags flags) {
-  motmot_conn *proto = gc -> proto_data;
+  motmot_conn *proto = gc->proto_data;
   MotmotInfo *info =  find_info(proto, id);
 
-  if(info == NULL){
+  if (info == NULL) {
     return -1;
   }
-  // motmot_send(message,strlen(message) + 1, info -> internal_data);
+  // motmot_send(message,strlen(message) + 1, info->internal_data);
   return 0;
 }
 
@@ -2104,39 +2099,33 @@ static void purplemot_destroy(PurplePlugin *plugin) {
 }
 
 
-static PurplePluginInfo info =
-{
-  PURPLE_PLUGIN_MAGIC,                                     /* magic */
-  PURPLE_MAJOR_VERSION,                                    /* major_version */
-  PURPLE_MINOR_VERSION,                                    /* minor_version */
-  PURPLE_PLUGIN_PROTOCOL,                                  /* type */
-  NULL,                                                    /* ui_requirement */
-  0,                                                       /* flags */
-  NULL,                                                    /* dependencies */
-  PURPLE_PRIORITY_DEFAULT,                                 /* priority */
-  PURPLEMOT_ID,                                             /* id */
-  "MOTMOT!",                                 /* name */
-  DISPLAY_VERSION,                                         /* version */
-  N_("Null Protocol Plugin"),                              /* summary */
-  N_("Null Protocol Plugin"),                              /* description */
-  NULL,                                                    /* author */
-  MOTMOT_WEBSITE,                                          /* homepage */
-  NULL,                                                    /* load */
-  NULL,                                                    /* unload */
-  purplemot_destroy,                                        /* destroy */
-  NULL,                                                    /* ui_info */
-  &prpl_info,                                              /* extra_info */
-  NULL,                                                    /* prefs_info */
-  purplemot_actions,                                        /* actions */
-  NULL,                                                    /* padding... */
+static PurplePluginInfo info = {
+  PURPLE_PLUGIN_MAGIC,                                // magic
+  PURPLE_MAJOR_VERSION,                               // major_version
+  PURPLE_MINOR_VERSION,                               // minor_version
+  PURPLE_PLUGIN_PROTOCOL,                             // type
+  NULL,                                               // ui_requirement
+  0,                                                  // flags
+  NULL,                                               // dependencies
+  PURPLE_PRIORITY_DEFAULT,                            // priority
+  PURPLEMOT_ID,                                       // id
+  "motmot",                                           // name
+  DISPLAY_VERSION,                                    // version
+  N_("Motmot: A secure distributed chat protocol"),   // summary
+  N_("Motmot: A secure distributed chat protocol"),   // description
+  NULL,                                               // author
+  MOTMOT_WEBSITE,                                     // homepage
+  NULL,                                               // load
+  NULL,                                               // unload
+  purplemot_destroy,                                  // destroy
+  NULL,                                               // ui_info
+  &prpl_info,                                         // extra_info
+  NULL,                                               // prefs_info
+  purplemot_actions,                                  // actions
+  NULL,                                               // padding...
   NULL,
   NULL,
   NULL,
 };
 
 PURPLE_INIT_PLUGIN(null, purplemot_init, info);
-
-
-
-
-
