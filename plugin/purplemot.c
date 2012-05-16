@@ -298,7 +298,9 @@ deser_get_array(char *buffer, int len, int *error)
  *
  * @returns msgpack_object_array, undefined on failure
  */
-static msgpack_object_array get_array2(msgpack_object obj, int *error) {
+static msgpack_object_array
+get_array2(msgpack_object obj, int *error)
+{
   msgpack_object_array ar;
   if (obj.type != MSGPACK_OBJECT_ARRAY) {
     *error = PURPLEMOT_ERROR;
