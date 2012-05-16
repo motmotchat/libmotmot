@@ -15,8 +15,6 @@ int paxos_peer_write(GIOChannel *, GIOCondition, void *);
 
 /**
  * paxos_peer_init - Set up peer read/write buffering.
- *
- * TODO: error checking
  */
 struct paxos_peer *
 paxos_peer_init(GIOChannel *channel)
@@ -30,6 +28,7 @@ paxos_peer_init(GIOChannel *channel)
   peer = g_malloc0(sizeof(*peer));
   peer->pp_channel = channel;
 
+  // TODO: this needs to be done when the socket is first opened
   // Put the peer's channel into nonblocking mode.
   g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, NULL);
 
@@ -108,8 +107,6 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
     msgpack_unpacker_buffer_consumed(&peer->pp_unpacker, bytes_read);
 
     // Pop as many msgpack objects as we can get our hands on.
-    // TODO: If we have a lot of data buffered but don't have any messages,
-    // then something has gone terribly wrong and we should abort.
     while (msgpack_unpacker_next(&peer->pp_unpacker, &result)) {
       if (paxos_dispatch(peer, &result.data) != 0 && pax->self_id != 0) {
         g_warning("paxos_read_peer: Dispatch failed.");
