@@ -88,8 +88,8 @@ class InvalidUserName(Exception):
 class NotStatus(Exception):
     pass
 
-# this is the global dictionary of currently connected, 
-# authenticated clients. stored in the 
+# this is the global dictionary of currently connected,
+# authenticated clients. stored in the
 # form Key:(ipAddress, port), Value: userName
 authList = {}
 
@@ -134,19 +134,19 @@ def userDisc(conn):
         if authList[conn.address][0] in conn.connTbl:
             del conn.connTbl[authList[conn.address][0]]
         del authList[conn.address]
-        
 
-# authenticate a server connection. 
-# Essentially, take the domain of the server 
-# and do a DNS lookup on it. If that IP equals 
-# the IP that the connection is coming from, 
+
+# authenticate a server connection.
+# Essentially, take the domain of the server
+# and do a DNS lookup on it. If that IP equals
+# the IP that the connection is coming from,
 # the connection is authenticated
 def doAuthServer(conn, hostName):
     auth = False
     ipAddr = conn.address[0]
     port = conn.address[1]
 
-    # note: we are using the default socket package 
+    # note: we are using the default socket package
     # because gevent is fail and doesn't factor in /etc/hosts
     hostIp = bSock.gethostbyname(hostName)
     if hostIp == ipAddr:
@@ -180,14 +180,14 @@ def validate_name(userName):
 def registerFriend(conn, friend, un=None):
     if not auth(conn):
         return DENIED
-    
+
     if conn.domain in friend:
         user_exists(friend)
-    
+
     userName = un
     if un == None:
         userName = authList[conn.address][0]
-    
+
     if conn.domain in userName:
         user_exists(userName)
 
@@ -200,11 +200,11 @@ def registerFriend(conn, friend, un=None):
 
     # split the user name on @ to find the domain
     splt = friend.split("@")
-    # if the domain name of the user does not match 
-    # this servers name, send a request to the other server. 
+    # if the domain name of the user does not match
+    # this servers name, send a request to the other server.
     # this request is executed syncronously
     if splt[1] != conn.domain:
-        # we re-use this function when register friends that come from another domain, 
+        # we re-use this function when register friends that come from another domain,
         # this shit ensures that we don't get in an infinite loop of messages
         if authList[conn.address][1] != status.SERVER:
             address = (bSock.gethostbyname(splt[1]), 8888)
@@ -234,14 +234,14 @@ def registerFriend(conn, friend, un=None):
 
             sock.close()
         else:
-            # this is to deal with cross domain stuff. this same function 
+            # this is to deal with cross domain stuff. this same function
             # is used to the remote server. so this statement can only evalute true when the call
             # is made from a server
             if userName in conn.connTbl and un != None:
                 conn.connTbl[userName].send([RM.PUSH_FRIEND_REQUEST, friend])
 
     else:
-        # since friends are bi-directional, 
+        # since friends are bi-directional,
         # insert the appropriate row in the DB if the requested user is on this server
         fcnt_q = "SELECT COUNT(friendId) from friends WHERE userName=? AND friend=?;"
         cnt = execute_query(fcnt_q, (friend, userName))
@@ -252,7 +252,7 @@ def registerFriend(conn, friend, un=None):
             # send a message
             if friend in conn.connTbl:
                 conn.connTbl[friend].send([RM.PUSH_FRIEND_REQUEST, userName])
-    
+
     return [RM.SUCCESS, "Friend Registered"]
 
 #this function is an exact opposite of registerFriend and works almost identically
@@ -260,10 +260,10 @@ def unregisterFriend(conn, friend, un=None):
 
     if not auth(conn):
         return DENIED
-    
+
     if conn.domain in friend:
         user_exists(friend)
-    
+
     userName = un
     if un == None:
         userName = authList[conn.address][0]
@@ -296,14 +296,14 @@ def unregisterFriend(conn, friend, un=None):
                 raise RPCError
 
             sock.close()
-    
+
     return [RM.SUCCESS, "Friend Unregistered"]
 
 # this is the function that handles status changes
 def statusChanged(conn, stat):
     if not auth(conn):
         return DENIED
-    
+
     if stat != status.ONLINE and stat != status.OFFLINE and stat != status.BUSY and stat != status.AWAY:
         raise NotStatus
 
@@ -318,44 +318,44 @@ def statusChanged(conn, stat):
         cur.execute("SELECT friend FROM friends WHERE userName=? AND accepted='true';", (userName,))
 
         rows = cur.fetchall()
-        # this is a list of domains that have been 
+        # this is a list of domains that have been
         # sent the status update already
         sentList = []
         for friend in rows:
             splt = friend[0].split('@')
-            # if the friend is from the same domain, 
-            # check to see if they are online and add 
+            # if the friend is from the same domain,
+            # check to see if they are online and add
             # an update message to their send Queue if they are.
             if splt[1] == conn.domain:
                 if friend[0] in conn.connTbl:
                     conn.connTbl[friend[0]].send([RM.PUSH_CLIENT_STATUS, userName, stat, conn.address[0], conn.address[1]])
-            
-            # if they are not from the same domain, 
+
+            # if they are not from the same domain,
             # then send the update off to the appropriate domain
             else:
                 if splt[1] not in sentList:
-                    # again, using standard socket here because gevent doesn't 
+                    # again, using standard socket here because gevent doesn't
                     # handle /etc/hosts
                     address = (bSock.gethostbyname(splt[1]), 8888)
                     sock = socket.socket()
                     sock = ssl.wrap_socket(sock)
                     sock.connect(address)
 
-                    # doing all of this syncronously because having 
-                    # persistent connections open to all servers at 
-                    # all times seems a little wasteful 
+                    # doing all of this syncronously because having
+                    # persistent connections open to all servers at
+                    # all times seems a little wasteful
                     sock.sendall(msgpack.packb([RM.AUTHENTICATE_SERVER, conn.domain]))
                     rVal = sock.recv(4096)
                     rVal = msgpack.unpackb(rVal)
                     if rVal[0] != RM.AUTHENTICATED:
                         raise RPCError
-                    
+
                     sock.sendall(msgpack.packb([RM.SERVER_SEND_STATUS_CHANGED, userName, stat]))
                     rVal = sock.recv(4096)
                     rVal = msgpack.unpackb(rVal)
                     if rVal[0] != RM.SUCCESS:
                         raise RPCError
-                    
+
                     sentList.append(splt[1])
                     sock.close()
 
@@ -364,14 +364,14 @@ def statusChanged(conn, stat):
     finally:
         if con:
             con.close()
- 
+
     return [RM.SUCCESS, "Status Updated"]
 
 #accepted a friend request
 def acceptFriend(conn, friend):
     if not auth(conn):
         return DENIED
-    
+
     if conn.domain in friend:
         user_exists(friend)
 
@@ -383,7 +383,7 @@ def acceptFriend(conn, friend):
     # if other user is on this domain, set their accept bit as well
     if splt[1] == conn.domain:
         execute_query(upd_q, (friend, acceptor[0]))
-        # if the friend is online, push a notification 
+        # if the friend is online, push a notification
         # to them that their friend request has been accepted
         if friend in conn.connTbl:
             conn.connTbl[friend].send([RM.PUSH_FRIEND_ACCEPT, acceptor[0], acceptor[1]])
@@ -407,14 +407,14 @@ def acceptFriend(conn, friend):
             raise RPCError
 
         sock.close()
-    
+
     return [RM.SUCCESS, "Friend Request Accepted"]
 
 #get the current status for all friends, will return a list that contains online users and their statuses
 def getAllFriendStatuses(conn):
     if not auth(conn):
         return DENIED
-    
+
     userName = authList[conn.address][0]
 
     con = None
@@ -433,7 +433,7 @@ def getAllFriendStatuses(conn):
             # if the user is from this domain, grab their status and add it to the list
             if splt[1] == conn.domain:
                 if friend[0] in conn.connTbl:
-                    key = conn.connTbl[friend[0]].address 
+                    key = conn.connTbl[friend[0]].address
                     rList.append((authList[key], key[0], key[1]))
                 else:
                     rList.append(((friend[0], status.OFFLINE), 0, 0))
@@ -444,7 +444,7 @@ def getAllFriendStatuses(conn):
                 else:
                     frByDom[splt[1]] = []
                     frByDom[splt[1]].append(friend[0])
-        
+
         up = msgpack.Unpacker()
         # send a message to each other domain requesting a list of statuses of the requested users
         for dom, friends in frByDom.iteritems():
@@ -458,11 +458,11 @@ def getAllFriendStatuses(conn):
             rVal = msgpack.unpackb(rVal)
             if rVal[0] != RM.AUTHENTICATED:
                 raise RPCError
-            
+
             sock.sendall(msgpack.packb([RM.SERVER_GET_STATUS, friends]))
-            
+
             up.feed(sock.recv(4096))
-            
+
             for x in up:
                 if x[0] != RM.SERVER_GET_STATUS_RESP:
                     raise RPCError
@@ -483,7 +483,7 @@ def getAllFriendStatuses(conn):
 def serverAcceptFriend(conn, userName, friend, status):
     if not auth(conn):
         return DENIED
-    
+
     if conn.domain in userName:
         user_exists(userName)
 
@@ -501,7 +501,7 @@ def serverAcceptFriend(conn, userName, friend, status):
 def serverStatusChange(conn, userName, status):
     if not auth(conn):
         return DENIED
-    
+
     # get a list of users who would be interested
     # in this update
     q = "SELECT userName FROM friends WHERE friend=? AND accepted='true'"
@@ -531,7 +531,7 @@ def serverStatusChange(conn, userName, status):
 def serverGetStatus(conn, users):
     if not auth(conn):
         return DENIED
-     
+
     rList = []
     for user in users:
         # if the user is online, get status and add to return list
@@ -547,7 +547,7 @@ def serverGetStatus(conn, users):
 def signClientCert(conn, certStr):
     if not auth(conn):
         return DENIED
-    
+
     # carl said something about needing to store the client cert?
     userName = authList[conn.address][0]
 
@@ -559,9 +559,9 @@ def signClientCert(conn, certStr):
 def getUserStatus(conn, userName):
     if not auth(conn):
         return DENIED
-    
-    
-    validate_name(userName) 
+
+
+    validate_name(userName)
     splt = userName.split('@')
     rMsg = [RM.USER_STATUS_RESP,]
     if splt[1] == conn.domain:
