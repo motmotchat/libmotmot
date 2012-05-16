@@ -131,7 +131,28 @@ typedef struct {
   gpointer userdata;
 } GcFuncData;
 
-int check_info(const void *a, const void *data) {
+typedef void(*ChatFunc)(PurpleConvChat *from, PurpleConvChat *to,
+                        int id, const char *room, gpointer userdata);
+
+typedef struct {
+  ChatFunc fn;
+  PurpleConvChat *from_chat;
+  gpointer userdata;
+} ChatFuncData;
+
+typedef struct {
+  char *from;
+  char *message;
+  time_t mtime;
+  PurpleMessageFlags flags;
+} GOfflineMessage;
+
+
+
+
+int
+check_info(const void *a, const void *data)
+{
   int id = *((int *) data);
   const struct MotmotInfo *info = a;
   if (id == info->id) {
@@ -141,7 +162,9 @@ int check_info(const void *a, const void *data) {
 }
 
 // finds an info
-struct MotmotInfo *find_info(struct motmot_conn *conn, int id) {
+struct MotmotInfo *
+find_info(struct motmot_conn *conn, int id)
+{
   GList *res = g_list_find_custom(conn->info_list, &id, check_info);
   if (res == NULL) {
     return NULL;
@@ -151,7 +174,9 @@ struct MotmotInfo *find_info(struct motmot_conn *conn, int id) {
 }
 // callbacks to momotinit
 // enter function
-void *enter(void *data) {
+void *
+enter(void *data)
+{
   int id;
   struct MotmotInfo *info = g_new0(struct MotmotInfo, 1);
   info->internal_data = data;
@@ -174,7 +199,9 @@ void *enter(void *data) {
 }
 
 // leaving functions
-void leave_cb(void *data) {
+void
+leave_cb(void *data)
+{
   struct MotmotInfo *info = data;
 
   serv_chat_leave(GLOBAL_ACCOUNT->gc, info->id);
@@ -191,13 +218,6 @@ void leave_cb(void *data) {
 // struct MotmotInfo motmot_info;
 
 GHashTable* goffline_messages = NULL;
-
-typedef struct {
-  char *from;
-  char *message;
-  time_t mtime;
-  PurpleMessageFlags flags;
-} GOfflineMessage;
 
 // Called by print_part_motmot to indicate successful chat departure.
 /*
@@ -218,7 +238,9 @@ static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
  * @param username The username of the buddy
  * @param conn The motmot connection handle
  */
-static void query_status(const char *username, struct motmot_conn *conn) {
+static void
+query_status(const char *username, struct motmot_conn *conn)
+{
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
 
@@ -245,7 +267,9 @@ static void query_status(const char *username, struct motmot_conn *conn) {
  *
  * @returns deserialized array, undefined on failure
  */
-static msgpack_object_array deser_get_array(char *buffer, int len, int *error) {
+static msgpack_object_array
+deser_get_array(char *buffer, int len, int *error)
+{
   bool success;
   msgpack_object_array ar;
   msgpack_unpacked msg;
@@ -263,6 +287,7 @@ static msgpack_object_array deser_get_array(char *buffer, int len, int *error) {
   return ar;
 }
 
+// XXX: 2!?!??!??!?
 /**
  * get_array2 - retrieves an array from a message pack object
  *
@@ -284,6 +309,7 @@ static msgpack_object_array get_array2(msgpack_object obj, int *error) {
   *error = PURPLEMOT_OK;
   return ar;
 }
+
 /**
  * deser_get_pos_int - retrieves a positive int from a msgpack_object_array
  *
@@ -295,7 +321,9 @@ static msgpack_object_array get_array2(msgpack_object obj, int *error) {
  *
  * @returns the int, 0 on failure (but it could just be 0 on success)
  */
-static uint64_t deser_get_pos_int(msgpack_object_array ar, int i, int *error) {
+static uint64_t
+deser_get_pos_int(msgpack_object_array ar, int i, int *error)
+{
   msgpack_object x;
   if (ar.size < i + 1) {
     *error = PURPLEMOT_ERROR;
@@ -322,7 +350,9 @@ static uint64_t deser_get_pos_int(msgpack_object_array ar, int i, int *error) {
  *
  * @returns the string, null on failure
  */
-static char *deser_get_string(msgpack_object_array ar, int i, int *error) {
+static char *
+deser_get_string(msgpack_object_array ar, int i, int *error)
+{
   char *ptr;
   if (ar.size < i + 1) {
     *error = PURPLEMOT_ERROR;
@@ -374,7 +404,9 @@ static char *deser_get_string(msgpack_object_array ar, int i, int *error) {
  * @returns           the connection
  */
 
-static PurpleConnection *get_purplemot_gc(const char *username) {
+static PurpleConnection *
+get_purplemot_gc(const char *username)
+{
   PurpleAccount *acct = purple_accounts_find(username, PURPLEMOT_ID);
   if (acct && purple_account_is_connected(acct))
     return acct->gc;
@@ -406,7 +438,8 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
  * @param source The file descriptor for the socket, -1 on error.
  * @param error_message Error message
  */
-static void connectSuccess(gpointer data, gint source, const gchar *error_message)
+static void
+connectSuccess(gpointer data, gint source, const gchar *error_message)
 {
   //struct MotmotInfo *info = data;
   struct motmot_connect_cb *cb = data;
@@ -425,7 +458,8 @@ static void connectSuccess(gpointer data, gint source, const gchar *error_messag
  * @param len length of the username
  * @param motmot_connect_cb continuation necessary for libmotmot
  */
-int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
+int
+connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
 {
   PurpleBuddy *bud = purple_find_buddy(GLOBAL_ACCOUNT, (const char *) desc);
   if (bud == NULL) {
@@ -451,7 +485,9 @@ int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
  * @param size length of username's message
  * @param data MotmotInfo struct to identify chat to libpurple
  */
-int print_chat_motmot(const void *message, size_t len, void *desc, size_t size, void *data)
+int
+print_chat_motmot(const void *message, size_t len, void *desc, size_t size,
+    void *data)
 {
   struct MotmotInfo *minfo = data;
   int id = minfo->id;
@@ -464,7 +500,9 @@ int print_chat_motmot(const void *message, size_t len, void *desc, size_t size, 
 // libmotmot callback.
 //call when someone joins a chat—probably do this based on their sending a msg to chat
 // TODO—fill this in, make this pint "so-and-so joined"
-int print_join_motmot(const void *unused, size_t unusedl, void *info, size_t len, void *data)
+int
+print_join_motmot(const void *unused, size_t unusedl, void *info, size_t len,
+    void *data)
 {
   struct MotmotInfo *minfo = data;
   int id = minfo->id;
@@ -481,7 +519,9 @@ int print_join_motmot(const void *unused, size_t unusedl, void *info, size_t len
 
 // libmotmot callback
 //call when someone leaves a chat—do based on logout/inaccessibility I guess
-int print_part_motmot(const void *unused, size_t unusedl,void *info, size_t len, void *data)
+int
+print_part_motmot(const void *unused, size_t unusedl,void *info, size_t len,
+    void *data)
 {
   struct MotmotInfo *minfo = data;
   int id = minfo->id;
@@ -497,7 +537,9 @@ int print_part_motmot(const void *unused, size_t unusedl,void *info, size_t len,
   return 0;
 }
 
-static void call_if_purplemot(gpointer data, gpointer userdata) {
+static void
+call_if_purplemot(gpointer data, gpointer userdata)
+{
   PurpleConnection *gc = (PurpleConnection *)(data);
   GcFuncData *gcfdata = (GcFuncData *)userdata;
 
@@ -505,22 +547,13 @@ static void call_if_purplemot(gpointer data, gpointer userdata) {
     gcfdata->fn(gcfdata->from, gc, gcfdata->userdata);
 }
 
-static void foreach_purplemot_gc(GcFunc fn, PurpleConnection *from,
-                                gpointer userdata) {
+static void
+foreach_purplemot_gc(GcFunc fn, PurpleConnection *from, gpointer userdata) {
   GcFuncData gcfdata = { fn, from, userdata };
-  g_list_foreach(purple_connections_get_all(), call_if_purplemot,
-                 &gcfdata);
+  g_list_foreach(purple_connections_get_all(), call_if_purplemot, &gcfdata);
 }
 
 
-typedef void(*ChatFunc)(PurpleConvChat *from, PurpleConvChat *to,
-                        int id, const char *room, gpointer userdata);
-
-typedef struct {
-  ChatFunc fn;
-  PurpleConvChat *from_chat;
-  gpointer userdata;
-} ChatFuncData;
 
 static void call_chat_func(gpointer data, gpointer userdata) {
   PurpleConnection *to = (PurpleConnection *)data;
@@ -1225,7 +1258,8 @@ motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
  */
 
 
-static void purplemot_close(PurpleConnection *gc)
+static void
+purplemot_close(PurpleConnection *gc)
 {
   /* notify other purplemot accounts */
   struct motmot_conn *conn = gc->proto_data;
@@ -1237,10 +1271,10 @@ static void purplemot_close(PurpleConnection *gc)
   g_list_free_full(conn->acceptance_list, g_free);
 }
 
-static int purplemot_send_im(PurpleConnection *gc, const char *who,
-                            const char *message, PurpleMessageFlags flags)
+static int
+purplemot_send_im(PurpleConnection *gc, const char *who, const char *message,
+    PurpleMessageFlags flags)
 {
-
   const char *from_username = gc->account->username;
   PurpleMessageFlags receive_flags = ((flags & ~PURPLE_MESSAGE_SEND)
                                       | PURPLE_MESSAGE_RECV);
@@ -1288,12 +1322,16 @@ static int purplemot_send_im(PurpleConnection *gc, const char *who,
    return 1;
 }
 
-static void purplemot_set_info(PurpleConnection *gc, const char *info) {
+static void
+purplemot_set_info(PurpleConnection *gc, const char *info)
+{
   purple_debug_info("purplemot", "setting %s's user info to %s\n",
                     gc->account->username, info);
 }
 
-static const char *typing_state_to_string(PurpleTypingState typing) {
+static const char *
+typing_state_to_string(PurpleTypingState typing)
+{
   switch (typing) {
     case PURPLE_NOT_TYPING:  return "is not typing";
     case PURPLE_TYPING:      return "is typing";
@@ -1302,8 +1340,9 @@ static const char *typing_state_to_string(PurpleTypingState typing) {
   }
 }
 
-static void notify_typing(PurpleConnection *from, PurpleConnection *to,
-                          gpointer typing) {
+static void
+notify_typing(PurpleConnection *from, PurpleConnection *to, gpointer typing)
+{
   const char *from_username = from->account->username;
   const char *action = typing_state_to_string((PurpleTypingState)typing);
   purple_debug_info("purplemot", "notifying %s that %s %s\n",
@@ -1316,15 +1355,19 @@ static void notify_typing(PurpleConnection *from, PurpleConnection *to,
                   (PurpleTypingState)typing);
 }
 
-static unsigned int purplemot_send_typing(PurpleConnection *gc, const char *name,
-                                         PurpleTypingState typing) {
+static unsigned int
+purplemot_send_typing(PurpleConnection *gc, const char *name,
+    PurpleTypingState typing)
+{
   purple_debug_info("purplemot", "%s %s\n", gc->account->username,
                     typing_state_to_string(typing));
   foreach_purplemot_gc(notify_typing, gc, (gpointer)typing);
   return 0;
 }
 
-static void purplemot_get_info(PurpleConnection *gc, const char *username) {
+static void
+purplemot_get_info(PurpleConnection *gc, const char *username)
+{
   const char *body;
   PurpleNotifyUserInfo *info = purple_notify_user_info_new();
   PurpleAccount *acct;
@@ -1360,7 +1403,9 @@ static void purplemot_get_info(PurpleConnection *gc, const char *username) {
  * @param conn A motmot_conn containing what we need to send the data.
  */
 
-static void motmot_report_status(const char *id, struct motmot_conn *conn) {
+static void
+motmot_report_status(const char *id, struct motmot_conn *conn)
+{
   int code;
   msgpack_sbuffer *buffer;
   if (!strcmp(id, NULL_STATUS_ONLINE)) {
@@ -1395,7 +1440,9 @@ static void motmot_report_status(const char *id, struct motmot_conn *conn) {
  * @param acct The account
  * @param status The status
  */
-static void purplemot_set_status(PurpleAccount *acct, PurpleStatus *status) {
+static void
+purplemot_set_status(PurpleAccount *acct, PurpleStatus *status)
+{
   PurpleConnection *gc = purple_account_get_connection(acct);
   struct motmot_conn *conn = gc->proto_data;
   purple_debug_info("motmot", "setting status and reporting");
@@ -1405,22 +1452,23 @@ static void purplemot_set_status(PurpleAccount *acct, PurpleStatus *status) {
 
 }
 
-static void purplemot_set_idle(PurpleConnection *gc, int idletime) {
+static void
+purplemot_set_idle(PurpleConnection *gc, int idletime)
+{
   purple_debug_info("purplemot",
                     "purple reports that %s has been idle for %d seconds\n",
                     gc->account->username, idletime);
 }
 
 
-static void purplemot_change_passwd(PurpleConnection *gc, const char *old_pass,
-                                   const char *new_pass) {
+static void
+purplemot_change_passwd(PurpleConnection *gc, const char *old_pass,
+    const char *new_pass)
+{
   purple_debug_info("purplemot", "%s wants to change their password\n",
                     gc->account->username);
 }
 
-static gint motmot_node_cmp(const char *a, const char *b) {
-  return strcmp(a, b);
-}
 /**
  * purple_mot_add_buddy - code called when a buddy is added in libpurple
  *
@@ -1428,8 +1476,9 @@ static gint motmot_node_cmp(const char *a, const char *b) {
  * @param buddy The buddy to be added
  * @param group The group (we don't use this)
  */
-static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
-                               PurpleGroup *group)
+static void
+purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
+    PurpleGroup *group)
 {
   char *name;
   purple_debug_info("purplemot", "buddy add code");
@@ -1442,7 +1491,7 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
 
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
   GList *el = g_list_find_custom(conn->acceptance_list,
-    purple_buddy_get_name(buddy), (GCompareFunc) motmot_node_cmp);
+    purple_buddy_get_name(buddy), (GCompareFunc)strcmp);
 
   // This is a hack so that the acceptance to a friend request is only sent once the buddy is added on our end,
   // not when the add is authorized.
@@ -1505,8 +1554,9 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   */
 }
 
-static void purplemot_add_buddies(PurpleConnection *gc, GList *buddies,
-                                 GList *groups) {
+static void
+purplemot_add_buddies(PurpleConnection *gc, GList *buddies, GList *groups)
+{
   GList *buddy = buddies;
   GList *group = groups;
 
@@ -1519,8 +1569,9 @@ static void purplemot_add_buddies(PurpleConnection *gc, GList *buddies,
   }
 }
 
-static void purplemot_remove_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
-                                  PurpleGroup *group)
+static void
+purplemot_remove_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
+    PurpleGroup *group)
 {
   const char *name = purple_buddy_get_name(buddy);
   struct motmot_conn *conn = gc->proto_data;
@@ -1538,8 +1589,9 @@ static void purplemot_remove_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   msgpack_packer_free(pk);
 }
 
-static void purplemot_remove_buddies(PurpleConnection *gc, GList *buddies,
-                                    GList *groups) {
+static void
+purplemot_remove_buddies(PurpleConnection *gc, GList *buddies, GList *groups)
+{
   GList *buddy = buddies;
   GList *group = groups;
 
@@ -1559,34 +1611,46 @@ static void purplemot_remove_buddies(PurpleConnection *gc, GList *buddies,
  * purple_privacy_check(), from privacy.h), to determine whether messages are
  * allowed or blocked.
  */
-static void purplemot_add_permit(PurpleConnection *gc, const char *name) {
+static void
+purplemot_add_permit(PurpleConnection *gc, const char *name)
+{
   purple_debug_info("purplemot", "%s adds %s to their allowed list\n",
                     gc->account->username, name);
 }
 
-static void purplemot_add_deny(PurpleConnection *gc, const char *name) {
+static void
+purplemot_add_deny(PurpleConnection *gc, const char *name)
+{
   purple_debug_info("purplemot", "%s adds %s to their blocked list\n",
                     gc->account->username, name);
 }
 
-static void purplemot_rem_permit(PurpleConnection *gc, const char *name) {
+static void
+purplemot_rem_permit(PurpleConnection *gc, const char *name)
+{
   purple_debug_info("purplemot", "%s removes %s from their allowed list\n",
                     gc->account->username, name);
 }
 
-static void purplemot_rem_deny(PurpleConnection *gc, const char *name) {
+static void
+purplemot_rem_deny(PurpleConnection *gc, const char *name)
+{
   purple_debug_info("purplemot", "%s removes %s from their blocked list\n",
                     gc->account->username, name);
 }
 
-static void purplemot_set_permit_deny(PurpleConnection *gc) {
+static void
+purplemot_set_permit_deny(PurpleConnection *gc)
+{
   /* this is for synchronizing the local black/whitelist with the server.
    * for purplemot, it's a noop.
    */
 }
 
-static void joined_chat(PurpleConvChat *from, PurpleConvChat *to,
-                        int id, const char *room, gpointer userdata) {
+static void
+joined_chat(PurpleConvChat *from, PurpleConvChat *to, int id, const char *room,
+    void *userdata)
+{
   /*  tell their chat window that we joined */
   purple_debug_info("purplemot", "%s sees that %s joined chat room %s\n",
                     to->nick, from->nick, room);
@@ -1609,7 +1673,9 @@ static void joined_chat(PurpleConvChat *from, PurpleConvChat *to,
 }
 
 // calls motmot_invite (libmotmot)
-static void purplemot_join_chat(PurpleConnection *gc, GHashTable *components) {
+static void
+purplemot_join_chat(PurpleConnection *gc, GHashTable *components)
+{
   // JULIE
   // to join chat, first call upon almighty paxos
   // must figure out distinction between *joining* a chat and *creating* a chat
@@ -1635,7 +1701,9 @@ static void purplemot_join_chat(PurpleConnection *gc, GHashTable *components) {
   }
 }
 
-static void purplemot_reject_chat(PurpleConnection *gc, GHashTable *components) {
+static void
+purplemot_reject_chat(PurpleConnection *gc, GHashTable *components)
+{
   const char *invited_by = g_hash_table_lookup(components, "invited_by");
   const char *room = g_hash_table_lookup(components, "room");
   const char *username = gc->account->username;
@@ -1657,14 +1725,18 @@ static void purplemot_reject_chat(PurpleConnection *gc, GHashTable *components) 
   g_free(message);
 }
 
-static char *purplemot_get_chat_name(GHashTable *components) {
+static char *
+purplemot_get_chat_name(GHashTable *components)
+{
   const char *room = g_hash_table_lookup(components, "room");
   purple_debug_info("purplemot", "reporting chat room name '%s'\n", room);
   return g_strdup(room);
 }
 
-static void purplemot_chat_invite(PurpleConnection *gc, int id,
-                                 const char *message, const char *who) {
+static void
+purplemot_chat_invite(PurpleConnection *gc, int id, const char *message,
+    const char *who)
+{
   const char *username = gc->account->username;
   PurpleConversation *conv = purple_find_chat(gc, id);
   const char *room = conv->name;
@@ -1697,7 +1769,9 @@ static void purplemot_chat_invite(PurpleConnection *gc, int id,
 
 // JULIE: add disconnect back in
 // calls motmot_disconnect (libmotmot)
-static void purplemot_chat_leave(PurpleConnection *gc, int id) {
+static void
+purplemot_chat_leave(PurpleConnection *gc, int id)
+{
   struct motmot_conn *proto = gc->proto_data;
   struct MotmotInfo *info =  find_info(proto, id);
 
@@ -1711,8 +1785,10 @@ static void purplemot_chat_leave(PurpleConnection *gc, int id) {
 
 }
 
-static PurpleCmdRet send_whisper(PurpleConversation *conv, const gchar *cmd,
-                                 gchar **args, gchar **error, void *userdata) {
+static PurpleCmdRet
+send_whisper(PurpleConversation *conv, const gchar *cmd, gchar **args,
+    gchar **error, void *userdata)
+{
   const char *to_username;
   const char *message;
   const char *from_username;
@@ -1762,8 +1838,10 @@ static PurpleCmdRet send_whisper(PurpleConversation *conv, const gchar *cmd,
   }
 }
 
-static void purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who,
-                                  const char *message) {
+static void
+purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who,
+    const char *message)
+{
   const char *username = gc->account->username;
   PurpleConversation *conv = purple_find_chat(gc, id);
   purple_debug_info("purplemot",
@@ -1777,8 +1855,10 @@ static void purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who
 
 
 // calls motmot_send (libmotmot function)
-static int purplemot_chat_send(PurpleConnection *gc, int id, const char *message,
-                              PurpleMessageFlags flags) {
+static int
+purplemot_chat_send(PurpleConnection *gc, int id, const char *message,
+    PurpleMessageFlags flags)
+{
   struct motmot_conn *proto = gc->proto_data;
   struct MotmotInfo *info =  find_info(proto, id);
 
@@ -1790,12 +1870,16 @@ static int purplemot_chat_send(PurpleConnection *gc, int id, const char *message
 }
 
 
-static void purplemot_register_user(PurpleAccount *acct) {
- purple_debug_info("purplemot", "registering account for %s\n",
-                   acct->username);
+static void
+purplemot_register_user(PurpleAccount *acct)
+{
+  purple_debug_info("purplemot", "registering account for %s\n",
+      acct->username);
 }
 
-static void purplemot_get_cb_info(PurpleConnection *gc, int id, const char *who) {
+static void
+purplemot_get_cb_info(PurpleConnection *gc, int id, const char *who)
+{
   PurpleConversation *conv = purple_find_chat(gc, id);
   purple_debug_info("purplemot",
                     "retrieving %s's info for %s in chat room %s\n", who,
@@ -1804,26 +1888,32 @@ static void purplemot_get_cb_info(PurpleConnection *gc, int id, const char *who)
   purplemot_get_info(gc, who);
 }
 
-static void purplemot_alias_buddy(PurpleConnection *gc, const char *who,
-                                 const char *alias) {
- purple_debug_info("purplemot", "%s sets %s's alias to %s\n",
-                   gc->account->username, who, alias);
+static void
+purplemot_alias_buddy(PurpleConnection *gc, const char *who, const char *alias)
+{
+  purple_debug_info("purplemot", "%s sets %s's alias to %s\n",
+                    gc->account->username, who, alias);
 }
 
-static void purplemot_group_buddy(PurpleConnection *gc, const char *who,
-                                 const char *old_group,
-                                 const char *new_group) {
+static void
+purplemot_group_buddy(PurpleConnection *gc, const char *who,
+    const char *old_group, const char *new_group)
+{
   purple_debug_info("purplemot", "%s has moved %s from group %s to group %s\n",
                     gc->account->username, who, old_group, new_group);
 }
 
-static void purplemot_rename_group(PurpleConnection *gc, const char *old_name,
-                                  PurpleGroup *group, GList *moved_buddies) {
+static void
+purplemot_rename_group(PurpleConnection *gc, const char *old_name,
+    PurpleGroup *group, GList *moved_buddies)
+{
   purple_debug_info("purplemot", "%s has renamed group %s to %s\n",
                     gc->account->username, old_name, group->name);
 }
 
-static void purplemot_convo_closed(PurpleConnection *gc, const char *who) {
+static void
+purplemot_convo_closed(PurpleConnection *gc, const char *who)
+{
   purple_debug_info("purplemot", "%s's conversation with %s was closed\n",
                     gc->account->username, who);
 }
@@ -1831,26 +1921,32 @@ static void purplemot_convo_closed(PurpleConnection *gc, const char *who) {
 /* normalize a username (e.g. remove whitespace, add default domain, etc.)
  * for purplemot, this is a noop.
  */
-static const char *purplemot_normalize(const PurpleAccount *acct,
-                                      const char *input) {
+static const char *
+purplemot_normalize(const PurpleAccount *acct, const char *input)
+{
   return NULL;
 }
 
-static void purplemot_set_buddy_icon(PurpleConnection *gc,
-                                    PurpleStoredImage *img) {
+static void
+purplemot_set_buddy_icon(PurpleConnection *gc, PurpleStoredImage *img)
+{
  purple_debug_info("purplemot", "setting %s's buddy icon to %s\n",
                    gc->account->username,
                    img ? purple_imgstore_get_filename(img) : "(null)");
 }
 
-static void purplemot_remove_group(PurpleConnection *gc, PurpleGroup *group) {
+static void
+purplemot_remove_group(PurpleConnection *gc, PurpleGroup *group)
+{
   purple_debug_info("purplemot", "%s has removed group %s\n",
                     gc->account->username, group->name);
 }
 
 
-static void set_chat_topic_fn(PurpleConvChat *from, PurpleConvChat *to,
-                              int id, const char *room, gpointer userdata) {
+static void
+set_chat_topic_fn(PurpleConvChat *from, PurpleConvChat *to, int id,
+    const char *room, void *userdata)
+{
   const char *topic = (const char *)userdata;
   const char *username = from->conv->account->username;
   char *msg;
@@ -1868,8 +1964,9 @@ static void set_chat_topic_fn(PurpleConvChat *from, PurpleConvChat *to,
   g_free(msg);
 }
 
-static void purplemot_set_chat_topic(PurpleConnection *gc, int id,
-                                    const char *topic) {
+static void
+purplemot_set_chat_topic(PurpleConnection *gc, int id, const char *topic)
+{
   PurpleConversation *conv = purple_find_chat(gc, id);
   PurpleConvChat *chat = purple_conversation_get_chat_data(conv);
   const char *last_topic;
@@ -1888,12 +1985,16 @@ static void purplemot_set_chat_topic(PurpleConnection *gc, int id,
   foreach_gc_in_chat(set_chat_topic_fn, gc, id, (gpointer)topic);
 }
 
-static gboolean purplemot_finish_get_roomlist(gpointer roomlist) {
+static gboolean
+purplemot_finish_get_roomlist(gpointer roomlist)
+{
   purple_roomlist_set_in_progress((PurpleRoomlist *)roomlist, FALSE);
   return FALSE;
 }
 
-static PurpleRoomlist *purplemot_roomlist_get_list(PurpleConnection *gc) {
+static PurpleRoomlist *
+purplemot_roomlist_get_list(PurpleConnection *gc)
+{
   const char *username = gc->account->username;
   PurpleRoomlist *roomlist = purple_roomlist_new(gc->account);
   GList *fields = NULL;
@@ -1942,15 +2043,19 @@ static PurpleRoomlist *purplemot_roomlist_get_list(PurpleConnection *gc) {
   return roomlist;
 }
 
-static void purplemot_roomlist_cancel(PurpleRoomlist *list) {
- purple_debug_info("purplemot", "%s asked to cancel room list request\n",
-                   list->account->username);
+static void
+purplemot_roomlist_cancel(PurpleRoomlist *list)
+{
+  purple_debug_info("purplemot", "%s asked to cancel room list request\n",
+                    list->account->username);
 }
 
-static void purplemot_roomlist_expand_category(PurpleRoomlist *list,
-                                              PurpleRoomlistRoom *category) {
- purple_debug_info("purplemot", "%s asked to expand room list category %s\n",
-                   list->account->username, category->name);
+static void
+purplemot_roomlist_expand_category(PurpleRoomlist *list,
+    PurpleRoomlistRoom *category)
+{
+  purple_debug_info("purplemot", "%s asked to expand room list category %s\n",
+                    list->account->username, category->name);
 }
 
 /* purplemot doesn't support file transfer...yet... */
@@ -1959,7 +2064,9 @@ static gboolean purplemot_can_receive_file(PurpleConnection *gc,
   return FALSE;
 }
 
-static gboolean purplemot_offline_message(const PurpleBuddy *buddy) {
+static gboolean
+purplemot_offline_message(const PurpleBuddy *buddy)
+{
   purple_debug_info("purplemot",
                     "reporting that offline messages are supported for %s\n",
                     buddy->name);
@@ -1977,13 +2084,13 @@ static PurplePluginProtocolInfo prpl_info =
   NULL,               /* user_splits, initialized in purplemot_init() */
   NULL,               /* protocol_options, initialized in purplemot_init() */
   {   /* icon_spec, a PurpleBuddyIconSpec */
-      "png,jpg,gif",                   /* format */
-      0,                               /* min_width */
-      0,                               /* min_height */
-      128,                             /* max_width */
-      128,                             /* max_height */
-      10000,                           /* max_filesize */
-      PURPLE_ICON_SCALE_DISPLAY,       /* scale_rules */
+    "png,jpg,gif",                   /* format */
+    0,                               /* min_width */
+    0,                               /* min_height */
+    128,                             /* max_width */
+    128,                             /* max_height */
+    10000,                           /* max_filesize */
+    PURPLE_ICON_SCALE_DISPLAY,       /* scale_rules */
   },
   purplemot_list_icon,                  /* list_icon */
   NULL,                                /* list_emblem */
@@ -2057,7 +2164,8 @@ static PurplePluginProtocolInfo prpl_info =
   NULL                                 /* add_buddies_with_invite */
 };
 
-static void purplemot_init(PurplePlugin *plugin)
+static void
+purplemot_init(PurplePlugin *plugin)
 {
   /* see accountopt.h for information about user splits and protocol options */
   PurpleAccountUserSplit *split = purple_account_user_split_new(
@@ -2094,7 +2202,9 @@ static void purplemot_init(PurplePlugin *plugin)
   _null_protocol = plugin;
 }
 
-static void purplemot_destroy(PurplePlugin *plugin) {
+static void
+purplemot_destroy(PurplePlugin *plugin)
+{
   purple_debug_info("purplemot", "shutting down\n");
 }
 
