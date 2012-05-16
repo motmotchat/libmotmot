@@ -103,8 +103,8 @@
 #define BUSY 4
 #define SERVER 5
 
-static void motmot_report_status(const char *id, motmot_conn *conn);
-void get_all_statuses(motmot_conn *conn);
+static void motmot_report_status(const char *id, struct motmot_conn *conn);
+void get_all_statuses(struct motmot_conn *conn);
 static void motmot_parse(char *buffer, int len, PurpleConnection *gc);
 static void motmot_login_failure(PurpleSslConnection *gsc,
     PurpleSslErrorType error, gpointer data);
@@ -133,7 +133,7 @@ typedef struct {
 
 int check_info(const void *a, const void *data) {
   int id = *((int *) data);
-  const MotmotInfo *info = a;
+  const struct MotmotInfo *info = a;
   if (id == info->id) {
     return 0;
   }
@@ -141,7 +141,7 @@ int check_info(const void *a, const void *data) {
 }
 
 // finds an info
-MotmotInfo *find_info(motmot_conn *conn, int id) {
+struct MotmotInfo *find_info(struct motmot_conn *conn, int id) {
   GList *res = g_list_find_custom(conn->info_list, &id, check_info);
   if (res == NULL) {
     return NULL;
@@ -153,11 +153,11 @@ MotmotInfo *find_info(motmot_conn *conn, int id) {
 // enter function
 void *enter(void *data) {
   int id;
-  MotmotInfo *info = g_new0(MotmotInfo, 1);
+  struct MotmotInfo *info = g_new0(struct MotmotInfo, 1);
   info->internal_data = data;
 
   PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
-  motmot_conn *proto = gc->proto_data;
+  struct motmot_conn *proto = gc->proto_data;
   while (purple_find_chat(gc, chat_id) != NULL) {
     chat_id++;
   }
@@ -175,7 +175,7 @@ void *enter(void *data) {
 
 // leaving functions
 void leave_cb(void *data) {
-  MotmotInfo *info = data;
+  struct MotmotInfo *info = data;
 
   serv_chat_leave(GLOBAL_ACCOUNT->gc, info->id);
 }
@@ -188,7 +188,7 @@ void leave_cb(void *data) {
 // global definition of aforementioned struct. motmot everrrrrywhere
 // question—do I want this to be global?
 // I don't think so; comment this out for now
-// MotmotInfo motmot_info;
+// struct MotmotInfo motmot_info;
 
 GHashTable* goffline_messages = NULL;
 
@@ -218,7 +218,7 @@ static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
  * @param username The username of the buddy
  * @param conn The motmot connection handle
  */
-static void query_status(const char *username, motmot_conn *conn) {
+static void query_status(const char *username, struct motmot_conn *conn) {
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
 
@@ -408,7 +408,7 @@ static void receive_chat_message(PurpleConvChat *from, PurpleConvChat *to,
  */
 static void connectSuccess(gpointer data, gint source, const gchar *error_message)
 {
-  //MotmotInfo *info = data;
+  //struct MotmotInfo *info = data;
   struct motmot_connect_cb *cb = data;
   if (source < 0) {
     (cb->func)(NULL, cb->data);
@@ -432,7 +432,7 @@ int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
     return -1;
   }
 
-  motmot_buddy *extra = bud->proto_data;
+  struct motmot_buddy *extra = bud->proto_data;
   purple_proxy_connect(GLOBAL_ACCOUNT->gc, GLOBAL_ACCOUNT, extra->addr,
     extra->port, connectSuccess, cb);
   return 0;
@@ -453,7 +453,7 @@ int connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
  */
 int print_chat_motmot(const void *message, size_t len, void *desc, size_t size, void *data)
 {
-  MotmotInfo *minfo = data;
+  struct MotmotInfo *minfo = data;
   int id = minfo->id;
   PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
 
@@ -466,7 +466,7 @@ int print_chat_motmot(const void *message, size_t len, void *desc, size_t size, 
 // TODO—fill this in, make this pint "so-and-so joined"
 int print_join_motmot(const void *unused, size_t unusedl, void *info, size_t len, void *data)
 {
-  MotmotInfo *minfo = data;
+  struct MotmotInfo *minfo = data;
   int id = minfo->id;
   PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
 
@@ -483,7 +483,7 @@ int print_join_motmot(const void *unused, size_t unusedl, void *info, size_t len
 //call when someone leaves a chat—do based on logout/inaccessibility I guess
 int print_part_motmot(const void *unused, size_t unusedl,void *info, size_t len, void *data)
 {
-  MotmotInfo *minfo = data;
+  struct MotmotInfo *minfo = data;
   int id = minfo->id;
   PurpleConnection *gc = GLOBAL_ACCOUNT->gc;
 
@@ -758,7 +758,7 @@ static GHashTable *purplemot_chat_info_defaults(PurpleConnection *gc,
 static void purplemot_login(PurpleAccount *acct)
 {
   char **userparts;
-  motmot_conn *conn;
+  struct motmot_conn *conn;
   int port;
 /* This doesn't really work.
   if (GLOBAL_ACCOUNT != NULL) {
@@ -791,7 +791,7 @@ static void purplemot_login(PurpleAccount *acct)
 		return;
 	}
 
-  gc->proto_data = conn = g_new0(motmot_conn, 1);
+  gc->proto_data = conn = g_new0(struct motmot_conn, 1);
   conn->account = acct;
 
   userparts = g_strsplit(username, "@", 2);
@@ -843,7 +843,7 @@ static void purplemot_login(PurpleAccount *acct)
 
 static gboolean do_login(PurpleConnection *gc) {
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   PurpleAccount *a = conn->account;
 
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
@@ -866,7 +866,7 @@ static gboolean do_login(PurpleConnection *gc) {
   return TRUE;
 }
 
-void get_all_statuses(motmot_conn *conn) {
+void get_all_statuses(struct motmot_conn *conn) {
   purple_debug_info("motmot", "querying all statuses");
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
@@ -900,14 +900,14 @@ void update_remote_status(PurpleAccount *a, const char *friend_name, int status)
 
 static void auth_cb(void *data) {
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   conn->acceptance_list = g_list_prepend(conn->acceptance_list,
     conn->data);
   return;
   /*
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
 
   msgpack_pack_array(pk, 2);
@@ -926,7 +926,7 @@ static void auth_cb(void *data) {
 static void deny_cb(void *data) {
   /*
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   g_free(conn->data);
   */
   return;
@@ -953,10 +953,10 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc) {
   msgpack_object_array ar2;
   msgpack_object_array info_list;
   msgpack_object_array tuple;
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   PurpleAccount *a = conn->account;
   PurpleBuddy *bud;
-  motmot_buddy *proto;
+  struct motmot_buddy *proto;
 
   msgpack_object_array ar = deser_get_array(buffer, len, &error);
   purple_debug_info("motmot", "parsing data");
@@ -1014,7 +1014,7 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc) {
         bud = purple_find_buddy(a, friend_name);
         if (bud == NULL) {
           bud = purple_buddy_new(a, friend_name, NULL);
-          proto = g_new0(motmot_buddy, 1);
+          proto = g_new0(struct motmot_buddy, 1);
           proto->addr = addr;
           proto->port = port;
           bud->proto_data = proto;
@@ -1022,7 +1022,7 @@ static void motmot_parse(char *buffer, int len, PurpleConnection *gc) {
           update_remote_status(a, friend_name, status);
         }
         else{
-          proto = g_new0(motmot_buddy, 1);
+          proto = g_new0(struct motmot_buddy, 1);
           proto->addr = addr;
           proto->port = port;
           bud->proto_data = proto;
@@ -1186,7 +1186,7 @@ static void motmot_input_cb(gpointer *data, PurpleSslConnection *gsc, PurpleInpu
 static void motmot_login_cb(gpointer data, PurpleSslConnection *gsc, PurpleInputCondition cond) {
   purple_debug_info("motmot", "connection achieved");
   PurpleConnection *gc = data;
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   PurpleAccount *acct = conn->account;
 	if (do_login(gc)) {
 		purple_ssl_input_add(gsc, (PurpleSslInputFunction) motmot_input_cb, gc);
@@ -1211,7 +1211,7 @@ motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
 		gpointer data)
 {
 	PurpleConnection *gc = data;
-	motmot_conn *motmot = gc->proto_data;
+	struct motmot_conn *motmot = gc->proto_data;
 
 	motmot->gsc = NULL;
 
@@ -1228,7 +1228,7 @@ motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
 static void purplemot_close(PurpleConnection *gc)
 {
   /* notify other purplemot accounts */
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   PurpleAccount *a = conn->account;
   motmot_report_status(purple_status_get_id(purple_account_get_active_status(a)), conn);
 
@@ -1360,7 +1360,7 @@ static void purplemot_get_info(PurpleConnection *gc, const char *username) {
  * @param conn A motmot_conn containing what we need to send the data.
  */
 
-static void motmot_report_status(const char *id, motmot_conn *conn) {
+static void motmot_report_status(const char *id, struct motmot_conn *conn) {
   int code;
   msgpack_sbuffer *buffer;
   if (!strcmp(id, NULL_STATUS_ONLINE)) {
@@ -1397,7 +1397,7 @@ static void motmot_report_status(const char *id, motmot_conn *conn) {
  */
 static void purplemot_set_status(PurpleAccount *acct, PurpleStatus *status) {
   PurpleConnection *gc = purple_account_get_connection(acct);
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   purple_debug_info("motmot", "setting status and reporting");
 
 
@@ -1435,9 +1435,9 @@ static void purplemot_add_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
   purple_debug_info("purplemot", "buddy add code");
 
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
 
-  motmot_buddy *proto = g_new0(motmot_buddy, 1);
+  struct motmot_buddy *proto = g_new0(struct motmot_buddy, 1);
   buddy->proto_data = proto;
 
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
@@ -1523,7 +1523,7 @@ static void purplemot_remove_buddy(PurpleConnection *gc, PurpleBuddy *buddy,
                                   PurpleGroup *group)
 {
   const char *name = purple_buddy_get_name(buddy);
-  motmot_conn *conn = gc->proto_data;
+  struct motmot_conn *conn = gc->proto_data;
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
   msgpack_pack_array(pk, 2);
@@ -1698,8 +1698,8 @@ static void purplemot_chat_invite(PurpleConnection *gc, int id,
 // JULIE: add disconnect back in
 // calls motmot_disconnect (libmotmot)
 static void purplemot_chat_leave(PurpleConnection *gc, int id) {
-  motmot_conn *proto = gc->proto_data;
-  MotmotInfo *info =  find_info(proto, id);
+  struct motmot_conn *proto = gc->proto_data;
+  struct MotmotInfo *info =  find_info(proto, id);
 
   if (info == NULL) {
     return;
@@ -1779,8 +1779,8 @@ static void purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who
 // calls motmot_send (libmotmot function)
 static int purplemot_chat_send(PurpleConnection *gc, int id, const char *message,
                               PurpleMessageFlags flags) {
-  motmot_conn *proto = gc->proto_data;
-  MotmotInfo *info =  find_info(proto, id);
+  struct motmot_conn *proto = gc->proto_data;
+  struct MotmotInfo *info =  find_info(proto, id);
 
   if (info == NULL) {
     return -1;
