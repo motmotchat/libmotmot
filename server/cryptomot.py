@@ -21,12 +21,11 @@ def create_self_signed_cert(cert_dir, domain):
     self-signed cert and keypair and write them into that directory.
     """
 
-    if not exists(join(cert_dir, CERT_FILE)) \
-            or not exists(join(cert_dir, KEY_FILE)):
-            
+    if not exists(join(cert_dir, CERT_FILE)) or not exists(join(cert_dir, KEY_FILE)):
+
         # create a key pair
         k = crypto.PKey()
-        k.generate_key(crypto.TYPE_RSA, 1024)
+        k.generate_key(crypto.TYPE_RSA, 2048)
 
         # create a self-signed cert
         cert = crypto.X509()
@@ -50,15 +49,14 @@ def create_self_signed_cert(cert_dir, domain):
 
 # this function will use the local cert to sign a client cert
 def signCert(cert_dir, certStr, userName):
-    
     pk = crypto.PKey()
     # load private key
     f = open(join(cert_dir, KEY_FILE), "r")
     pk = crypto.load_privatekey(crypto.FILETYPE_PEM, f.read())
-    
+
     # load certificate into X509 instance
     cert = crypto.load_certificate(crypto.FILETYPE_PEM, certStr)
-    
+
     if cert.get_subject().CN == userName:
         # sign it
         cert.sign(pk, 'sha1')

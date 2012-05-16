@@ -22,7 +22,7 @@ class sendGreenlet(Greenlet):
     def __init__(self, sock):
         Greenlet.__init__(self)
         self.sock = sock
-        
+
 
     def _run(self):
         while True:
@@ -70,7 +70,7 @@ def test_auth(tPass):
         sendQ.put([RM.AUTHENTICATE_USER,2339290,";insert into users(userName,password) values ('owned','owned'); --"])
         sendQ.put([RM.AUTHENTICATE_USER,"badUser"])
 
-# testing for the friend registering functionality 
+# testing for the friend registering functionality
 def test_friend(tPass):
     sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
     if tPass=='True':
@@ -80,7 +80,7 @@ def test_friend(tPass):
         sendQ.put([RM.REGISTER_FRIEND, ";insert into users(userName,password) values ('owned','owned'); --"])
         sendQ.put([RM.REGISTER_FRIEND, ])
 
-# tests unfriending 
+# tests unfriending
 def test_unfriend(tPass):
     sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
     if tPass=='True':
@@ -91,7 +91,7 @@ def test_unfriend(tPass):
         sendQ.put([RM.UNREGISTER_FRIEND, ])
 
 
-# tests unfriending 
+# tests unfriending
 def test_accept(tPass):
     sendQ.put([RM.AUTHENTICATE_USER,"ej@bensing.com","12345"])
     sendQ.put([RM.UNREGISTER_FRIEND, "ej2@bensing.com"])
