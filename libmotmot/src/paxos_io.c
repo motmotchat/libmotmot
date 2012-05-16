@@ -1,10 +1,11 @@
 /**
  * paxos_io.c - Paxos reliable IO utilities
  */
-#include "paxos.h"
-#include "paxos_io.h"
 
 #include <glib.h>
+
+#include "paxos.h"
+#include "paxos_io.h"
 
 #define MPBUFSIZE 4096
 

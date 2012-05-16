@@ -2,11 +2,11 @@
  * motmot.c - libmotmot API
  */
 
+#include <glib.h>
+
 #include "motmot.h"
 #include "paxos.h"
 #include "list.h"
-
-#include <glib.h>
 
 /**
  * motmot_init - Initialize libmotmot.

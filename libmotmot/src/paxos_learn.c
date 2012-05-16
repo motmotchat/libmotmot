@@ -1,6 +1,10 @@
 /**
  * paxos_learn.c - Commit and learn protocol for Paxos.
  */
+
+#include <assert.h>
+#include <glib.h>
+
 #include "paxos.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
@@ -9,9 +13,6 @@
 #include "paxos_protocol.h"
 #include "paxos_util.h"
 #include "list.h"
-
-#include <assert.h>
-#include <glib.h>
 
 /**
  * paxos_commit - Commit a value for an instance of the Paxos protocol.

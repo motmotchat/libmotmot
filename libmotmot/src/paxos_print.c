@@ -1,10 +1,11 @@
 /**
  * paxos_print.c - Paxos object printers.
  */
-#include "paxos.h"
-#include "paxos_print.h"
 
 #include <stdio.h>
+
+#include "paxos.h"
+#include "paxos_print.h"
 
 void
 paxid_print(paxid_t paxid, const char *lead, const char *trail)

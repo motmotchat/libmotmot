@@ -2,6 +2,10 @@
  * paxos_redirect.c - Protocol for telling acceptors they are wrong about
  * something.
  */
+
+#include <assert.h>
+#include <glib.h>
+
 #include "paxos.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
@@ -10,9 +14,6 @@
 #include "paxos_protocol.h"
 #include "paxos_util.h"
 #include "list.h"
-
-#include <assert.h>
-#include <glib.h>
 
 #define DEATH_ADJUSTED(n) ((n) + (LIST_COUNT(&pax->alist) - pax->live_count))
 

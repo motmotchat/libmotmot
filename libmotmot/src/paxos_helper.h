@@ -4,10 +4,10 @@
 #ifndef __PAXOS_HELPER_H__
 #define __PAXOS_HELPER_H__
 
-#include "paxos.h"
-
 #include <glib.h>
 #include <msgpack.h>
+
+#include "paxos.h"
 
 /* Error handling. */
 #define ERR_RET(r, cmd)   \

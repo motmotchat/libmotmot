@@ -4,14 +4,14 @@
 #ifndef __PAXOS_H__
 #define __PAXOS_H__
 
-#include "list.h"
-#include "motmot.h"
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <msgpack.h>
 #include <glib.h>
+
+#include "list.h"
+#include "motmot.h"
 
 
 ///////////////////////////////////////////////////////////////////////////

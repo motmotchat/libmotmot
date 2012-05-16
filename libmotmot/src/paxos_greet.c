@@ -1,6 +1,10 @@
 /**
  * paxos_greet.c - Participant initialization protocol for Paxos.
  */
+
+#include <assert.h>
+#include <glib.h>
+
 #include "paxos.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
@@ -9,9 +13,6 @@
 #include "paxos_protocol.h"
 #include "paxos_util.h"
 #include "list.h"
-
-#include <assert.h>
-#include <glib.h>
 
 /**
  * proposer_welcome - Welcome a new protocol participant by passing along

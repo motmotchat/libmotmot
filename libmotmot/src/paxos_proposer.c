@@ -1,6 +1,10 @@
 /**
  * paxos_proposer.c - Proposer protocol functions for Paxos.
  */
+
+#include <assert.h>
+#include <glib.h>
+
 #include "paxos.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
@@ -9,9 +13,6 @@
 #include "paxos_protocol.h"
 #include "paxos_util.h"
 #include "list.h"
-
-#include <assert.h>
-#include <glib.h>
 
 static inline void
 swap(void **p1, void **p2)

@@ -4,10 +4,10 @@
 #ifndef __PAXOS_PROTOCOL_H__
 #define __PAXOS_PROTOCOL_H__
 
-#include "paxos.h"
-
 #include <glib.h>
 #include <msgpack.h>
+
+#include "paxos.h"
 
 /* Learner operations. */
 int paxos_commit(struct paxos_instance *);

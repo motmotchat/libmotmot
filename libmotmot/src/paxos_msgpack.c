@@ -1,13 +1,13 @@
 /**
  * paxos_msgpack.c - Msgpack helpers.
  */
-#include "paxos.h"
-#include "paxos_msgpack.h"
 
 #include <glib.h>
 #include <msgpack.h>
 #include <assert.h>
 
+#include "paxos.h"
+#include "paxos_msgpack.h"
 
 ///////////////////////////////////////////////////////////////////////////
 //

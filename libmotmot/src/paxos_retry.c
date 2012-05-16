@@ -1,6 +1,10 @@
 /**
  * paxos_retry.c - Protocol for obtaining missing commits.
  */
+
+#include <assert.h>
+#include <glib.h>
+
 #include "paxos.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
@@ -9,9 +13,6 @@
 #include "paxos_protocol.h"
 #include "paxos_util.h"
 #include "list.h"
-
-#include <assert.h>
-#include <glib.h>
 
 /**
  * acceptor_retry - Ask the proposer to give us a commit we are missing.

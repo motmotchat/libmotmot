@@ -2,6 +2,10 @@
  * paxos_util.c - Utility functions for Paxos which read and write to session
  * state.  Closer to the protocol than paxos_helper.c.
  */
+
+#include <assert.h>
+#include <glib.h>
+
 #include "paxos.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
@@ -10,10 +14,6 @@
 #include "paxos_protocol.h"
 #include "paxos_util.h"
 #include "list.h"
-
-#include <assert.h>
-#include <glib.h>
-
 
 ///////////////////////////////////////////////////////////////////////////
 //

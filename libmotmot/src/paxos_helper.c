@@ -1,15 +1,15 @@
 /**
  * paxos_helper.c - Helper functions for Paxos.
  */
-#include "paxos.h"
-#include "paxos_helper.h"
-#include "paxos_io.h"
-#include "list.h"
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <glib.h>
 
+#include "paxos.h"
+#include "paxos_helper.h"
+#include "paxos_io.h"
+#include "list.h"
 
 ///////////////////////////////////////////////////////////////////////////
 //
