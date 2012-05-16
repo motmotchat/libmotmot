@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0 purple` -I../libmotmot/src
+CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0 purple` -I../libmotmot/include
 LDFLAGS = `pkg-config --libs glib-2.0 purple` -lmsgpack
 LIBTOOL = glibtool --tag=CC
 
