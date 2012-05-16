@@ -1,5 +1,6 @@
 /*
  * motmot definitions
+ * Jeff and Julie
  */
 #ifndef __PURPLEMOT_H__
 #define __PURPLEMOT_H__
