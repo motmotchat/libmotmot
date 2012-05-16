@@ -9,13 +9,9 @@
 
 // Clients of paxos_io.h should treat this struct as opaque.
 struct paxos_peer {
-  GIOChannel *pp_channel;         // channel to the peer
-  msgpack_unpacker pp_unpacker;   // unpacker (and its associated read buffer)
-  struct {
-    char *data;
-    size_t length;
-  } pp_write_buffer;              // write buffer (for unwritten data)
-                                  // TODO: make this something more efficient
+  GIOChannel *pp_channel;         // Channel to the peer.
+  msgpack_unpacker pp_unpacker;   // Unpacker (and its associated read buffer).
+  GString *pp_write_buffer;       // Write buffer.
 };
 
 struct paxos_peer *paxos_peer_init(GIOChannel *);

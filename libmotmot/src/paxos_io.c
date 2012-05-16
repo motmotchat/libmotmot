@@ -7,7 +7,7 @@
 #include "paxos.h"
 #include "paxos_io.h"
 
-#define MPBUFSIZE 4096
+#define PIO_BUFSIZE 4096
 
 // Private stuff.
 int paxos_peer_read(GIOChannel *, GIOCondition, void *);
@@ -36,8 +36,11 @@ paxos_peer_init(GIOChannel *channel)
   g_io_channel_set_encoding(channel, NULL, NULL);
 
   // Set up the read listener.
-  msgpack_unpacker_init(&peer->pp_unpacker, MPBUFSIZE);
+  msgpack_unpacker_init(&peer->pp_unpacker, PIO_BUFSIZE);
   g_io_add_watch(channel, G_IO_IN, paxos_peer_read, peer);
+
+  // Set up the write buffer.
+  peer->pp_write_buffer = g_string_sized_new(PIO_BUFSIZE);
 
   return peer;
 }
@@ -92,11 +95,11 @@ paxos_peer_read(GIOChannel *channel, GIOCondition condition, void *data)
   // Keep reading until we've flushed the channel's read buffer completely
   do {
     // Reserve enough space in the msgpack_unpacker buffer for a read.
-    msgpack_unpacker_reserve_buffer(&peer->pp_unpacker, MPBUFSIZE);
+    msgpack_unpacker_reserve_buffer(&peer->pp_unpacker, PIO_BUFSIZE);
 
-    // Read up to MPBUFSIZE bytes into the stream.
+    // Read up to PIO_BUFSIZE bytes into the stream.
     status = g_io_channel_read_chars(channel,
-        msgpack_unpacker_buffer(&peer->pp_unpacker), MPBUFSIZE, &bytes_read,
+        msgpack_unpacker_buffer(&peer->pp_unpacker), PIO_BUFSIZE, &bytes_read,
         &error);
 
     if (status == G_IO_STATUS_ERROR) {
@@ -136,38 +139,29 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
 {
   struct paxos_peer *peer = (struct paxos_peer *)data;
   size_t bytes_written;
-  char *new_data;
 
   GIOStatus status;
   GError *error = NULL;
 
   // If there's nothing to write, do nothing.
-  if (peer->pp_write_buffer.length == 0) {
+  if (peer->pp_write_buffer->len == 0) {
     return TRUE;
   }
 
   // Write to the channel.
-  status = g_io_channel_write_chars(channel, peer->pp_write_buffer.data,
-      peer->pp_write_buffer.length, &bytes_written, &error);
+  status = g_io_channel_write_chars(channel, peer->pp_write_buffer->str,
+      peer->pp_write_buffer->len, &bytes_written, &error);
 
   if (status == G_IO_STATUS_ERROR) {
     g_warning("paxos_peer_write: Write to socket failed.");
   }
 
-  // XXX: This is really awful.
-  if (bytes_written == peer->pp_write_buffer.length) {
-    peer->pp_write_buffer.length = 0;
-    peer->pp_write_buffer.data = NULL;
+  g_string_erase(peer->pp_write_buffer, 0, bytes_written);
+
+  if (peer->pp_write_buffer->len == 0) {
     // XXX: this is kind of hax
     while (g_source_remove_by_user_data(peer));
     g_io_add_watch(peer->pp_channel, G_IO_IN, paxos_peer_read, peer);
-  } else {
-    peer->pp_write_buffer.length -= bytes_written;
-    new_data = g_malloc(peer->pp_write_buffer.length);
-    memcpy(new_data, peer->pp_write_buffer.data + bytes_written,
-           peer->pp_write_buffer.length);
-    g_free(peer->pp_write_buffer.data);
-    peer->pp_write_buffer.data = new_data;
   }
 
   // Flush the channel.
@@ -194,28 +188,14 @@ paxos_peer_write(GIOChannel *channel, GIOCondition condition, void *data)
 int
 paxos_peer_send(struct paxos_peer *peer, const char *buffer, size_t length)
 {
-  char *new_data;
-
-  if (length == 0) {
-    return 0;
-  }
-
-  if (peer->pp_write_buffer.data == NULL) {
-    // This means we weren't interested in the buffer, so we should add a
-    // watch now to catch write events.
+  // If there was no data in the buffer to begin with, it means we weren't
+  // subscribed to write events. Since we're populating the buffer now, let's
+  // start listening.
+  if (peer->pp_write_buffer->len == 0 && length > 0) {
     g_io_add_watch(peer->pp_channel, G_IO_OUT, paxos_peer_write, peer);
   }
 
-  // XXX: Gross.
-  new_data = g_malloc(peer->pp_write_buffer.length + length);
-  if (peer->pp_write_buffer.data != NULL) {
-    memcpy(new_data, peer->pp_write_buffer.data, peer->pp_write_buffer.length);
-    g_free(peer->pp_write_buffer.data);
-  }
-  memcpy(new_data + peer->pp_write_buffer.length, buffer, length);
-
-  peer->pp_write_buffer.data = new_data;
-  peer->pp_write_buffer.length += length;
+  g_string_append_len(peer->pp_write_buffer, buffer, length);
 
   return 0;
 }
