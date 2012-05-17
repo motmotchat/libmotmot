@@ -5,6 +5,8 @@
 #ifndef __PURPLEMOT_H__
 #define __PURPLEMOT_H__
 
+#include "prpl.h"
+
 // TODO: documentation
 struct motmot_conn {
   int fd;
