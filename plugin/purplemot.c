@@ -187,26 +187,7 @@ leave_cb(void *data)
  * (char *) to GList * of GOfflineMessages. initialized in purplemot_init.
  */
 
-// global definition of aforementioned struct. motmot everrrrrywhere
-// question—do I want this to be global?
-// I don't think so; comment this out for now
-// struct MotmotInfo motmot_info;
-
 GHashTable* goffline_messages = NULL;
-
-// Called by print_part_motmot to indicate successful chat departure.
-/*
-static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
-                           int id, const char *room, void *userdata) {
-  if (from != to) {
-    purple_debug_info("purplemot", "%s sees that %s left chat room %s\n",
-                      to->nick, from->nick, room);
-    purple_conv_chat_remove_user(to,
-                                 from->nick,
-                                 NULL);
-  }
-}
-*/
 
 /**
  * deser_get_array - deserialize a message pack array
@@ -726,15 +707,15 @@ purplemot_login(PurpleAccount *acct)
   int port;
 /* This doesn't really work. XXX
   if (GLOBAL_ACCOUNT != NULL) {
-		purple_connection_error_reason (acct->gc,
-			PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
-			_("You can't login to more than one motmot account"));
-		return;
+    purple_connection_error_reason (acct->gc,
+      PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
+      _("You can't login to more than one motmot account"));
+    return;
   }
 */
   GLOBAL_ACCOUNT = acct;
 
-	const char *username = purple_account_get_username(acct);
+  const char *username = purple_account_get_username(acct);
 
   PurpleConnection *gc = purple_account_get_connection(acct);
   GList *offline_messages;
@@ -748,12 +729,12 @@ purplemot_login(PurpleAccount *acct)
   // TODO fill out later
   // motmot_init(connect_motmot, print_chat_motmot, print_join_motmot, print_part_motmot, enter, leave_cb);
 
-	if (strpbrk(username, " \t\v\r\n") != NULL) {
-		purple_connection_error_reason (gc,
-			PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
-			_("Motmot server may not contain whitespace"));
-		return;
-	}
+  if (strpbrk(username, " \t\v\r\n") != NULL) {
+    purple_connection_error_reason (gc,
+      PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
+      _("Motmot server may not contain whitespace"));
+    return;
+  }
 
   gc->proto_data = conn = g_new0(struct motmot_conn, 1);
   conn->account = acct;
@@ -829,25 +810,6 @@ static void auth_cb(void *data) {
   conn->acceptance_list = g_list_prepend(conn->acceptance_list,
     conn->data);
   return;
-  // XXX
-  /*
-  msgpack_sbuffer *buffer = msgpack_sbuffer_new();
-  PurpleConnection *gc = data;
-  struct motmot_conn *conn = gc->proto_data;
-  msgpack_packer *pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
-
-  msgpack_pack_array(pk, 2);
-  msgpack_pack_int(pk, ACCEPT_FRIEND);
-
-  msgpack_pack_raw(pk, strlen(conn->data));
-  msgpack_pack_raw_body(pk, conn->data, strlen(conn->data));
-
-  purple_ssl_write(conn->gsc, buffer->data, buffer->size);
-
-  msgpack_sbuffer_free(buffer);
-  msgpack_packer_free(pk);
-  g_free(conn->data);
-  */
 }
 static void deny_cb(void *data) {
   // XXX
@@ -1039,7 +1001,7 @@ motmot_parse(char *buffer, int len, PurpleConnection *gc) {
       }
       conn->data = friend_name;
 
-      purple_account_request_authorization(a, friend_name, NULL, NULL, NULL,          FALSE, auth_cb, deny_cb, gc);
+      purple_account_request_authorization(a, friend_name, NULL, NULL, NULL, FALSE, auth_cb, deny_cb, gc);
       break;
     case OP_ACCESS_DENIED:
     case OP_AUTH_FAILED:
@@ -1057,10 +1019,10 @@ static void motmot_input_cb(void **data, PurpleSslConnection *gsc, PurpleInputCo
   PurpleConnection *gc = (PurpleConnection *) data;
   gsize l;
   gsize read_bytes = 0;
-	if (!g_list_find(purple_connections_get_all(), gc)) {
-		purple_ssl_close(gsc);
-		return;
-	}
+  if (!g_list_find(purple_connections_get_all(), gc)) {
+    purple_ssl_close(gsc);
+    return;
+  }
 
   char *buffer = g_malloc(BUFF_SIZE);
   char *nxt = buffer;
@@ -1079,7 +1041,7 @@ static void motmot_input_cb(void **data, PurpleSslConnection *gsc, PurpleInputCo
         PURPLE_CONNECTION_ERROR_NETWORK_ERROR, tmp);
       g_free(tmp);
       return;
-	  }
+    }
     read_bytes += l;
     if (l < BUFF_SIZE) {
       break;
@@ -1092,11 +1054,11 @@ static void motmot_input_cb(void **data, PurpleSslConnection *gsc, PurpleInputCo
 
 
   if (read_bytes == 0) {
-		purple_connection_error_reason (gc,
-			PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
-			_("Server closed the connection"));
-		return;
-	}
+    purple_connection_error_reason (gc,
+      PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+      _("Server closed the connection"));
+    return;
+  }
 
   motmot_parse(buffer, read_bytes, gc);
   g_free(buffer);
@@ -1136,14 +1098,14 @@ static void motmot_login_cb(void *data, PurpleSslConnection *gsc, PurpleInputCon
 
 static void
 motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
-		void *data)
+    void *data)
 {
-	PurpleConnection *gc = data;
-	struct motmot_conn *motmot = gc->proto_data;
+  PurpleConnection *gc = data;
+  struct motmot_conn *motmot = gc->proto_data;
 
-	motmot->gsc = NULL;
+  motmot->gsc = NULL;
 
-	purple_connection_ssl_error (gc, error);
+  purple_connection_ssl_error (gc, error);
 }
 
 /**
@@ -1619,7 +1581,7 @@ send_whisper(PurpleConversation *conv, const char *cmd, char **args,
   PurpleConvChatBuddy *chat_buddy;
   PurpleConnection *to;
 
-  /* parse args */
+  // parse args
   to_username = args[0];
   message = args[1];
 
@@ -1640,21 +1602,21 @@ send_whisper(PurpleConversation *conv, const char *cmd, char **args,
   to = get_purplemot_gc(to_username);
 
   if (!chat_buddy) {
-    /* this will be freed by the caller */
+    // this will be freed by the caller
     *error = g_strdup_printf(_("%s is not logged in."), to_username);
     return PURPLE_CMD_RET_FAILED;
   } else if (!to) {
     *error = g_strdup_printf(_("%s is not in this chat room."), to_username);
     return PURPLE_CMD_RET_FAILED;
   } else {
-    /* write the whisper in the sender's chat window  */
+    // write the whisper in the sender's chat window
     char *message_to = g_strdup_printf("%s (to %s)", message, to_username);
     purple_conv_chat_write(chat, from_username, message_to,
                            PURPLE_MESSAGE_SEND | PURPLE_MESSAGE_WHISPER,
                            time(NULL));
     g_free(message_to);
 
-    /* send the whisper */
+    // send the whisper
     serv_chat_whisper(to, chat->id, from_username, message);
 
     return PURPLE_CMD_RET_OK;
@@ -1671,7 +1633,7 @@ purplemot_chat_whisper(PurpleConnection *gc, int id, const char *who,
                     "%s receives whisper from %s in chat room %s: %s\n",
                     username, who, conv->name, message);
 
-  /* receive whisper on recipient's account */
+  // receive whisper on recipient's account
   serv_got_chat_in(gc, id, who, PURPLE_MESSAGE_RECV | PURPLE_MESSAGE_WHISPER,
                    message, time(NULL));
 }
