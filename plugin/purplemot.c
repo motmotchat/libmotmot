@@ -1078,14 +1078,13 @@ static void motmot_login_cb(void *data, PurpleSslConnection *gsc, PurpleInputCon
   PurpleConnection *gc = data;
   struct motmot_conn *conn = gc->proto_data;
   PurpleAccount *acct = conn->account;
-	if (rpc_login(conn)) {
-		purple_ssl_input_add(gsc, (PurpleSslInputFunction) motmot_input_cb, gc);
-    /* tell purple about everyone on our buddy list who's connected */
-    get_all_statuses(conn);
+  rpc_login(conn);
+  purple_ssl_input_add(gsc, (PurpleSslInputFunction) motmot_input_cb, gc);
+  // tell purple about everyone on our buddy list who's connected
+  get_all_statuses(conn);
 
-    /* notify other purplemot accounts */
-    motmot_report_status(purple_status_get_id(purple_account_get_active_status(acct)), conn);
-	}
+  // notify other purplemot accounts
+  motmot_report_status(purple_status_get_id(purple_account_get_active_status(acct)), conn);
 }
 
 /**

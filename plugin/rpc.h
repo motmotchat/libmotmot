@@ -39,7 +39,7 @@ typedef enum rpc_opcode {
   OP_FRIEND_SERVER_DOWN = 91
 } rpcop_t;
 
-int rpc_login(struct motmot_conn *);
+void rpc_login(struct motmot_conn *);
 void rpc_get_all_statuses(struct motmot_conn *);
 void rpc_register_friend(struct motmot_conn *, const char *);
 void rpc_unregister_friend(struct motmot_conn *, const char *);
