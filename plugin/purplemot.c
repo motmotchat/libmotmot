@@ -219,6 +219,7 @@ static void left_chat_room(PurpleConvChat *from, PurpleConvChat *to,
  *
  * @returns deserialized array, undefined on failure
  */
+// TODO: what is this.
 static msgpack_object_array
 deser_get_array(char *buffer, int len, int *error)
 {
@@ -426,9 +427,6 @@ connect_motmot(const void *desc, size_t len, struct motmot_connect_cb *cb)
   return 0;
 }
 
-//static int purplemot_send_im(PurpleConnection *gc, const char *who,
-//                        const char *message, PurpleMessageFlags flags)
-
 // libmotmot callback. Calls receive_chat_message.
 /**
  * print_chat_motmot - callback for receiving a chat, prints message
@@ -509,7 +507,9 @@ foreach_purplemot_gc(GcFunc fn, PurpleConnection *from, void *userdata) {
 
 
 
-static void call_chat_func(void *data, void *userdata) {
+static void
+call_chat_func(void *data, void *userdata)
+{
   PurpleConnection *to = (PurpleConnection *)data;
   ChatFuncData *cfdata = (ChatFuncData *)userdata;
 
@@ -521,8 +521,9 @@ static void call_chat_func(void *data, void *userdata) {
   }
 }
 
-static void foreach_gc_in_chat(ChatFunc fn, PurpleConnection *from,
-                               int id, void *userdata) {
+static void
+foreach_gc_in_chat(ChatFunc fn, PurpleConnection *from, int id, void *userdata)
+{
   PurpleConversation *conv = purple_find_chat(from, id);
   ChatFuncData cfdata = { fn,
                           purple_conversation_get_chat_data(conv),
@@ -531,41 +532,6 @@ static void foreach_gc_in_chat(ChatFunc fn, PurpleConnection *from,
   g_list_foreach(purple_connections_get_all(), call_chat_func,
                  &cfdata);
 }
-
-/*
-static void discover_status(PurpleConnection *from, PurpleConnection *to,
-                            void *userdata) {
-  const char *from_username = from->account->username;
-  const char *to_username = to->account->username;
-
-  if (purple_find_buddy(from->account, to_username)) {
-    PurpleStatus *status = purple_account_get_active_status(to->account);
-    const char *status_id = purple_status_get_id(status);
-    const char *message = purple_status_get_attr_string(status, "message");
-
-    if (!strcmp(status_id, NULL_STATUS_ONLINE) ||
-        !strcmp(status_id, NULL_STATUS_AWAY) ||
-        !strcmp(status_id, NULL_STATUS_OFFLINE)) {
-      purple_debug_info("purplemot", "%s sees that %s is %s: %s\n",
-                        from_username, to_username, status_id, message);
-      purple_prpl_got_user_status(from->account, to_username, status_id,
-                                  (message) ? "message" : NULL, message, NULL);
-    } else {
-      purple_debug_error("purplemot",
-                         "%s's buddy %s has an unknown status: %s, %s",
-                         from_username, to_username, status_id, message);
-    }
-  }
-}
-*/
-/*
-static void report_status_change(PurpleConnection *from, PurpleConnection *to,
-                                 void *userdata) {
-  purple_debug_info("purplemot", "notifying %s that %s changed status\n",
-                    to->account->username, from->account->username);
-  discover_status(to, from, NULL);
-}
-*/
 
 /*
  * UI callbacks (most of this is unchanged from nullprpl)
@@ -594,12 +560,14 @@ static GList *purplemot_actions(PurplePlugin *plugin, void *context)
 /*
  * prpl functions
  */
-static const char *purplemot_list_icon(PurpleAccount *acct, PurpleBuddy *buddy)
+static const char *
+purplemot_list_icon(PurpleAccount *acct, PurpleBuddy *buddy)
 {
   return "null";
 }
 
-static char *purplemot_status_text(PurpleBuddy *buddy) {
+static char *
+purplemot_status_text(PurpleBuddy *buddy) {
   purple_debug_info("purplemot", "getting %s's status text for %s\n",
                     buddy->name, buddy->account->username);
 
@@ -624,9 +592,9 @@ static char *purplemot_status_text(PurpleBuddy *buddy) {
   }
 }
 
-static void purplemot_tooltip_text(PurpleBuddy *buddy,
-                                  PurpleNotifyUserInfo *info,
-                                  int full) {
+static void
+purplemot_tooltip_text(PurpleBuddy *buddy, PurpleNotifyUserInfo *info, int full)
+{
   PurpleConnection *gc = get_purplemot_gc(buddy->name);
 
   if (gc) {
@@ -653,7 +621,8 @@ static void purplemot_tooltip_text(PurpleBuddy *buddy,
                     (full) ? "full" : "short", buddy->name);
 }
 
-static GList *purplemot_status_types(PurpleAccount *acct)
+static GList *
+purplemot_status_types(PurpleAccount *acct)
 {
   GList *types = NULL;
   PurpleStatusType *type;
@@ -683,7 +652,9 @@ static GList *purplemot_status_types(PurpleAccount *acct)
   return g_list_reverse(types);
 }
 
-static void blist_example_menu_item(PurpleBlistNode *node, void *userdata) {
+static void
+blist_example_menu_item(PurpleBlistNode *node, void *userdata)
+{
   purple_debug_info("purplemot", "example menu item clicked on user %s\n",
                     ((PurpleBuddy *)node)->name);
 
@@ -693,7 +664,9 @@ static void blist_example_menu_item(PurpleBlistNode *node, void *userdata) {
                      _("This is the callback for the purplemot menu item."));
 }
 
-static GList *purplemot_blist_node_menu(PurpleBlistNode *node) {
+static GList *
+purplemot_blist_node_menu(PurpleBlistNode *node)
+{
   purple_debug_info("purplemot", "providing buddy list context menu item\n");
 
   if (PURPLE_BLIST_NODE_IS_BUDDY(node)) {
@@ -708,7 +681,9 @@ static GList *purplemot_blist_node_menu(PurpleBlistNode *node) {
   }
 }
 
-static GList *purplemot_chat_info(PurpleConnection *gc) {
+static GList *
+purplemot_chat_info(PurpleConnection *gc)
+{
   struct proto_chat_entry *pce; /* defined in prpl.h */
 
   purple_debug_info("purplemot", "returning chat setting 'room'\n");
@@ -721,10 +696,11 @@ static GList *purplemot_chat_info(PurpleConnection *gc) {
   return g_list_append(NULL, pce);
 }
 
-static GHashTable *purplemot_chat_info_defaults(PurpleConnection *gc,
-                                               const char *room) {
+static GHashTable *
+purplemot_chat_info_defaults(PurpleConnection *gc, const char *room)
+{
 
-  //JULIE->call motmot_session here?
+  //JULIE->call motmot_session here? XXX
   // motmot_session(self,strlen(self));
   GHashTable *defaults;
 
@@ -742,12 +718,13 @@ static GHashTable *purplemot_chat_info_defaults(PurpleConnection *gc,
  *
  * @param acct       The account to be logged in
  */
-static void purplemot_login(PurpleAccount *acct)
+static void
+purplemot_login(PurpleAccount *acct)
 {
   char **userparts;
   struct motmot_conn *conn;
   int port;
-/* This doesn't really work.
+/* This doesn't really work. XXX
   if (GLOBAL_ACCOUNT != NULL) {
 		purple_connection_error_reason (acct->gc,
 			PURPLE_CONNECTION_ERROR_INVALID_SETTINGS,
@@ -852,6 +829,7 @@ static void auth_cb(void *data) {
   conn->acceptance_list = g_list_prepend(conn->acceptance_list,
     conn->data);
   return;
+  // XXX
   /*
   msgpack_sbuffer *buffer = msgpack_sbuffer_new();
   PurpleConnection *gc = data;
@@ -872,6 +850,7 @@ static void auth_cb(void *data) {
   */
 }
 static void deny_cb(void *data) {
+  // XXX
   /*
   PurpleConnection *gc = data;
   struct motmot_conn *conn = gc->proto_data;
