@@ -17,7 +17,7 @@ libmotmot.la: $(SRC:.c=.o)
 	@mkdir -p $(DEPDIR)
 	$(LIBTOOL) --mode=compile $(CC) $(CFLAGS) -MMD -MP -MF $(DEPDIR)$(<:.c=.d) -c $< -o $@
 
-tags:
+tags: $(wildcard *.c) $(wildcard *.h)
 	ctags -R
 
 install:
