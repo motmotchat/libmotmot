@@ -251,6 +251,9 @@ paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
   // XXX: Think about this case some more.  In particular, what if the proposer
   // sends the hello and then fails, but we get the prepare before we get this
   // hello?
+  // XXX: If we are the proposer and are currently preparing, we should
+  // probably end our prepare.  If we aren't currently preparing, we should
+  // just ignore the hello because we're going to kill this guy off.
   //
   // 3. Our local ballot number is lower.  The proposer is past the prepare
   // phase, which means that a quorum of those votes which the proposer didn't

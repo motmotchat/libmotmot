@@ -129,7 +129,7 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
       pax->prep->pp_acks + pax->prep->pp_redirects == pax->live_count) {
     g_free(pax->prep);
     pax->prep = NULL;
-    return proposer_prepare();
+    return proposer_prepare(NULL);
   }
 
   return 0;

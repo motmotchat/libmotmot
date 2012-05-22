@@ -189,7 +189,7 @@ paxos_drop_connection(struct paxos_peer *source)
       // "Elect" the new proposer.  If it's us, send a prepare.
       reset_proposer();
       if (is_proposer()) {
-        ERR_ACCUM(r, proposer_prepare());
+        ERR_ACCUM(r, proposer_prepare(acc));
       }
     }
   }

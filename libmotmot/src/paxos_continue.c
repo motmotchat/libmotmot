@@ -134,7 +134,7 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     instance_list_destroy(&pax->idefer);
     return paxos_hello(acc);
   } else {
-    return proposer_prepare();
+    return proposer_prepare(NULL);
   }
 }
 CONNECTINUATE(ack_redirect);

@@ -197,7 +197,7 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
 
     case DEC_PART:
     case DEC_KILL:
-      // Pull the acceptor from the alist.
+      // Grab the acceptor from the alist.
       acc = acceptor_find(&pax->alist, inst->pi_val.pv_extra);
       if (acc == NULL) {
         // It is possible that we may part twice; for instance, if a proposer
@@ -211,23 +211,25 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
       state.learn.part(acc->pa_desc, acc->pa_size, acc->pa_desc, acc->pa_size,
           pax->client_data);
 
-      if (acc->pa_paxid != pax->self_id) {
-        // Just clean up the acceptor.
-        LIST_REMOVE(&pax->alist, acc, pa_le);
-        acceptor_destroy(acc);
-      } else {
-        // We are leaving the protocol, so wipe all our state clean.
+      // If we are being parted, leave the protocol.
+      if (acc->pa_paxid == pax->self_id) {
         return paxos_end(pax);
       }
+
+      // Take the parted acceptor off the list.
+      LIST_REMOVE(&pax->alist, acc, pa_le);
 
       // If we just parted our proposer, "elect" a new one.  If it's us, send
       // a prepare.
       if (acc->pa_paxid == pax->proposer->pa_paxid) {
         reset_proposer();
         if (is_proposer()) {
-          r = proposer_prepare();
+          r = proposer_prepare(acc);
         }
       }
+
+      // Free the parted acceptor.
+      acceptor_destroy(acc);
 
       break;
   }

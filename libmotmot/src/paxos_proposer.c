@@ -43,11 +43,12 @@ swap(void **p1, void **p2)
  * begin another cycle of prepares.
  */
 int
-proposer_prepare()
+proposer_prepare(struct paxos_acceptor *old_proposer)
 {
   int r;
   struct paxos_header hdr;
   struct paxos_yak py;
+  struct paxos_acceptor *acc;
 
   // We always free the prepare before we would have an opportunity to
   // prepare again.
@@ -72,6 +73,38 @@ proposer_prepare()
   pax->prep->pp_acks = 1;
   pax->prep->pp_redirects = 0;
 
+  // If we aren't repreparing (in which case we pass in old_proposer as NULL),
+  // we should queue up deferred parts or kills for every dropped acceptor we
+  // have in our list.  We force kills for all the acceptors ranked higher
+  // than we are.  If our prepare is accepted, then at some recent point in
+  // time, a majority of acceptors agreed that those higher-ranked acceptors
+  // had left the system.  By forcing those kills, we obtain a useful session
+  // invariant---that once a prepare completes, the preparer is the proposer
+  // until it leaves the session.
+  // XXX: It's possible that between now and when we actually send these
+  // decrees, one of the acceptors reconnects to us.  If it's a higher-ranked
+  // one, we should probably end the prepare, and if it's lower-ranked, we
+  // should probably stop trying to part it.
+  // XXX: This might be an issue in general; when we receive reconnections,
+  // should we stop trying to part someone?  Probably we can just see what a
+  // majority thinks and then go with that, in which case doing nothing is
+  // perfectly safe.
+  if (old_proposer != NULL) {
+    LIST_FOREACH(acc, &pax->alist, pa_le) {
+      // Only kill or part dropped acceptors.
+      if (acc->pa_peer != NULL) {
+        continue;
+      }
+
+      // Kill higher-ranked acceptors; part lower-ranked ones.
+      if (acc->pa_paxid < pax->self_id) {
+        ERR_ACCUM(r, proposer_decree_part(acc, 1));
+      } else if (acc->pa_paxid > pax->self_id) {
+        ERR_ACCUM(r, proposer_decree_part(acc, 0));
+      }
+    }
+  }
+
   // Initialize a Paxos header.
   hdr.ph_session = pax->session_id;
   hdr.ph_ballot.id = pax->prep->pp_ballot.id;
@@ -82,7 +115,7 @@ proposer_prepare()
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  r = paxos_broadcast(UNYAK(&py));
+  ERR_ACCUM(r, paxos_broadcast(UNYAK(&py)));
   paxos_payload_destroy(&py);
 
   return r;
@@ -127,7 +160,6 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   msgpack_object *p, *pend;
   struct paxos_instance *inst, *it;
   paxid_t inum;
-  struct paxos_acceptor *acc;
 
   // If we're not preparing but are still the proposer, then our prepare has
   // already succeeded, so just return.
@@ -262,16 +294,8 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   g_free(pax->prep);
   pax->prep = NULL;
 
-  // Forcibly kill any dropped acceptors we have in our acceptor list, making
-  // sure to skip ourselves since we have no pa_peer.
-  // XXX: We are double-parting if people dropped out while we were preparing.
-  LIST_FOREACH(acc, &pax->alist, pa_le) {
-    if (acc->pa_peer == NULL && acc->pa_paxid != pax->self_id) {
-      ERR_RET(r, proposer_decree_part(acc, 1));
-    }
-  }
-
-  // Decree ALL the deferred things!
+  // Decree ALL the deferred things!  This includes decreeing parts for any
+  // dropped acceptors, in particular the old proposer.
   LIST_WHILE_FIRST(inst, &pax->idefer) {
     LIST_REMOVE(&pax->idefer, inst, pi_le);
     ERR_RET(r, proposer_decree(inst));

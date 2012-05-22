@@ -14,7 +14,7 @@ int paxos_commit(struct paxos_instance *);
 int paxos_learn(struct paxos_instance *, struct paxos_request *);
 
 /* Proposer operations. */
-int proposer_prepare(void);
+int proposer_prepare(struct paxos_acceptor *);
 int proposer_ack_promise(struct paxos_header *, msgpack_object *);
 int proposer_decree(struct paxos_instance *);
 int proposer_ack_accept(struct paxos_header *);
