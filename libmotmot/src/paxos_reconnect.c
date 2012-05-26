@@ -41,7 +41,7 @@ acceptor_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
   paxos_header_pack(&py, orig_hdr);
 
   // Send the payload.
-  r = paxos_peer_send(source, UNYAK(&py));
+  r = paxos_peer_send(source, paxos_payload_data(&py), paxos_payload_size(&py));
   paxos_payload_destroy(&py);
 
   return r;
@@ -156,7 +156,7 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
   paxos_paxid_pack(&py, req->pr_val.pv_reqid.gen);
 
   // Send the payload.
-  r = paxos_peer_send(source, UNYAK(&py));
+  r = paxos_peer_send(source, paxos_payload_data(&py), paxos_payload_size(&py));
   paxos_payload_destroy(&py);
 
   return r;
@@ -218,7 +218,7 @@ acceptor_reject(struct paxos_header *hdr)
   paxos_header_pack(&py, hdr);
 
   // Send the payload.
-  r = paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(&py);
   paxos_payload_destroy(&py);
 
   return r;

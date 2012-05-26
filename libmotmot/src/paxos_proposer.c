@@ -114,7 +114,7 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
   // Pack and broadcast the prepare.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  ERR_ACCUM(r, paxos_broadcast(UNYAK(&py)));
+  ERR_ACCUM(r, paxos_broadcast(&py));
   paxos_payload_destroy(&py);
 
   return r;

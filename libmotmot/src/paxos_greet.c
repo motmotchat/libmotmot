@@ -188,7 +188,7 @@ paxos_hello(struct paxos_acceptor *acc)
   // Pack and send the hello.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  r = paxos_send(acc, UNYAK(&py));
+  r = paxos_send(acc, &py);
   paxos_payload_destroy(&py);
 
   return r;

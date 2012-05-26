@@ -30,7 +30,7 @@ acceptor_retry(paxid_t hole)
   // Pack and send the payload.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  r = paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(&py);
   paxos_payload_destroy(&py);
 
   return r;
@@ -73,7 +73,7 @@ proposer_recommit(struct paxos_header *hdr, struct paxos_instance *inst)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
   paxos_value_pack(&py, &(inst->pi_val));
-  r = paxos_broadcast(UNYAK(&py));
+  r = paxos_broadcast(&py);
   paxos_payload_destroy(&py);
 
   return r;

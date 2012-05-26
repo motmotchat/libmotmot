@@ -108,7 +108,7 @@ paxos_broadcast_instance(struct paxos_instance *inst)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &(inst->pi_hdr));
   paxos_value_pack(&py, &(inst->pi_val));
-  r = paxos_broadcast(UNYAK(&py));
+  r = paxos_broadcast(&py);
   paxos_payload_destroy(&py);
 
   return r;

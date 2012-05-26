@@ -8,9 +8,6 @@
 
 #include "paxos.h"
 
-// We often need a (char *, size_t) tuple (in argument lists, for instance).
-#define UNYAK(yak) paxos_payload_data(yak), paxos_payload_size(yak)
-
 // Clients of paxos_msgpack.h should treat this struct as opaque.
 struct paxos_yak {
   msgpack_packer *pk;     // message packer

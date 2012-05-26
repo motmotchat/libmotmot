@@ -91,7 +91,7 @@ do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
   }
 
   // Send the welcome.
-  r = paxos_send(acc, UNYAK(&py));
+  r = paxos_send(acc, &py);
   paxos_payload_destroy(&py);
 
   return r;

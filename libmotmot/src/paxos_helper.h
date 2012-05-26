@@ -8,6 +8,7 @@
 #include <msgpack.h>
 
 #include "paxos.h"
+#include "paxos_msgpack.h"
 
 /* Error handling. */
 #define ERR_RET(r, cmd)   \
@@ -62,8 +63,8 @@ void pax_uuid_destroy(pax_uuid_t *);
 int pax_uuid_compare(pax_uuid_t, pax_uuid_t);
 
 /* Paxos message sending. */
-int paxos_broadcast(const char *, size_t);
-int paxos_send(struct paxos_acceptor *, const char *, size_t);
-int paxos_send_to_proposer(const char *, size_t);
+int paxos_broadcast(struct paxos_yak *);
+int paxos_send(struct paxos_acceptor *, struct paxos_yak *);
+int paxos_send_to_proposer(struct paxos_yak *);
 
 #endif /* __PAXOS_HELPER_H__ */

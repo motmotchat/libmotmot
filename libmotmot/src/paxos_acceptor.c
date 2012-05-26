@@ -84,7 +84,7 @@ acceptor_promise(struct paxos_header *hdr)
   }
 
   // Send off our payload.
-  r = paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(&py);
   paxos_payload_destroy(&py);
 
   return r;
@@ -183,7 +183,7 @@ acceptor_accept(struct paxos_header *hdr)
   paxos_header_pack(&py, hdr);
 
   // Send the payload.
-  r = paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(&py);
   paxos_payload_destroy(&py);
 
   return r;

@@ -95,9 +95,9 @@ paxos_request(struct paxos_session *session, dkind_t dkind, const void *msg,
 
     // Broadcast only if it needs caching.
     if (!needs_cached) {
-      r = paxos_send_to_proposer(UNYAK(&py));
+      r = paxos_send_to_proposer(&py);
     } else {
-      r = paxos_broadcast(UNYAK(&py));
+      r = paxos_broadcast(&py);
     }
 
     paxos_payload_destroy(&py);
@@ -208,9 +208,9 @@ paxos_retrieve(struct paxos_instance *inst)
   // to the request originator, broadcast the retrieve instead.
   acc = acceptor_find(&pax->alist, inst->pi_val.pv_reqid.id);
   if (acc == NULL || acc->pa_peer == NULL) {
-    r = paxos_broadcast(UNYAK(&py));
+    r = paxos_broadcast(&py);
   } else {
-    r = paxos_send(acc, UNYAK(&py));
+    r = paxos_send(acc, &py);
   }
   paxos_payload_destroy(&py);
 
@@ -270,7 +270,7 @@ paxos_resend(struct paxos_acceptor *acc, struct paxos_header *hdr,
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
   paxos_request_pack(&py, req);
-  r = paxos_send(acc, UNYAK(&py));
+  r = paxos_send(acc, &py);
   paxos_payload_destroy(&py);
 
   return r;

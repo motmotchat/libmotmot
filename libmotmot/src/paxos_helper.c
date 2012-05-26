@@ -354,7 +354,7 @@ pax_uuid_compare(pax_uuid_t x, pax_uuid_t y)
  * Broadcast a message to all acceptors.
  */
 int
-paxos_broadcast(const char *buffer, size_t length)
+paxos_broadcast(struct paxos_yak *py)
 {
   int r;
   struct paxos_acceptor *acc;
@@ -364,7 +364,8 @@ paxos_broadcast(const char *buffer, size_t length)
       continue;
     }
 
-    if ((r = paxos_peer_send(acc->pa_peer, buffer, length))) {
+    if ((r = paxos_peer_send(acc->pa_peer, paxos_payload_data(py),
+            paxos_payload_size(py)))) {
       return r;
     }
   }
@@ -376,20 +377,21 @@ paxos_broadcast(const char *buffer, size_t length)
  * Send a message to any acceptor.
  */
 int
-paxos_send(struct paxos_acceptor *acc, const char *buffer, size_t length)
+paxos_send(struct paxos_acceptor *acc, struct paxos_yak *py)
 {
-  return paxos_peer_send(acc->pa_peer, buffer, length);
+  return paxos_peer_send(acc->pa_peer, paxos_payload_data(py),
+      paxos_payload_size(py));
 }
 
 /**
  * Send a message to the proposer.
  */
 int
-paxos_send_to_proposer(const char *buffer, size_t length)
+paxos_send_to_proposer(struct paxos_yak *py)
 {
   if (pax->proposer == NULL) {
     return 1;
   }
 
-  return paxos_peer_send(pax->proposer->pa_peer, buffer, length);
+  return paxos_send(pax->proposer, py);
 }

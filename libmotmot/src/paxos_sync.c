@@ -88,7 +88,7 @@ proposer_sync()
   // Pack and broadcast the sync.
   paxos_payload_init(&py, 1);
   paxos_header_pack(&py, &hdr);
-  r = paxos_broadcast(UNYAK(&py));
+  r = paxos_broadcast(&py);
   paxos_payload_destroy(&py);
 
   return r;
@@ -127,7 +127,7 @@ int acceptor_last(struct paxos_header *hdr)
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, hdr);
   paxos_paxid_pack(&py, pax->ihole - 1);
-  r = paxos_send_to_proposer(UNYAK(&py));
+  r = paxos_send_to_proposer(&py);
   paxos_payload_destroy(&py);
 
   return r;
@@ -221,7 +221,7 @@ proposer_truncate(struct paxos_header *hdr)
   paxos_paxid_pack(&py, pax->ibase);
 
   // Broadcast it.
-  r = paxos_broadcast(UNYAK(&py));
+  r = paxos_broadcast(&py);
   paxos_payload_destroy(&py);
   if (r) {
     return r;
