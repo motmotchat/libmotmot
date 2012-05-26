@@ -127,11 +127,34 @@ int
 do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     struct paxos_continuation *k)
 {
+  // Sanity check the choice of acc.
+  assert(acc->pa_paxid > pax->self_id);
+
+  // If connection to the acceptor has already been reestablished, we should
+  // no longer be the proposer and we can simply return.
+  if (acc->pa_peer == NULL) {
+    assert(!is_proposer());
+    return 0;
+  }
+
+  // Register the reconnection; on failure, just reprepare.
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
-    pax->proposer = acc;
+    // Account for a new acceptor.
     pax->live_count++;
+
+    // We update the proposer only if we have not, since we began reconnecting
+    // to acc, reconnected to an even higher-ranked acceptor.
+    if (pax->proposer->pa_paxid > acc->pa_paxid) {
+      pax->proposer = acc;
+    }
+
+    // Free the prepare and destroy our defer list.
+    g_free(pax->prep);
+    pax->prep = NULL;
     instance_list_destroy(&pax->idefer);
+
+    // Say hello.
     return paxos_hello(acc);
   } else {
     return proposer_prepare(NULL);
@@ -147,11 +170,36 @@ int
 do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
     struct paxos_continuation *k)
 {
+  // If we are the proposer and have finished preparing, anyone higher-ranked
+  // than we are is dead to us.  However, their parts may not yet have gone
+  // through, so we make sure to ignore attempts at reconnection.
+  if (is_proposer() && pax->prep == NULL) {
+    return 0;
+  }
+
+  // Register the reconnection.
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
-    // XXX: Do we want to resend our request?
-    pax->proposer = acc;
+    // Account for a new acceptor.
     pax->live_count++;
+
+    // We update the proposer only if we have not, since we began reconnecting
+    // to acc, reconnected to an even higher-ranked acceptor.
+    if (pax->proposer->pa_paxid > acc->pa_paxid) {
+      pax->proposer = acc;
+    }
+
+    // Free any prep we have.  Although, when we acknowledge a refuse, we
+    // dispatch as an acceptor, when the ack continues, we may have become
+    // the proposer.  If we were preparing, we should give up.
+    // XXX: Think some more about whether this is the right choice.
+    g_free(pax->prep);
+    pax->prep = NULL;
+    instance_list_destroy(&pax->idefer);
+
+    // XXX: Resend our request.
+
+    // Say hello.
     return paxos_hello(acc);
   } else {
     return 0;

@@ -64,10 +64,6 @@ acceptor_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
  * before accepting defeat and attempting reconnection to our superior.  If
  * we "win" with a majority completing the prepare, then we drop the former
  * proposer regardless of whether he has some connections still open.
- *
- * To ensure that this redirect wasn't intended for us at some point in the
- * past before we became the proposer, we check the opcode of the second
- * paxos_header we are passed.
  */
 int
 proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
@@ -103,13 +99,10 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   // Acknowledge the rejection of our prepare.
   pax->prep->pp_redirects++;
 
-  // If we have been redirected by a majority, give up on the prepare and
-  // attempt reconnection.
+  // If we have been redirected by a majority, attempt reconnection.  If a
+  // majority redirects, our prepare will never succeed, but we defer freeing
+  // it until reconnection occurs.
   if (DEATH_ADJUSTED(pax->prep->pp_redirects) >= majority()) {
-    // Free the prepare.
-    g_free(pax->prep);
-    pax->prep = NULL;
-
     // Connect to the higher-ranked acceptor indicated in the most recent
     // redirect message we received (i.e., this one).  It's possible that an
     // even higher-ranked acceptor exists, but we'll find that out when we
@@ -170,7 +163,7 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
 }
 
 /**
- * acceptor_ack_redirect - Resolve an acceptor's claim that we do not know
+ * acceptor_ack_refuse - Resolve an acceptor's claim that we do not know
  * the true proposer.
  *
  * If we send a request to someone who is not the proposer, but identifying
@@ -179,7 +172,7 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
  * total ordering across the system, receiving a refuse means that there is
  * someone more fitting to be proposer than the acceptor we identified.
  *
- * Note, as with ack_proposer, that it is possible we noticed a proposer
+ * Note, as with ack_redirect, that it is possible we noticed a proposer
  * failure and sent our request to the new proposer correctly before the new
  * proposer themselves recognized the failure.
  */

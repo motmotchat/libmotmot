@@ -81,14 +81,13 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
   // had left the system.  By forcing those kills, we obtain a useful session
   // invariant---that once a prepare completes, the preparer is the proposer
   // until it leaves the session.
-  // XXX: It's possible that between now and when we actually send these
-  // decrees, one of the acceptors reconnects to us.  If it's a higher-ranked
-  // one, we should probably end the prepare, and if it's lower-ranked, we
-  // should probably stop trying to part it.
-  // XXX: This might be an issue in general; when we receive reconnections,
-  // should we stop trying to part someone?  Probably we can just see what a
-  // majority thinks and then go with that, in which case doing nothing is
-  // perfectly safe.
+  //
+  // It is possible that between now and when we actually send these decrees,
+  // one of the acceptors reconnects to us.  If the reconnected acceptor is
+  // higher-ranked, we end our prepare.  However, if it is lower-ranked, we
+  // do nothing, keeping the part in the defer list.  The part should be
+  // rejected by a majority assuming that the acceptor we reconnected to has
+  // enough connections supporting its continued existence in the system.
   if (old_proposer != NULL) {
     LIST_FOREACH(acc, &pax->alist, pa_le) {
       // Only kill or part dropped acceptors.
