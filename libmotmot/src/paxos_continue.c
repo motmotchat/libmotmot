@@ -145,7 +145,7 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
 
     // We update the proposer only if we have not, since we began reconnecting
     // to acc, reconnected to an even higher-ranked acceptor.
-    if (pax->proposer->pa_paxid > acc->pa_paxid) {
+    if (acc->pa_paxid < pax->proposer->pa_paxid) {
       pax->proposer = acc;
     }
 
@@ -185,7 +185,7 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
 
     // We update the proposer only if we have not, since we began reconnecting
     // to acc, reconnected to an even higher-ranked acceptor.
-    if (pax->proposer->pa_paxid > acc->pa_paxid) {
+    if (acc->pa_paxid < pax->proposer->pa_paxid) {
       pax->proposer = acc;
     }
 
