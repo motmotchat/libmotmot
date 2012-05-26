@@ -205,6 +205,12 @@ paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
 {
   struct paxos_acceptor *acc;
 
+  // If we are the proposer and have finished preparing, ignore any hellos
+  // from higher-ranked proposers.
+  if (is_proposer() && pax->prep == NULL && hdr->ph_inum < pax->self_id) {
+    return 0;
+  }
+
   // Grab our acceptor from the list.
   acc = acceptor_find(&pax->alist, hdr->ph_inum);
 
@@ -225,6 +231,16 @@ paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
     // If there is no peer, just attach it.
     acc->pa_peer = source;
     pax->live_count++;
+
+    // Update the proposer if necessary.  If we thought we were the proposer,
+    // end our prepare.
+    if (acc->pa_paxid < pax->proposer->pa_paxid) {
+      if (is_proposer) {
+        g_free(pax->prep);
+        pax->prep = NULL;
+      }
+      pax->proposer = acc;
+    }
   } else if (hdr->ph_inum < pax->self_id) {
     // If our acceptor already has a peer attached, both we and the acceptor
     // attempted to reconnect concurrently and succeeded.  In this case, we
@@ -243,17 +259,16 @@ paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
   // 1. Our ballot numbers are equal.  Resetting is a no-op.
   //
   // 2. Our local ballot number is higher.  This means that someone else who
-  // was disconnected from the proposer must have prepared.  However, because
-  // the proposer was able to achieve a majority of responses in rejecting the
-  // part decree, we know that, despite our local disconnect, the proposer is
-  // still supported by a majority, and hence the prepare for which we updated
-  // our ballot will fail.
+  // was disconnected from the proposer must have made a prepare, which we
+  // accepted.  However, because the proposer's part decree was rejected by a
+  // majority of acceptors, we know that it is the majority proposer.  Hence,
+  // the prepare for which we updated our ballot will fail.
   // XXX: Think about this case some more.  In particular, what if the proposer
-  // sends the hello and then fails, but we get the prepare before we get this
-  // hello?
-  // XXX: If we are the proposer and are currently preparing, we should
-  // probably end our prepare.  If we aren't currently preparing, we should
-  // just ignore the hello because we're going to kill this guy off.
+  // sends the hello and then fails, but we get the new prepare before we get
+  // this hello?
+  // We can probably solve this by just updating the ballot when we get decrees
+  // with ballot numbers higher than our own.
+  // TODO(carl): Think about this.
   //
   // 3. Our local ballot number is lower.  The proposer is past the prepare
   // phase, which means that a quorum of those votes which the proposer didn't
