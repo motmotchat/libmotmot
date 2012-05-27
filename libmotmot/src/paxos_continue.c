@@ -118,6 +118,9 @@ do_continue_ack_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
 }
 CONNECTINUATE(ack_welcome);
 
+// XXX: We should check for all these cases whether or not connection was
+// reestablished, i.e., in a hello.
+
 /**
  * continue_redirect - If we were able to reestablish connection with the
  * purported proposer, relinquish our proposership, clear our defer list,
@@ -137,7 +140,7 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     return 0;
   }
 
-  // Free the old prepare.
+  // Free the old prepare regardless of whether reconnection succeeded.
   g_free(pax->prep);
   pax->prep = NULL;
 
@@ -147,14 +150,15 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     // Account for a new acceptor.
     pax->live_count++;
 
-    // We update the proposer only if we have not, since we began reconnecting
-    // to acc, reconnected to an even higher-ranked acceptor.
+    // We update the proposer only if we have not reconnected to an even
+    // higher-ranked acceptor.
     if (acc->pa_paxid < pax->proposer->pa_paxid) {
       pax->proposer = acc;
     }
 
     // Destroy the defer list; we're finished trying to prepare.
-    // XXX: Do we want to somehow pass it to the real proposer?  Probably.
+    // XXX: Do we want to somehow pass it to the real proposer?  How do we
+    // know which requests were made for us?
     instance_list_destroy(&pax->idefer);
 
     // Say hello.
@@ -192,17 +196,11 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
     // Account for a new acceptor.
     pax->live_count++;
 
-    // We update the proposer only if we have not, since we began reconnecting
-    // to acc, reconnected to an even higher-ranked acceptor.
-    if (acc->pa_paxid < pax->proposer->pa_paxid) {
-      pax->proposer = acc;
-    }
-
     // Free any prep we have.  Although we dispatch as an acceptor when we
     // acknowledge a refuse, when the acknowledgement continues here, we may
-    // have become the proposer.  Thus, if we were preparing, we should just
-    // give up.  If the acceptor we are reconnecting to fails, we'll just
-    // drop the connection again and reprepare.
+    // have become the proposer.  Thus, if we are preparing, we should just
+    // give up.  If the acceptor we are reconnecting to fails, we'll find
+    // out about the drop and then reprepare.
     g_free(pax->prep);
     pax->prep = NULL;
     instance_list_destroy(&pax->idefer);
@@ -210,24 +208,29 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
     // Say hello.
     ERR_ACCUM(r, paxos_hello(acc));
 
-    // Resend our request.
-    // XXX: Probably should do this only if we updated the proposer just now.
-    // XXX: Also, what about the problematic case where A is connected to B, B
-    // thinks it's the proposer and accepts A's request, but in fact B is not
-    // the proposer and C, the real proposer, gets neither of their requests?
-    header_init(&hdr, OP_REQUEST, pax->proposer->pa_paxid);
+    if (acc->pa_paxid < pax->proposer->pa_paxid) {
+      // Update the proposer only if we have not reconnected to an even
+      // higher-ranked acceptor.
+      pax->proposer = acc;
 
-    req = request_find(&pax->rcache, k->pk_data.req.pr_val.pv_reqid);
-    if (req == NULL) {
-      req = &k->pk_data.req;
+      // Resend our request.
+      // XXX: What about the problematic case where A is connected to B, B
+      // thinks it's the proposer and accepts A's request, but in fact B is not
+      // the proposer and C, the real proposer, gets neither of their requests?
+      header_init(&hdr, OP_REQUEST, pax->proposer->pa_paxid);
+
+      req = request_find(&pax->rcache, k->pk_data.req.pr_val.pv_reqid);
+      if (req == NULL) {
+        req = &k->pk_data.req;
+      }
+
+      paxos_payload_init(&py, 2);
+      paxos_header_pack(&py, &hdr);
+      paxos_request_pack(&py, req);
+
+      ERR_ACCUM(r, paxos_send_to_proposer(&py));
+      paxos_payload_destroy(&py);
     }
-
-    paxos_payload_init(&py, 2);
-    paxos_header_pack(&py, &hdr);
-    paxos_request_pack(&py, req);
-
-    ERR_ACCUM(r, paxos_send_to_proposer(&py));
-    paxos_payload_destroy(&py);
   }
 
   return r;
