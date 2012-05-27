@@ -137,6 +137,10 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     return 0;
   }
 
+  // Free the prepare.
+  g_free(pax->prep);
+  pax->prep = NULL;
+
   // Register the reconnection; on failure, just reprepare.
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
@@ -149,9 +153,8 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
       pax->proposer = acc;
     }
 
-    // Free the prepare and destroy our defer list.
-    g_free(pax->prep);
-    pax->prep = NULL;
+    // Destroy the defer list; we're finished trying to prepare.
+    // XXX: Do we want to somehow pass it to the real proposer?  Probably.
     instance_list_destroy(&pax->idefer);
 
     // Say hello.
@@ -189,10 +192,12 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
       pax->proposer = acc;
     }
 
-    // Free any prep we have.  Although, when we acknowledge a refuse, we
-    // dispatch as an acceptor, when the ack continues, we may have become
-    // the proposer.  If we were preparing, we should give up.
-    // XXX: Think some more about whether this is the right choice.
+    // Free any prep we have.  Although we dispatch as an acceptor when we
+    // acknowledge a refuse, when the acknowledgement continues, we may have
+    // become the proposer.  If we were preparing, we should give up.
+    // XXX: Think some more about whether this is the right choice.  It
+    // probably is, since at worst we'll just drop the connection again and
+    // reprepare.
     g_free(pax->prep);
     pax->prep = NULL;
     instance_list_destroy(&pax->idefer);
