@@ -32,7 +32,7 @@ struct motmot_connect_cb {
 /**
  * connect_t - Connection establishment callback type.
  *
- * @param handle    An opaque descriptor recognized by the client that uniquely
+ * @param desc      An opaque descriptor recognized by the client that uniquely
  *                  identifies an individual to connect to.
  * @param size      The size of the handle.
  * @param cb        A callback to be used when the connection attempt
@@ -86,6 +86,8 @@ typedef void (*leave_t)(void *data);
  * @param chat      Client callback invoked when a chat is received.
  * @param join      Client callback invoked when a user joins the chat.
  * @param part      Client callback invoked when a user parts the chat.
+ * @param enter     Client callback invoked when a chat session is joined.
+ * @param leave     Client callback invoked when a chat session is left.
  * @return          0 on success, nonzero on error.
  */
 int motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
