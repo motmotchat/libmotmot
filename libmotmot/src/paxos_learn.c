@@ -216,8 +216,12 @@ paxos_learn(struct paxos_instance *inst, struct paxos_request *req)
         return paxos_end(pax);
       }
 
-      // Take the parted acceptor off the list.
+      // Take the parted acceptor off the list and do accounting if it was
+      // still live.
       LIST_REMOVE(&pax->alist, acc, pa_le);
+      if (acc->pa_peer != NULL) {
+        pax->live_count--;
+      }
 
       // If we just parted our proposer, "elect" a new one.  If it's us, send
       // a prepare.
