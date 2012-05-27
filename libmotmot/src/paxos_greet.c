@@ -235,7 +235,7 @@ paxos_ack_hello(struct paxos_peer *source, struct paxos_header *hdr)
     // Update the proposer if necessary.  If we thought we were the proposer,
     // end our prepare.
     if (acc->pa_paxid < pax->proposer->pa_paxid) {
-      if (is_proposer) {
+      if (is_proposer()) {
         g_free(pax->prep);
         pax->prep = NULL;
       }
