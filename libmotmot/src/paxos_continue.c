@@ -137,11 +137,11 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     return 0;
   }
 
-  // Free the prepare.
+  // Free the old prepare.
   g_free(pax->prep);
   pax->prep = NULL;
 
-  // Register the reconnection; on failure, just reprepare.
+  // Register the reconnection; on failure, reprepare.
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
     // Account for a new acceptor.
@@ -160,6 +160,7 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     // Say hello.
     return paxos_hello(acc);
   } else {
+    // Prepare again, continuing to append to the defer list.
     return proposer_prepare(NULL);
   }
 }
