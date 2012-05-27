@@ -132,7 +132,7 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
 
   // If connection to the acceptor has already been reestablished, we should
   // no longer be the proposer and we can simply return.
-  if (acc->pa_peer == NULL) {
+  if (acc->pa_peer != NULL) {
     assert(!is_proposer());
     return 0;
   }
