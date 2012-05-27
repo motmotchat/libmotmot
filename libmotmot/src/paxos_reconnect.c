@@ -101,7 +101,9 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
 
   // If we have been redirected by a majority, attempt reconnection.  If a
   // majority redirects, our prepare will never succeed, but we defer freeing
-  // it until reconnection occurs.
+  // it until reconnection occurs.  This provides us with the guarantee that
+  // an acceptor who identifies as the proposer and whose prepare is non-NULL
+  // has either successfully prepared or has not yet begun to prepare.
   if (DEATH_ADJUSTED(pax->prep->pp_redirects) >= majority()) {
     // Connect to the higher-ranked acceptor indicated in the most recent
     // redirect message we received (i.e., this one).  It's possible that an
