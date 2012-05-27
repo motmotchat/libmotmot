@@ -125,6 +125,8 @@ paxos_start(const void *desc, size_t size, void *data)
 int
 paxos_end(void *session)
 {
+  pax = (struct paxos_session *)session;
+
   // Destroy the session.
   LIST_REMOVE(&state.sessions, pax, session_le);
   session_destroy(pax);
