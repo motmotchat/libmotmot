@@ -16,7 +16,7 @@
     return (r);           \
   }
 #define ERR_ACCUM(r, cmd) \
-  (r) = (r) || (cmd);
+  (r) = (r) | (cmd);
 
 /* Paxid pair comparison functions. */
 int ppair_compare(ppair_t, ppair_t);

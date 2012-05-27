@@ -45,7 +45,7 @@ swap(void **p1, void **p2)
 int
 proposer_prepare(struct paxos_acceptor *old_proposer)
 {
-  int r;
+  int r = 0;
   struct paxos_header hdr;
   struct paxos_yak py;
   struct paxos_acceptor *acc;
