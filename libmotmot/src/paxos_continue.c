@@ -174,6 +174,11 @@ int
 do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
     struct paxos_continuation *k)
 {
+  int r = 0;
+  struct paxos_header hdr;
+  struct paxos_request *req;
+  struct paxos_yak py;
+
   // If we are the proposer and have finished preparing, anyone higher-ranked
   // than we are is dead to us.  However, their parts may not yet have gone
   // through, so we make sure to ignore attempts at reconnection.
@@ -194,22 +199,38 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
     }
 
     // Free any prep we have.  Although we dispatch as an acceptor when we
-    // acknowledge a refuse, when the acknowledgement continues, we may have
-    // become the proposer.  If we were preparing, we should give up.
-    // XXX: Think some more about whether this is the right choice.  It
-    // probably is, since at worst we'll just drop the connection again and
-    // reprepare.
+    // acknowledge a refuse, when the acknowledgement continues here, we may
+    // have become the proposer.  Thus, if we were preparing, we should just
+    // give up.  If the acceptor we are reconnecting to fails, we'll just
+    // drop the connection again and reprepare.
     g_free(pax->prep);
     pax->prep = NULL;
     instance_list_destroy(&pax->idefer);
 
-    // XXX: Resend our request.
-
     // Say hello.
-    return paxos_hello(acc);
-  } else {
-    return 0;
+    ERR_ACCUM(r, paxos_hello(acc));
+
+    // Resend our request.
+    // XXX: Probably should do this only if we updated the proposer just now.
+    // XXX: Also, what about the problematic case where A is connected to B, B
+    // thinks it's the proposer and accepts A's request, but in fact B is not
+    // the proposer and C, the real proposer, gets neither of their requests?
+    header_init(&hdr, OP_REQUEST, pax->proposer->pa_paxid);
+
+    req = request_find(&pax->rcache, k->pk_data.req.pr_val.pv_reqid);
+    if (req == NULL) {
+      req = &k->pk_data.req;
+    }
+
+    paxos_payload_init(&py, 2);
+    paxos_header_pack(&py, &hdr);
+    paxos_request_pack(&py, req);
+
+    ERR_ACCUM(r, paxos_send_to_proposer(&py));
+    paxos_payload_destroy(&py);
   }
+
+  return r;
 }
 CONNECTINUATE(ack_refuse);
 
@@ -227,7 +248,7 @@ do_continue_ack_reject(GIOChannel *chan, struct paxos_acceptor *acc,
 
   // Obtain the rejected instance.  If we can't find it, it must have been
   // sync'd away, so just return.
-  inst = instance_find(&pax->ilist, k->pk_inum);
+  inst = instance_find(&pax->ilist, k->pk_data.inum);
   if (inst == NULL) {
     return 0;
   }

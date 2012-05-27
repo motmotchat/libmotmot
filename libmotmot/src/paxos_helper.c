@@ -131,7 +131,6 @@ continuation_new(motmot_connect_continuation_t func, paxid_t paxid)
   k->pk_cb.data = k;
   k->pk_session_id = pax->session_id;
   k->pk_paxid = paxid;
-  k->pk_inum = 0;
 
   LIST_INSERT_TAIL(&pax->clist, k, pk_le);
 

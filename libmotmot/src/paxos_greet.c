@@ -43,7 +43,8 @@ proposer_welcome(struct paxos_acceptor *acc)
   int r;
   struct paxos_continuation *k;
 
-  // Initiate a connection with the new acceptor.
+  // Initiate a connection with the new acceptor and send the new acceptor
+  // its initial state once the connection is established.
   k = continuation_new(continue_welcome, acc->pa_paxid);
   ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &k->pk_cb));
 

@@ -113,6 +113,8 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
     acc = acceptor_find(&pax->alist, hdr->ph_inum);
     assert(acc->pa_peer == NULL);
 
+    // Defer computation until the client performs connection.  If it succeeds,
+    // give up the prepare; otherwise, reprepare.
     k = continuation_new(continue_ack_redirect, acc->pa_paxid);
     ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &k->pk_cb));
     return 0;
@@ -153,10 +155,9 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
   // to be incorrect and the request ID of the refused request.
   paxos_payload_init(&py, 2);
   paxos_header_pack(&py, &hdr);
-  paxos_payload_begin_array(&py, 3);
+  paxos_payload_begin_array(&py, 2);
   paxos_header_pack(&py, orig_hdr);
-  paxos_paxid_pack(&py, req->pr_val.pv_reqid.id);
-  paxos_paxid_pack(&py, req->pr_val.pv_reqid.gen);
+  paxos_value_pack(&py, &req->pr_val);
 
   // Send the payload.
   r = paxos_peer_send(source, paxos_payload_data(&py), paxos_payload_size(&py));
@@ -183,6 +184,7 @@ int
 acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
 {
   int r;
+  msgpack_object *p;
   struct paxos_acceptor *acc;
   struct paxos_continuation *k;
 
@@ -193,15 +195,20 @@ acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
     return 0;
   }
 
-  // XXX: Check that it was a request for the current ballot?
-
   // Pull out the acceptor struct corresponding to the purported proposer and
   // try to reconnect.  Note that we should have already set the pa_peer of
   // this acceptor to NULL to indicate the lost connection.
   acc = acceptor_find(&pax->alist, hdr->ph_inum);
   assert(acc->pa_peer == NULL);
 
+  // Defer computation until the client performs connection.  If it succeeds,
+  // resend the request.  We bind the request ID as callback data.
   k = continuation_new(continue_ack_refuse, acc->pa_paxid);
+
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  p = o->via.array.ptr + 1;
+  paxos_value_unpack(&k->pk_data.req.pr_val, p++);
+
   ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &k->pk_cb));
   return 0;
 }
@@ -269,8 +276,11 @@ proposer_ack_reject(struct paxos_header *hdr)
     acc = acceptor_find(&pax->alist, inst->pi_val.pv_extra);
     assert(acc->pa_peer == NULL);
 
+    // Defer computation until the client performs connection.  If it succeeds,
+    // replace the part decree with a null decree; otherwise, just redecree
+    // the part.  We bind the instance number of the decree as callback data.
     k = continuation_new(continue_ack_reject, acc->pa_paxid);
-    k->pk_inum = inst->pi_hdr.ph_inum;
+    k->pk_data.inum = inst->pi_hdr.ph_inum;
     ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &k->pk_cb));
     return 0;
   }
