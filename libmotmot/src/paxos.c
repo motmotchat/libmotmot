@@ -177,16 +177,12 @@ paxos_drop_connection(struct paxos_peer *source)
       }
     }
 
-    // If we are the proposer, decree a part for the acceptor.
     if (is_proposer()) {
+      // If we are the proposer, decree a part for the acceptor.
       ERR_ACCUM(r, proposer_decree_part(acc, 0));
-    }
-
-    // Oh noes!  Did we lose the proposer?
-    if (acc->pa_paxid == pax->proposer->pa_paxid) {
-      assert(!is_proposer());
-
-      // "Elect" the new proposer.  If it's us, send a prepare.
+    } else if (acc->pa_paxid == pax->proposer->pa_paxid) {
+      // Otherwise, check if we lost the proposer.  If so, we "elect" the new
+      // proposer, and if it's ourselves, we send a prepare.
       reset_proposer();
       if (is_proposer()) {
         ERR_ACCUM(r, proposer_prepare(acc));
