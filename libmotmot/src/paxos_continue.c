@@ -128,7 +128,7 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     struct paxos_continuation *k)
 {
   // Sanity check the choice of acc.
-  assert(acc->pa_paxid > pax->self_id);
+  assert(acc->pa_paxid < pax->self_id);
 
   // If connection to the acceptor has already been reestablished, we should
   // no longer be the proposer and we can simply return.
