@@ -351,29 +351,6 @@ pax_uuid_compare(pax_uuid_t x, pax_uuid_t y)
 //
 
 /**
- * Broadcast a message to all acceptors.
- */
-int
-paxos_broadcast(struct paxos_yak *py)
-{
-  int r;
-  struct paxos_acceptor *acc;
-
-  LIST_FOREACH(acc, &(pax->alist), pa_le) {
-    if (acc->pa_peer == NULL) {
-      continue;
-    }
-
-    if ((r = paxos_peer_send(acc->pa_peer, paxos_payload_data(py),
-            paxos_payload_size(py)))) {
-      return r;
-    }
-  }
-
-  return 0;
-}
-
-/**
  * Send a message to any acceptor.
  */
 int
@@ -394,4 +371,24 @@ paxos_send_to_proposer(struct paxos_yak *py)
   }
 
   return paxos_send(pax->proposer, py);
+}
+
+/**
+ * Broadcast a message to all acceptors.
+ */
+int
+paxos_broadcast(struct paxos_yak *py)
+{
+  int r = 0;
+  struct paxos_acceptor *acc;
+
+  LIST_FOREACH(acc, &(pax->alist), pa_le) {
+    if (acc->pa_peer == NULL) {
+      continue;
+    }
+
+    ERR_ACCUM(r, paxos_send(acc, py));
+  }
+
+  return r;
 }
