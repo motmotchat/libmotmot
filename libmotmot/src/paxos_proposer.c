@@ -36,11 +36,25 @@ swap(void **p1, void **p2)
  * a new prepare until we either connect to a proposer or our prepare is
  * accepted by a majority.
  *
- * If the cycle terminates in success, we will be the proposer until we drop
- * out of the system (or lose connection to a majority, which is equivalent).
- * If it terminates in failure, we may be next in line for proposership, and
- * if at some later time the proposer actually dies, we will at that point
- * begin another cycle of prepares.
+ * Whenever a prepare succeeds, the new proposer kills off any higher-ranked
+ * acceptors that remain.  This allows us to provide a useful system invariant:
+ *
+ *  ===========================================================================
+ *    ONCE A PROPOSER SUCCESSFULLY PREPARES, IT REMAINS THE PROPOSER UNTIL IT
+ *    DROPS OUT OF THE SYSTEM
+ *  ===========================================================================
+ *
+ * (or loses connection to a majority, which is equivalent).  Of course, the
+ * cycle of prepares might still fail, in which case we remain in line behind
+ * some number of higher-ranked acceptors, and if they all leave or fail, we
+ * will at that point begin another cycle of prepares.
+ *
+ * Any time we discover that we are first in line to be proposer, we initiate
+ * a prepare synchronously.  Moreover, we only ever free a prepare if we have
+ * connected to a higher-ranked acceptor to whom we defer proposership, or if
+ * we have successfully prepared.  Thus, from anywhere except the codepath
+ * between detecting our proposership and preparing, we can check whether we
+ * are a prepared proposer by simply checking whether pax->prep is NULL.
  */
 int
 proposer_prepare(struct paxos_acceptor *old_proposer)
@@ -57,8 +71,7 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
   // If a majority of acceptors are disconnected, we should just give up and
   // quit the session.
   if (pax->live_count < majority()) {
-    paxos_end(pax);
-    return 1;
+    return paxos_end(pax);  // Always returns 1.
   }
 
   // Start a new prepare.
@@ -73,34 +86,32 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
   pax->prep->pp_acks = 1;
   pax->prep->pp_redirects = 0;
 
+  // Cache the current istart.
+  pax->prep->pp_istart = pax->istart;
+
   // If we aren't repreparing (in which case we pass in old_proposer as NULL),
   // we should queue up deferred parts or kills for every dropped acceptor we
   // have in our list.  We force kills for all the acceptors ranked higher
-  // than we are.  If our prepare is accepted, then at some recent point in
-  // time, a majority of acceptors agreed that those higher-ranked acceptors
-  // had left the system.  By forcing those kills, we obtain a useful session
-  // invariant---that once a prepare completes, the preparer is the proposer
-  // until it leaves the session.
+  // than we are in order to provide the invariant described above.  This
+  // choice is well-justified: if our prepare was accepted and we actually
+  // make those decrees, then a majority of acceptors agreed, at some recent
+  // point, that all those higher-ranked acceptors had indeed left the system.
   //
   // It is possible that between now and when we actually send these decrees,
   // one of the acceptors reconnects to us.  If the reconnected acceptor is
   // higher-ranked, we end our prepare.  However, if it is lower-ranked, we
   // do nothing, keeping the part in the defer list.  The part should be
   // rejected by a majority assuming that the acceptor we reconnected to has
-  // enough connections supporting its continued existence in the system.
+  // enough connections in support of its continued existence in the system.
   if (old_proposer != NULL) {
     LIST_FOREACH(acc, &pax->alist, pa_le) {
-      // Only kill or part dropped acceptors.
-      if (acc->pa_peer != NULL) {
+      // Only kill or part dropped acceptors; also skip ourselves.
+      if (acc->pa_peer != NULL || acc->pa_paxid == pax->self_id) {
         continue;
       }
 
       // Kill higher-ranked acceptors; part lower-ranked ones.
-      if (acc->pa_paxid < pax->self_id) {
-        ERR_ACCUM(r, proposer_decree_part(acc, 1));
-      } else if (acc->pa_paxid > pax->self_id) {
-        ERR_ACCUM(r, proposer_decree_part(acc, 0));
-      }
+      ERR_ACCUM(r, proposer_decree_part(acc, acc->pa_paxid < pax->self_id));
     }
   }
 
@@ -177,7 +188,7 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   // Initialize loop variables.
   p = o->via.array.ptr;
   pend = o->via.array.ptr + o->via.array.size;
-  it = pax->istart;
+  it = pax->prep->pp_istart;
 
   // Loop through all the vote information.  Note that we assume the votes
   // are sorted by instance number.
@@ -243,12 +254,14 @@ proposer_ack_promise(struct paxos_header *hdr, msgpack_object *o)
   pax->ballot.gen = pax->prep->pp_ballot.gen;
 
   // For each Paxos instance for which we don't have a commit, send a decree.
-  for (it = pax->istart, inum = pax->ihole; ; ++inum) {
+  for (it = pax->prep->pp_istart, inum = pax->ihole; ; ++inum) {
     // Get the closest instance with number <= inum.
     it = get_instance_glb(it, &pax->ilist, inum);
     assert(it != NULL);
 
+    // Do not redecree by default.
     inst = NULL;
+
     if (it->pi_hdr.ph_inum < inum) {
       // If inum is strictly past the last instance number seen by a quorum
       // of the entire Paxos system, we're done.
@@ -345,9 +358,9 @@ proposer_ack_accept(struct paxos_header *hdr)
 {
   struct paxos_instance *inst;
 
-  // We never change the ballot if our initial prepare succeeds, and in
-  // particular, the ballot cannot refer to some earlier ballot also prepared
-  // by us.  Thus, it should not be possible for the ballot not to match.
+  // If we successfully prepared, we retain the proposership and the ballot
+  // we prepared until we leave the system.  Thus, it should not be possible
+  // for the ballot not to match here.
   assert(ballot_compare(hdr->ph_ballot, pax->ballot) == 0);
 
   // Find the decree of the correct instance and increment the vote count.

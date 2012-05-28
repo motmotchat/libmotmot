@@ -251,6 +251,7 @@ struct paxos_prep {
   ballot_t pp_ballot;                 // ballot being prepared
   unsigned pp_acks;                   // number of prepare acks
   unsigned pp_redirects;              // number of prepare rejects
+  struct paxos_instance *pp_istart;   // last contiguous instance at prep time
 };
 
 /* Sync state used by proposers during sync. */

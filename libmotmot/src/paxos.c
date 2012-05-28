@@ -147,11 +147,7 @@ int
 paxos_register_connection(GIOChannel *chan)
 {
   // Just initialize a peer object.
-  if (paxos_peer_init(chan) == NULL) {
-    return 1;
-  } else {
-    return 0;
-  }
+  return paxos_peer_init(chan) == NULL;
 }
 
 /**
