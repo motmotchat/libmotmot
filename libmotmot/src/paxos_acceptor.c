@@ -17,13 +17,9 @@
 /**
  * acceptor_ack_prepare - Prepare for a new proposer.
  *
- * First, we check to see if we think that there's someone else who's more
- * eligible to be proposer.  If there exists such a person, redirect this
- * candidate to that person.
- *
- * If we think that this person would be a good proposer, prepare for their
- * presidency by sending them a list of our accepts for all instance
- * numbers we have seen.
+ * If we agree that the preparer should be the proposer, respond accordingly;
+ * otherwise, redirect the preparer to the individual we believe is most
+ * eligible to propose.
  */
 int
 acceptor_ack_prepare(struct paxos_peer *source, struct paxos_header *hdr)
@@ -109,9 +105,9 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   // no action.
   //
   // We do this because the proposer doesn't keep track of who has responded
-  // to prepares.  Hence if we respond both to the proposer's higher ballot
-  // and our lower ballot, we could break correctness guarantees if we
-  // responded to any further decrees with the lower ballot number.
+  // to prepares.  Hence, if we respond to a decree of the decreer's higher
+  // ballot, we could break correctness guarantees if we responded later to
+  // a decree with our lower local ballot number.
   if (ballot_compare(hdr->ph_ballot, pax->ballot) != 0) {
     return 0;
   }
@@ -148,7 +144,7 @@ acceptor_ack_decree(struct paxos_header *hdr, msgpack_object *o)
   } else {
     // We found an instance of the same number.
     if (inst->pi_committed) {
-      // If we have already committed, assert that the new values matches,
+      // If we have already committed, assert that the new value matches,
       // then just accept.
       assert(inst->pi_val.pv_dkind == val.pv_dkind);
       assert(inst->pi_val.pv_reqid.id == val.pv_reqid.id);
