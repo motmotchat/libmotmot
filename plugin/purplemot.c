@@ -25,6 +25,8 @@
  * nullprpl.
  */
 
+#define PURPLE_PLUGINS 1
+
 #include <ctype.h>
 #include <errno.h>
 #include <glib.h>
@@ -62,7 +64,6 @@
 #define DISPLAY_VERSION "1"
 #define MOTMOT_WEBSITE "https://motmotchat.com"
 
-#define PURPLE_PLUGINS 1
 
 #define DEFAULT_SERV "motmottest.com"
 #define DEFAULT_PORT 8888
