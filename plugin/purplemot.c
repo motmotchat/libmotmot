@@ -4,10 +4,10 @@
  *
  * This is the Pidgin plugin for motmot. It provides a UI wrapper for the
  * functionality of libmotmot, and hooks up the separate parts of the project.
- * Upon login (purplemot_login), a connection is established with a discovery server.
- * Once the connection is established, the user's credentials are authenticated against
- * the discovery server (do_login), and the client begins reading/writing
- * data to the discovery server.
+ * Upon login (purplemot_login), a connection is established with a discovery
+ * server.  Once the connection is established, the user's credentials are
+ * authenticated against the discovery server (do_login), and the client
+ * begins reading/writing data to the discovery server.
  *
  * The discovery server is used for status updates, presence,
  * and friend requests. Actual chat is handled by the distributed paxos
