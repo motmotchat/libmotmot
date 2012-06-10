@@ -7,6 +7,7 @@
 #include <glib.h>
 
 #include "paxos.h"
+#include "paxos_continue.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
@@ -133,6 +134,58 @@ proposer_ack_redirect(struct paxos_header *hdr, msgpack_object *o)
   return 0;
 }
 
+// XXX: We should check for all these cases whether or not connection was
+// reestablished, i.e., in a hello.
+
+/**
+ * continue_ack_redirect - If we were able to reestablish connection with the
+ * purported proposer, relinquish our proposership, clear our defer list,
+ * and reintroduce ourselves.  Otherwise, try preparing again.
+ */
+int
+do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *k)
+{
+  // Sanity check the choice of acc.
+  assert(acc->pa_paxid < pax->self_id);
+
+  // If connection to the acceptor has already been reestablished, we should
+  // no longer be the proposer and we can simply return.
+  if (acc->pa_peer != NULL) {
+    assert(!is_proposer());
+    return 0;
+  }
+
+  // Free the old prepare regardless of whether reconnection succeeded.
+  g_free(pax->prep);
+  pax->prep = NULL;
+
+  // Register the reconnection; on failure, reprepare.
+  acc->pa_peer = paxos_peer_init(chan);
+  if (acc->pa_peer != NULL) {
+    // Account for a new acceptor.
+    pax->live_count++;
+
+    // We update the proposer only if we have not reconnected to an even
+    // higher-ranked acceptor.
+    if (acc->pa_paxid < pax->proposer->pa_paxid) {
+      pax->proposer = acc;
+    }
+
+    // Destroy the defer list; we're finished trying to prepare.
+    // XXX: Do we want to somehow pass it to the real proposer?  How do we
+    // know which requests were made for us?
+    instance_list_destroy(&pax->idefer);
+
+    // Say hello.
+    return paxos_hello(acc);
+  } else {
+    // Prepare again, continuing to append to the defer list.
+    return proposer_prepare(NULL);
+  }
+}
+CONNECTINUATE(ack_redirect);
+
 /**
  * acceptor_refuse - Tell a requester that they incorrectly identified us
  * at the proposer and we cannot decree their message.
@@ -212,6 +265,76 @@ acceptor_ack_refuse(struct paxos_header *hdr, msgpack_object *o)
   ERR_RET(r, state.connect(acc->pa_desc, acc->pa_size, &k->pk_cb));
   return 0;
 }
+
+// XXX: We should check for all these cases whether or not connection was
+// reestablished, i.e., in a hello.
+
+/**
+ * continue_ack_refuse - If we were able to reestablish connection with the
+ * purported proposer, reset our proposer and reintroduce ourselves.
+ */
+int
+do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *k)
+{
+  int r = 0;
+  struct paxos_header hdr;
+  struct paxos_request *req;
+  struct paxos_yak py;
+
+  // If we are the proposer and have finished preparing, anyone higher-ranked
+  // than we are is dead to us.  However, their parts may not yet have gone
+  // through, so we make sure to ignore attempts at reconnection.
+  if (is_proposer() && pax->prep == NULL) {
+    return 0;
+  }
+
+  // Register the reconnection.
+  acc->pa_peer = paxos_peer_init(chan);
+  if (acc->pa_peer != NULL) {
+    // Account for a new acceptor.
+    pax->live_count++;
+
+    // Free any prep we have.  Although we dispatch as an acceptor when we
+    // acknowledge a refuse, when the acknowledgement continues here, we may
+    // have become the proposer.  Thus, if we are preparing, we should just
+    // give up.  If the acceptor we are reconnecting to fails, we'll find
+    // out about the drop and then reprepare.
+    g_free(pax->prep);
+    pax->prep = NULL;
+    instance_list_destroy(&pax->idefer);
+
+    // Say hello.
+    ERR_ACCUM(r, paxos_hello(acc));
+
+    if (acc->pa_paxid < pax->proposer->pa_paxid) {
+      // Update the proposer only if we have not reconnected to an even
+      // higher-ranked acceptor.
+      pax->proposer = acc;
+
+      // Resend our request.
+      // XXX: What about the problematic case where A is connected to B, B
+      // thinks it's the proposer and accepts A's request, but in fact B is not
+      // the proposer and C, the real proposer, gets neither of their requests?
+      header_init(&hdr, OP_REQUEST, pax->proposer->pa_paxid);
+
+      req = request_find(&pax->rcache, k->pk_data.req.pr_val.pv_reqid);
+      if (req == NULL) {
+        req = &k->pk_data.req;
+      }
+
+      paxos_payload_init(&py, 2);
+      paxos_header_pack(&py, &hdr);
+      paxos_request_pack(&py, req);
+
+      ERR_ACCUM(r, paxos_send_to_proposer(&py));
+      paxos_payload_destroy(&py);
+    }
+  }
+
+  return r;
+}
+CONNECTINUATE(ack_refuse);
 
 /**
  * acceptor_reject - Notify the proposer that we reject their decree.
@@ -295,3 +418,47 @@ proposer_ack_reject(struct paxos_header *hdr)
 
   return 0;
 }
+
+// XXX: We should check for all these cases whether or not connection was
+// reestablished, i.e., in a hello.
+
+/**
+ * continue_ack_reject - If we were able to reestablish connection, reintroduce
+ * ourselves and redecree the attempted part as null.  Otherwise, just try
+ * decreeing the part again.
+ */
+int
+do_continue_ack_reject(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *k)
+{
+  int r;
+  struct paxos_instance *inst;
+
+  // Obtain the rejected instance.  If we can't find it, it must have been
+  // sync'd away, so just return.
+  inst = instance_find(&pax->ilist, k->pk_data.inum);
+  if (inst == NULL) {
+    return 0;
+  }
+
+  acc->pa_peer = paxos_peer_init(chan);
+  if (acc->pa_peer != NULL) {
+    // Account for a new live connection.
+    pax->live_count++;
+
+    // Reintroduce ourselves to the acceptor.
+    ERR_RET(r, paxos_hello(acc));
+
+    // Nullify the instance.
+    inst->pi_hdr.ph_opcode = OP_DECREE;
+    inst->pi_val.pv_dkind = DEC_NULL;
+    inst->pi_val.pv_extra = 0;
+  }
+
+  // Reset the instance metadata, marking one vote.
+  instance_init_metadata(inst);
+
+  // Decree null if the reconnect succeeded, else redecree the part.
+  return paxos_broadcast_instance(inst);
+}
+CONNECTINUATE(ack_reject);

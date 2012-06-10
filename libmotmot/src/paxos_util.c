@@ -7,6 +7,7 @@
 #include <glib.h>
 
 #include "paxos.h"
+#include "paxos_continue.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"

@@ -6,6 +6,7 @@
 #include <glib.h>
 
 #include "paxos.h"
+#include "paxos_continue.h"
 #include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
@@ -50,6 +51,62 @@ proposer_welcome(struct paxos_acceptor *acc)
 
   return 0;
 }
+
+/**
+ * continue_welcome - Register our connection to the new acceptor, decreeing
+ * a part if connection failed.
+ */
+int
+do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *k)
+{
+  int r;
+  struct paxos_header hdr;
+  struct paxos_acceptor *acc_it;
+  struct paxos_instance *inst_it;
+  struct paxos_yak py;
+
+  acc->pa_peer = paxos_peer_init(chan);
+  if (acc->pa_peer != NULL) {
+    pax->live_count++;
+  } else {
+    return proposer_decree_part(acc, 0);
+  }
+
+  // Initialize a header.  The new acceptor's ID is also the instance number
+  // of its JOIN.
+  header_init(&hdr, OP_WELCOME, acc->pa_paxid);
+
+  // Pack the header into a new payload.
+  paxos_payload_init(&py, 2);
+  paxos_header_pack(&py, &hdr);
+  paxos_payload_begin_array(&py, 3);
+
+  // Start off the info payload with the session ID and ibase.
+  paxos_payload_begin_array(&py, 2);
+  paxos_uuid_pack(&py, pax->session_id);
+  paxos_paxid_pack(&py, pax->ibase);
+
+  // Pack the entire alist.  Hopefully we don't have too many un-parted
+  // dropped acceptors (we shouldn't).
+  paxos_payload_begin_array(&py, LIST_COUNT(&pax->alist));
+  LIST_FOREACH(acc_it, &pax->alist, pa_le) {
+    paxos_acceptor_pack(&py, acc_it);
+  }
+
+  // Pack the entire ilist.
+  paxos_payload_begin_array(&py, LIST_COUNT(&pax->ilist));
+  LIST_FOREACH(inst_it, &pax->ilist, pi_le) {
+    paxos_instance_pack(&py, inst_it);
+  }
+
+  // Send the welcome.
+  r = paxos_send(acc, &py);
+  paxos_payload_destroy(&py);
+
+  return r;
+}
+CONNECTINUATE(welcome);
 
 /**
  * acceptor_ack_welcome - Be welcomed to the Paxos system.
@@ -169,6 +226,26 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
 
   return 0;
 }
+
+/**
+ * continue_ack_welcome - Register our initial connections with the other
+ * acceptors.
+ */
+int
+do_continue_ack_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
+    struct paxos_continuation *k)
+{
+  int r;
+
+  acc->pa_peer = paxos_peer_init(chan);
+  if (acc->pa_peer != NULL) {
+    pax->live_count++;
+    ERR_RET(r, paxos_hello(acc));
+  }
+
+  return 0;
+}
+CONNECTINUATE(ack_welcome);
 
 /**
  * paxos_hello - Let an acceptor know our identity.
