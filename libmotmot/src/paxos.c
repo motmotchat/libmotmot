@@ -160,20 +160,27 @@ paxos_register_connection(GIOChannel *chan)
 int
 paxos_drop_connection(struct paxos_peer *source)
 {
-  int r = 0;
+  int r = 0, found;
   struct paxos_acceptor *acc;
 
   // Process the drop for every session.
   // XXX: Have a single global list of connections.
   LIST_FOREACH(pax, &state.sessions, session_le) {
-    // Connection dropped; mark the acceptor as dead.
+    found = false;
+
+    // If the acceptor is participating in this session, mark it as dead.
     LIST_FOREACH(acc, &pax->alist, pa_le) {
       if (acc->pa_peer == source) {
         paxos_peer_destroy(acc->pa_peer);
         acc->pa_peer = NULL;
         pax->live_count--;
+        found = true;
         break;
       }
+    }
+
+    if (!found) {
+      continue;
     }
 
     if (is_proposer()) {
@@ -193,7 +200,7 @@ paxos_drop_connection(struct paxos_peer *source)
 }
 
 /**
- * proposer_dispatch - Process a message as the proposer.
+ * proposer_dispatch - Process a message as the (self-determined) proposer.
  */
 static int
 proposer_dispatch(struct paxos_peer *source, struct paxos_header *hdr,
@@ -375,22 +382,22 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
   hdr = g_malloc0(sizeof(*hdr));
   paxos_header_unpack(hdr, o->via.array.ptr);
 
-  // Find the session to which the message belongs.  If there is none, just
-  // ignore it unless it is a welcome.
+  // Bind `pax` to the session identified in the message header.
   pax = session_find(&state.sessions, hdr->ph_session);
   if (pax == NULL) {
+    // If we have no session, wait for a welcome message.
     if (hdr->ph_opcode == OP_WELCOME) {
-      return acceptor_ack_welcome(source, hdr, o->via.array.ptr + 1);
+      r = acceptor_ack_welcome(source, hdr, o->via.array.ptr + 1);
     } else {
-      return 0;
+      r = 0;
     }
-  }
-
-  // Switch on the type of message received.
-  if (is_proposer()) {
-    r = proposer_dispatch(source, hdr, o->via.array.ptr + 1);
   } else {
-    r = acceptor_dispatch(source, hdr, o->via.array.ptr + 1);
+    // Switch on the type of message received.
+    if (is_proposer()) {
+      r = proposer_dispatch(source, hdr, o->via.array.ptr + 1);
+    } else {
+      r = acceptor_dispatch(source, hdr, o->via.array.ptr + 1);
+    }
   }
 
   g_free(hdr);
