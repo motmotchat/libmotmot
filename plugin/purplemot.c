@@ -40,10 +40,6 @@
 #include "rpc.h"
 #include "rpc_io.h"
 
-
-#define DISPLAY_VERSION "1"
-#define MOTMOT_WEBSITE "https://motmotchat.com"
-
 #define DEFAULT_SERV "motmottest.com"
 #define DEFAULT_PORT 8888
 
@@ -1273,11 +1269,11 @@ static PurplePluginInfo info = {
   PURPLE_PRIORITY_DEFAULT,                            // priority
   PURPLEMOT_ID,                                       // id
   "motmot",                                           // name
-  DISPLAY_VERSION,                                    // version
+  "1.0",                                              // version
   N_("Motmot: A secure distributed chat protocol"),   // summary
   N_("Motmot: A secure distributed chat protocol"),   // description
   NULL,                                               // author
-  MOTMOT_WEBSITE,                                     // homepage
+  "https://motmotchat.com",                           // homepage
   NULL,                                               // load
   NULL,                                               // unload
   purplemot_destroy,                                  // destroy
