@@ -2,6 +2,8 @@
 
 # Makes testing traces.
 
+require 'optparse'
+
 $stdout.sync = true
 
 # Always start out like this
@@ -40,6 +42,14 @@ fn = lambda do
     newguy if $i < 15
   end
 end
+
+OptionParser.new do |opts|
+  opts.banner = 'Usage: hammer [options] [count]'
+
+  opts.on '-s', '--seed value', 'Use seed value' do |s|
+    srand s.to_i
+  end
+end.parse!
 
 if ARGV[0].nil?
   loop &fn
