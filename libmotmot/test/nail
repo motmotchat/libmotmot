@@ -10,7 +10,7 @@ Dir.mkdir CONN unless File.directory? CONN
 class MotMot
   attr_accessor :conn, :stdin
   def initialize connect, screen=true
-    @conn = CONN + rand(1...1000000).to_s
+    @conn = CONN + (rand(999999) + 1).to_s
     system "mkfifo #{@conn}in"
     system "screen #{ROOT}/motmot #{@conn} #{connect.join ' '}"
     @stdin = open @conn + 'in', 'a'
