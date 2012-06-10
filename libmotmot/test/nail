@@ -20,6 +20,11 @@ end
 
 motmots = Hash.new
 
+Signal.trap "INT" do
+  puts "Terminating..."
+  exit 0
+end
+
 f = (ARGV[0] == '-' or ARGV[0].nil?) ? $stdin : open(ARGV[0], 'r')
 
 begin
@@ -27,7 +32,7 @@ begin
     case f.readline
     when /> run (\S+)(\s.*|)/ then
       others = $2.strip.split.map { |k| motmots[k] }
-      motmots[$1] = MotMot.new (others.map &:conn), ENV['SILENT'].nil?
+      motmots[$1] = MotMot.new(others.map(&:conn), ENV['SILENT'].nil?)
       sleep 1
     when /([^ ]+): \/invite (\S+)/ then
       invited = motmots[$2].conn
@@ -38,5 +43,5 @@ begin
     sleep 0.001
   end
 rescue EOFError
-  sleep 1
+  loop { sleep 1 }
 end
