@@ -23,6 +23,11 @@ int ppair_compare(ppair_t, ppair_t);
 int ballot_compare(ballot_t, ballot_t);
 int reqid_compare(reqid_t, reqid_t);
 
+/* Paxos connection GLib utilities. */
+void connect_hashinit(void);
+int connect_compare(const void *, const void *);
+unsigned connect_hash(const void *);
+
 /* Initializers. */
 struct paxos_session *session_new(void *, int);
 void header_init(struct paxos_header *, paxop_t, paxid_t);
@@ -56,6 +61,7 @@ void acceptor_list_destroy(struct acceptor_list *);
 void instance_list_destroy(struct instance_list *);
 void request_list_destroy(struct request_list *);
 void continuation_list_destroy(struct continuation_list *);
+void session_list_destroy(struct session_list *);
 
 /* UUID helpers. */
 void pax_uuid_gen(pax_uuid_t *);

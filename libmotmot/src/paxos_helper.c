@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <glib.h>
+#include <murmurhash3.h>
 
 #include "paxos.h"
 #include "paxos_helper.h"
@@ -68,6 +69,69 @@ int
 reqid_compare(reqid_t x, reqid_t y)
 {
   return ppair_compare(x, y);
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Paxos connection GLib utilities.
+//
+
+uint32_t murmurseed;
+
+/**
+ * Initialize Murmurhash.
+ */
+void
+connect_hashinit()
+{
+  int urandom = open("/dev/urandom", O_RDONLY);
+  read(urandom, &murmurseed, sizeof(murmurseed));
+  close(urandom);
+}
+
+/**
+ * Hash a paxos_connect via its descriptor.
+ */
+unsigned
+connect_hash(const void *data)
+{
+  uint32_t r;
+  struct paxos_connect *conn = (struct paxos_connect *)data;
+
+  MurmurHash3_x86_32(conn->pc_desc, conn->pc_size, murmurseed, &r);
+  return r;
+}
+
+/**
+ * Compare two paxos_connect objects.
+ *
+ * This just wraps a comparison of the underlying client-supplied descriptors
+ * which universally and uniquely identify individuals participating in multi-
+ * session Paxos.
+ */
+int
+connect_compare(const void *x, const void *y)
+{
+  int r;
+  struct paxos_connect *conn_x, *conn_y;
+
+  conn_x = (struct paxos_connect *)x;
+  conn_y = (struct paxos_connect *)y;
+
+  if (conn_x->pc_size < conn_y->pc_size) {
+    return -1;
+  } if (conn_x->pc_size > conn_y->pc_size) {
+    return 1;
+  } else /* conn_x->pc_size == conn_y->pc_size */ {
+    return 0;
+  }
+
+  if (r) {
+    return r;
+  } else {
+    return memcmp(conn_x->pc_desc, conn_y->pc_desc, conn_x->pc_size);
+  }
 }
 
 

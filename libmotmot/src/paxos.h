@@ -206,13 +206,13 @@ struct paxos_value {
 
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
-  paxid_t pa_paxid;                   // agent's ID; also the instance number of
-                                      //   the agent's JOIN decree
-  struct paxos_peer *pa_peer;         // agent's connection information; NULL if
-                                      //   we think it's dead
-  size_t pa_size;                     // size of identity data
-  void *pa_desc;                      // join-time client-supplied descriptor
+  paxid_t pa_paxid;                   // instance number of the agent's JOIN
+  struct paxos_channel *pa_conn;      // connection to acceptor
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
+  // TODO: remove
+  struct paxos_peer *pa_peer;
+  size_t pa_size;
+  void *pa_desc;
 };
 LIST_HEAD(acceptor_list, paxos_acceptor);
 
@@ -315,6 +315,14 @@ struct learn_table {
   learn_t part;
 };
 
+/* Connection to another client; shared among sessions. */
+struct paxos_connect {
+  struct paxos_peer *pc_peer;         // wrapper around I/O channel
+  bool pc_pending;                    // pending reconnection?
+  size_t pc_size;                     // size of identity data
+  void *pc_desc;                      // join-time client-supplied descriptor
+};
+
 /* Global state. */
 struct paxos_state {
   connect_t connect;                  // callback for initiating connections
@@ -323,6 +331,7 @@ struct paxos_state {
   struct learn_table learn;           // callbacks for paxos_learn
 
   struct session_list sessions;       // list of active Paxos sessions
+  GHashTable *connections;            // hash table of connections
 };
 
 extern struct paxos_state state;

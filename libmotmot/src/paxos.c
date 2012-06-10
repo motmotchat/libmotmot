@@ -40,6 +40,8 @@ paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
   state.learn.part = learn->part;
 
   LIST_INIT(&state.sessions);
+  connect_hashinit();
+  state.connections = g_hash_table_new(connect_hash, connect_compare);
 
   return 0;
 }
