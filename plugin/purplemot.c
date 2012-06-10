@@ -40,20 +40,23 @@
 #include "rpc.h"
 #include "rpc_io.h"
 
+#define PURPLEMOT_ID "prpl-motmot"
+
 #define DEFAULT_SERV "motmottest.com"
 #define DEFAULT_PORT 8888
-
-static void motmot_report_status(const char *, struct pm_account *);
-void get_all_statuses(struct pm_account *);
-
-#define PURPLEMOT_ID "prpl-motmot"
-static PurplePlugin *_null_protocol = NULL;
-int chat_id = 0;
 
 #define NULL_STATUS_ONLINE   "online"
 #define NULL_STATUS_AWAY     "away"
 #define NULL_STATUS_OFFLINE  "offline"
 
+static void motmot_report_status(const char *, struct pm_account *);
+void get_all_statuses(struct pm_account *);
+
+// TODO(carl): null?
+static PurplePlugin *_null_protocol = NULL;
+
+
+// TODO(carl): what is this?
 typedef void (*GcFunc)(PurpleConnection *from,
                        PurpleConnection *to,
                        void *userdata);
@@ -73,12 +76,6 @@ typedef struct {
   void *userdata;
 } ChatFuncData;
 
-typedef struct {
-  char *from;
-  char *message;
-  time_t mtime;
-  PurpleMessageFlags flags;
-} GOfflineMessage;
 
 /*
  * stores offline messages that haven't been delivered yet. maps username
@@ -86,6 +83,13 @@ typedef struct {
  */
 
 // TODO(carl): what is this?
+typedef struct {
+  char *from;
+  char *message;
+  time_t mtime;
+  PurpleMessageFlags flags;
+} GOfflineMessage;
+
 GHashTable* goffline_messages = NULL;
 
 /**
@@ -120,7 +124,6 @@ foreach_purplemot_gc(GcFunc fn, PurpleConnection *from, void *userdata) {
   GcFuncData gcfdata = { fn, from, userdata };
   g_list_foreach(purple_connections_get_all(), call_if_purplemot, &gcfdata);
 }
-
 
 
 static void
