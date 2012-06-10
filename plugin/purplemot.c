@@ -40,26 +40,12 @@
 #include "rpc.h"
 #include "rpc_io.h"
 
-// Nop!
-#define _
-#define N_
 
 #define DISPLAY_VERSION "1"
 #define MOTMOT_WEBSITE "https://motmotchat.com"
 
 #define DEFAULT_SERV "motmottest.com"
 #define DEFAULT_PORT 8888
-
-#define BUFSIZE 512
-#define PURPLEMOT_ERROR 1
-#define PURPLEMOT_OK 0
-
-// TODO(carl): enum this
-#define ONLINE 1
-#define AWAY 2
-#define OFFLINE 3
-#define BUSY 4
-#define SERVER 5
 
 static void motmot_report_status(const char *, struct pm_account *);
 void get_all_statuses(struct pm_account *);

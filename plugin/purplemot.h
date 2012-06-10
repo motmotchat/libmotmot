@@ -9,6 +9,12 @@
 
 #include "prpl.h"
 
+#define BUFSIZE 512
+
+// Nop! TODO: figure out what to do with this
+#define _
+#define N_
+
 struct pm_account {
   // libpurple objects
   PurpleAccount *pa;            // libpurple calls this 'account', but I want
@@ -36,5 +42,13 @@ struct pm_conversation {
   PurpleConversation *convo;
   // TODO(carl): finish this;
 };
+
+typedef enum pm_buddy_status {
+  ONLINE = 1,
+  AWAY,
+  OFFLINE,
+  BUSY,
+  SERVER
+} pm_buddy_status;
 
 #endif
