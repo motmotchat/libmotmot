@@ -56,27 +56,6 @@ void get_all_statuses(struct pm_account *);
 static PurplePlugin *_null_protocol = NULL;
 
 
-// TODO(carl): what is this?
-typedef void (*GcFunc)(PurpleConnection *from,
-                       PurpleConnection *to,
-                       void *userdata);
-
-typedef struct {
-  GcFunc fn;
-  PurpleConnection *from;
-  void *userdata;
-} GcFuncData;
-
-typedef void(*ChatFunc)(PurpleConvChat *from, PurpleConvChat *to,
-                        int id, const char *room, void *userdata);
-
-typedef struct {
-  ChatFunc fn;
-  PurpleConvChat *from_chat;
-  void *userdata;
-} ChatFuncData;
-
-
 /*
  * stores offline messages that haven't been delivered yet. maps username
  * (char *) to GList * of GOfflineMessages. initialized in purplemot_init.
@@ -107,49 +86,6 @@ get_purplemot_gc(const char *username)
     return acct->gc;
   else
     return NULL;
-}
-
-static void
-call_if_purplemot(void *data, void *userdata)
-{
-  PurpleConnection *gc = (PurpleConnection *)(data);
-  GcFuncData *gcfdata = (GcFuncData *)userdata;
-
-  if (!strcmp(gc->account->protocol_id, PURPLEMOT_ID))
-    gcfdata->fn(gcfdata->from, gc, gcfdata->userdata);
-}
-
-static void
-foreach_purplemot_gc(GcFunc fn, PurpleConnection *from, void *userdata) {
-  GcFuncData gcfdata = { fn, from, userdata };
-  g_list_foreach(purple_connections_get_all(), call_if_purplemot, &gcfdata);
-}
-
-
-static void
-call_chat_func(void *data, void *userdata)
-{
-  PurpleConnection *to = (PurpleConnection *)data;
-  ChatFuncData *cfdata = (ChatFuncData *)userdata;
-
-  int id = cfdata->from_chat->id;
-  PurpleConversation *conv = purple_find_chat(to, id);
-  if (conv) {
-    PurpleConvChat *chat = purple_conversation_get_chat_data(conv);
-    cfdata->fn(cfdata->from_chat, chat, id, conv->name, cfdata->userdata);
-  }
-}
-
-static void
-foreach_gc_in_chat(ChatFunc fn, PurpleConnection *from, int id, void *userdata)
-{
-  PurpleConversation *conv = purple_find_chat(from, id);
-  ChatFuncData cfdata = { fn,
-                          purple_conversation_get_chat_data(conv),
-                          userdata };
-
-  g_list_foreach(purple_connections_get_all(), call_chat_func,
-                 &cfdata);
 }
 
 /*
@@ -498,28 +434,12 @@ typing_state_to_string(PurpleTypingState typing)
   }
 }
 
-static void
-notify_typing(PurpleConnection *from, PurpleConnection *to, void *typing)
-{
-  const char *from_username = from->account->username;
-  const char *action = typing_state_to_string((PurpleTypingState)typing);
-  purple_debug_info("purplemot", "notifying %s that %s %s\n",
-                    to->account->username, from_username, action);
-
-  serv_got_typing(to,
-                  from_username,
-                  0, /* if non-zero, a timeout in seconds after which to
-                      * reset the typing status to PURPLE_NOT_TYPING */
-                  (PurpleTypingState)typing);
-}
-
 static unsigned int
 purplemot_send_typing(PurpleConnection *gc, const char *name,
     PurpleTypingState typing)
 {
   purple_debug_info("purplemot", "%s %s\n", gc->account->username,
                     typing_state_to_string(typing));
-  foreach_purplemot_gc(notify_typing, gc, (gpointer)typing);
   return 0;
 }
 
@@ -710,31 +630,6 @@ purplemot_set_permit_deny(PurpleConnection *gc)
    */
 }
 
-static void
-joined_chat(PurpleConvChat *from, PurpleConvChat *to, int id, const char *room,
-    void *userdata)
-{
-  /*  tell their chat window that we joined */
-  purple_debug_info("purplemot", "%s sees that %s joined chat room %s\n",
-                    to->nick, from->nick, room);
-  purple_conv_chat_add_user(to,
-                            from->nick,
-                            NULL,   /* user-provided join message, IRC style */
-                            PURPLE_CBFLAGS_NONE,
-                            TRUE);  /* show a join message */
-
-  if (from != to) {
-    /* add them to our chat window */
-    purple_debug_info("purplemot", "%s sees that %s is in chat room %s\n",
-                      from->nick, to->nick, room);
-    purple_conv_chat_add_user(from,
-                              to->nick,
-                              NULL,   /* user-provided join message, IRC style */
-                              PURPLE_CBFLAGS_NONE,
-                              FALSE);  /* show a join message */
-  }
-}
-
 // calls motmot_invite (libmotmot)
 static void
 purplemot_join_chat(PurpleConnection *gc, GHashTable *components)
@@ -750,9 +645,6 @@ purplemot_join_chat(PurpleConnection *gc, GHashTable *components)
 
   if (!purple_find_chat(gc, chat_id)) {
     serv_got_joined_chat(gc, chat_id, room);
-
-    /* tell everyone that we joined, and add them if they're already there */
-    foreach_gc_in_chat(joined_chat, gc, chat_id, NULL);
   } else {
     char *tmp = g_strdup_printf(_("%s is already in chat room %s."),
                                 username,
@@ -993,28 +885,6 @@ purplemot_remove_group(PurpleConnection *gc, PurpleGroup *group)
                     gc->account->username, group->name);
 }
 
-
-static void
-set_chat_topic_fn(PurpleConvChat *from, PurpleConvChat *to, int id,
-    const char *room, void *userdata)
-{
-  const char *topic = (const char *)userdata;
-  const char *username = from->conv->account->username;
-  char *msg;
-
-  purple_conv_chat_set_topic(to, username, topic);
-
-  if (topic && strlen(topic) > 0)
-    msg = g_strdup_printf(_("%s sets topic to: %s"), username, topic);
-  else
-    msg = g_strdup_printf(_("%s clears topic"), username);
-
-  purple_conv_chat_write(to, username, msg,
-                         PURPLE_MESSAGE_SYSTEM | PURPLE_MESSAGE_NO_LOG,
-                         time(NULL));
-  g_free(msg);
-}
-
 static void
 purplemot_set_chat_topic(PurpleConnection *gc, int id, const char *topic)
 {
@@ -1032,8 +902,6 @@ purplemot_set_chat_topic(PurpleConnection *gc, int id, const char *topic)
   if ((!topic && !last_topic) ||
       (topic && last_topic && !strcmp(topic, last_topic)))
     return;  /* topic is unchanged, this is a noop */
-
-  foreach_gc_in_chat(set_chat_topic_fn, gc, id, (gpointer)topic);
 }
 
 static int
