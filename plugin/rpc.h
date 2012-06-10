@@ -5,6 +5,8 @@
 #ifndef __RPC_H__
 #define __RPC_H__
 
+#include <msgpack.h>
+
 #include "purplemot.h"
 
 typedef enum rpc_opcode {
@@ -39,12 +41,14 @@ typedef enum rpc_opcode {
   OP_FRIEND_SERVER_DOWN = 91
 } rpcop_t;
 
-void rpc_login(struct motmot_conn *);
-void rpc_get_all_statuses(struct motmot_conn *);
-void rpc_register_friend(struct motmot_conn *, const char *);
-void rpc_unregister_friend(struct motmot_conn *, const char *);
-void rpc_get_status(struct motmot_conn *, const char *);
-void rpc_register_status(struct motmot_conn *, int);
-void rpc_accept_friend(struct motmot_conn *, const char *);
+int rpc_dispatch(struct pm_account *, const msgpack_object *);
+
+void rpc_login(struct pm_account *);
+void rpc_get_all_statuses(struct pm_account *);
+void rpc_register_friend(struct pm_account *, const char *);
+void rpc_unregister_friend(struct pm_account *, const char *);
+void rpc_get_status(struct pm_account *, const char *);
+void rpc_register_status(struct pm_account *, int);
+void rpc_accept_friend(struct pm_account *, const char *);
 
 #endif // __RPC_H__

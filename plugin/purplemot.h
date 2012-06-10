@@ -7,39 +7,32 @@
 
 #include "prpl.h"
 
-// TODO: documentation
-struct motmot_conn {
-  int fd;
-  char *server;
-  char *port;
-  PurpleAccount *account;
-  PurpleSslConnection *gsc;
-  GList *acceptance_list;
-  void *data;
-  GList *info_list;
+struct pm_account {
+  // libpurple objects
+  PurpleAccount *pa;            // libpurple calls this 'account', but I want
+                                // to use that name for other things
+  PurpleSslConnection *gsc;     // Name is libpurple's convention, not mine
+
+  // Server connection info
+  const char *server_host;
+  msgpack_unpacker unpacker;    // A msgpack unpacker (includes a buffer)
 };
 
-// TODO: documentation
-struct motmot_buddy {
-  const char *addr;
+struct pm_buddy {
+  struct pm_account *account;
+
+  // How do we contact them?
+  const char *ip;
   int port;
+
+  // How do we identify this buddy to libmotmot?
+  void *lm_data;
 };
 
-// Struct for passing data around to motmot callbacks.
-// TODO: documentation
-struct MotmotInfo {
-  PurpleAccount *account;
-  PurpleBuddy *buddy;
-  PurpleConnection *connection;
-  int id;
-  const char *message;
-  PurpleMessageFlags flags;
-  //GHashTable components;
-  PurpleConversation *from;
-  PurpleConversation *to;
-  gpointer room;
-  GHashTable *components;
-  void *internal_data;
+struct pm_conversation {
+  struct pm_account *account;
+  PurpleConversation *convo;
+  // TODO(carl): finish this;
 };
 
 #endif
