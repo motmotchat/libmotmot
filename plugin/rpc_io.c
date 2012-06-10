@@ -12,7 +12,58 @@
 #define BUFSIZE 512
 #define _
 
+static void rpc_connect_success(void *, PurpleSslConnection *,
+    PurpleInputCondition);
+static void rpc_connect_error(PurpleSslConnection *, PurpleSslErrorType,
+    void *);
+static void rpc_read(void *, PurpleSslConnection *, PurpleInputCondition);
+
 void
+rpc_connect(struct pm_account *account)
+{
+  account->gsc = purple_ssl_connect(account->pa, account->server_host,
+      MOTMOT_PORT, rpc_connect_success, rpc_connect_error, account);
+}
+
+void
+rpc_close(struct pm_account *account)
+{
+  purple_ssl_close(account->gsc);
+}
+
+static void
+rpc_connect_success(void *data, PurpleSslConnection *gsc,
+    PurpleInputCondition cond)
+{
+  struct pm_account *account;
+  PurpleStatus *status;
+
+  account = data;
+
+  rpc_login(account);
+  // TODO(carl): This should probably get pushed at us, not requested.
+  rpc_get_all_statuses(account);
+
+  purple_ssl_input_add(gsc, rpc_read, account);
+
+  // Publish our current status.
+  status = purple_account_get_active_status(account->pa);
+  // TODO(carl): make this actually work
+  //motmot_report_status(purple_status_get_id(status), account);
+}
+
+static void
+rpc_connect_error(PurpleSslConnection *gsc, PurpleSslErrorType error,
+    void *data)
+{
+  struct pm_account *account = data;
+
+  account->gsc = NULL;
+
+  purple_connection_ssl_error(account->pa->gc, error);
+}
+
+static void
 rpc_read(void *data, PurpleSslConnection *conn, PurpleInputCondition cond)
 {
   struct pm_account *account;

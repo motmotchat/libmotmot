@@ -82,8 +82,6 @@
 
 static void motmot_report_status(const char *, struct pm_account *);
 void get_all_statuses(struct pm_account *);
-static void motmot_login_cb(void *, PurpleSslConnection *, PurpleInputCondition);
-static void motmot_login_failure(PurpleSslConnection *, PurpleSslErrorType, void *);
 
 #define PURPLEMOT_ID "prpl-motmot"
 static PurplePlugin *_null_protocol = NULL;
@@ -409,9 +407,7 @@ purplemot_login(PurpleAccount *acct)
 
   purple_debug_info("motmot", "connecting to discovery server");
 
-  account->gsc = purple_ssl_connect(acct, account->server_host, port,
-      motmot_login_cb, motmot_login_failure, account);
-
+  rpc_connect(account);
 
 
   purple_connection_update_progress(gc, _("Connected"),
@@ -459,70 +455,12 @@ void update_remote_status(PurpleAccount *a, const char *friend_name, int status)
   }
 }
 
-/**
- * motmot_login_cb - callback for successful connection
- *
- * @param data The connection
- * @param gsc The ssl connection
- * @param cond The input condition
- */
-
-static void
-motmot_login_cb(void *data, PurpleSslConnection *gsc, PurpleInputCondition cond)
-{
-  struct pm_account *account;
-  PurpleStatus *status;
-
-  account = data;
-
-  rpc_login(account);
-  // TODO(carl): We shouldn't have to request this?
-  rpc_get_all_statuses(account);
-
-  purple_ssl_input_add(gsc, rpc_read, account);
-
-  // Publish our current status.
-  status = purple_account_get_active_status(account->pa);
-  motmot_report_status(purple_status_get_id(status), account);
-}
-
-/**
- * motmot_login_failure - callback for a failed connection
- *
- * @param gsc The ssl connection
- * @param error The error type
- * @param data User supplied data (the connection)
- */
-
-static void
-motmot_login_failure(PurpleSslConnection *gsc, PurpleSslErrorType error,
-    void *data)
-{
-  // XXX: this function is probably slightly sketch
-  PurpleConnection *gc = data;
-  struct pm_account *account = gc->proto_data;
-
-  account->gsc = NULL;
-
-  purple_connection_ssl_error(gc, error);
-}
-
-/**
- * purplemot_close - called when libpurple shuts down an account
- *
- * @params gc The connection
- */
-
-
 static void
 purplemot_close(PurpleConnection *gc)
 {
-  /* notify other purplemot accounts */
   struct pm_account *account = gc->proto_data;
-  PurpleAccount *a = account->pa;
-  motmot_report_status(purple_status_get_id(purple_account_get_active_status(a)), account);
 
-  purple_ssl_close(account->gsc);
+  rpc_close(account);
 }
 
 static int

@@ -9,6 +9,10 @@
 #include <prpl.h>
 #include <sslconn.h>
 
-void rpc_read(void *, PurpleSslConnection *, PurpleInputCondition);
+// TODO(carl): this should be actually chosen
+#define MOTMOT_PORT 1234
+
+void rpc_connect(struct pm_account *);
+void rpc_close(struct pm_account *);
 
 #endif // __RPC_IO_H__
