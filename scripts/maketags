@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+
+tags=$(basename $0)/tags
+files=$(mktemp -t tags)
+trap "rm $files" EXIT SIGINT SIGTERM
+
+if which brew > /dev/null; then
+  find `brew --prefix glib`/include -name "*.h" >> $files
+  find `brew --prefix msgpack`/include -name "*.h" >> $files
+  find `brew --prefix libpurple`/include -name "*.h" >> $files
+else
+  echo "Add support for your OS in $0!"
+fi
+
+ctags -L $files

@@ -18,7 +18,7 @@ motmot: $(SRC:.c=.o)
 	@mkdir -p $(DEPDIR)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPDIR)$(<:.c=.d) -c $< -o $@
 
-tags:
+tags: $(wildcard *.c) $(wildcard *.h)
 	ctags -R
 
 clean: disconn

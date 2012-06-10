@@ -8,7 +8,7 @@ INSTALLDIR = /usr/local/lib/purple-2/
 
 SRC = $(wildcard *.c)
 
-all: libmotmot.la
+all: libmotmot.la tags
 
 libmotmot.la: $(SRC:.c=.o)
 	$(LIBTOOL) --mode=link $(CC) $(LDFLAGS) -o libmotmot.la $(SRC:.c=.lo) -rpath $(INSTALLDIR)
@@ -25,7 +25,7 @@ install:
 
 clean:
 	-$(LIBTOOL) --mode=clean rm -rf $(SRC:.c=.lo) libmotmot.la
-	-rm -rf $(DEPDIR)
+	-rm -rf $(DEPDIR) tags
 
 
 -include $(addprefix $(DEPDIR),$(SRC:.c=.d))
