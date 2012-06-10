@@ -17,7 +17,7 @@ endif
 all: motmot tags
 
 motmot: $(SRC:.c=.o) murmurhash
-	$(CC) $(LDFLAGS) -o motmot $(SRC:.c=.o)
+	$(CC) $(LDFLAGS) -o motmot $(SRC:.c=.o) $(MURMUR).o
 
 .c.o:
 	@mkdir -p $(DEPDIR)
