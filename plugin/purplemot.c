@@ -28,30 +28,12 @@
 #define PURPLE_PLUGINS 1
 
 #include <ctype.h>
-#include <errno.h>
 #include <glib.h>
-#include <msgpack.h>
-#include <stdarg.h>
-#include <string.h>
-#include <time.h>
+#include <motmot.h>
 
-#include "motmot.h"
-
-#include "account.h"
 #include "accountopt.h"
-#include "blist.h"
 #include "cmds.h"
-#include "conversation.h"
-#include "connection.h"
 #include "debug.h"
-#include "notify.h"
-#include "plugin.h"
-#include "privacy.h"
-#include "prpl.h"
-#include "roomlist.h"
-#include "sslconn.h"
-#include "status.h"
-#include "util.h"
 #include "version.h"
 
 #include "purplemot.h"
@@ -64,7 +46,6 @@
 
 #define DISPLAY_VERSION "1"
 #define MOTMOT_WEBSITE "https://motmotchat.com"
-
 
 #define DEFAULT_SERV "motmottest.com"
 #define DEFAULT_PORT 8888

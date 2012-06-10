@@ -5,6 +5,8 @@
 #ifndef __PURPLEMOT_H__
 #define __PURPLEMOT_H__
 
+#include <msgpack.h>
+
 #include "prpl.h"
 
 struct pm_account {
