@@ -15,4 +15,4 @@ else
   echo "Add support for your OS in $0!"
 fi
 
-ctags -L "$files" -f "$tags"
+ctags -L "$files" -f "$tags" --c++-kinds=+px
