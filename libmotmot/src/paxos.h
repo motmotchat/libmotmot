@@ -207,7 +207,7 @@ struct paxos_value {
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
   paxid_t pa_paxid;                   // instance number of the agent's JOIN
-  struct paxos_channel *pa_conn;      // connection to acceptor
+  struct paxos_connect *pa_conn;      // connection to acceptor
   LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
   // TODO: remove
   struct paxos_peer *pa_peer;

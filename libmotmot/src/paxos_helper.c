@@ -113,7 +113,6 @@ connect_hash(const void *data)
 int
 connect_compare(const void *x, const void *y)
 {
-  int r;
   struct paxos_connect *conn_x, *conn_y;
 
   conn_x = (struct paxos_connect *)x;
@@ -124,12 +123,6 @@ connect_compare(const void *x, const void *y)
   } if (conn_x->pc_size > conn_y->pc_size) {
     return 1;
   } else /* conn_x->pc_size == conn_y->pc_size */ {
-    return 0;
-  }
-
-  if (r) {
-    return r;
-  } else {
     return memcmp(conn_x->pc_desc, conn_y->pc_desc, conn_x->pc_size);
   }
 }
