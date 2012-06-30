@@ -7,13 +7,13 @@
 
 #include "paxos.h"
 #include "paxos_continue.h"
-#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_state.h"
 #include "paxos_util.h"
-#include "list.h"
+#include "containers/list.h"
 
 // Global system state.
 struct paxos_state state;
@@ -41,7 +41,7 @@ paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
 
   LIST_INIT(&state.sessions);
   connect_hashinit();
-  state.connections = g_hash_table_new(connect_hash, connect_compare);
+  state.connections = connect_container_new();
 
   return 0;
 }
@@ -116,7 +116,7 @@ paxos_start(const void *desc, size_t size, void *data)
 
   // Add a sync for this session.
   uuid = g_malloc0(sizeof(*uuid));
-  *uuid = pax->session_id;
+  *uuid = *pax->session_id;
   g_timeout_add_seconds(1, paxos_sync, uuid);
 
   return pax;
@@ -385,7 +385,7 @@ paxos_dispatch(struct paxos_peer *source, const msgpack_object *o)
   paxos_header_unpack(hdr, o->via.array.ptr);
 
   // Bind `pax` to the session identified in the message header.
-  pax = session_find(&state.sessions, hdr->ph_session);
+  pax = session_find(&state.sessions, &hdr->ph_session);
   if (pax == NULL) {
     // If we have no session, wait for a welcome message.
     if (hdr->ph_opcode == OP_WELCOME) {

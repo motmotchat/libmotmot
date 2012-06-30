@@ -7,13 +7,13 @@
 
 #include "paxos.h"
 #include "paxos_continue.h"
-#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_state.h"
 #include "paxos_util.h"
-#include "list.h"
+#include "containers/list.h"
 
 #define SYNC_SKIP_THRESH  30
 
@@ -27,7 +27,7 @@ int paxos_sync(void *data)
   // Set the session.  We parametrize paxos_sync with a pointer to a session
   // ID when we add it to the main event loop.
   uuid = (pax_uuid_t *)data;
-  pax = session_find(&state.sessions, *uuid);
+  pax = session_find(&state.sessions, uuid);
 
   if (is_proposer()) {
     proposer_sync();
@@ -168,7 +168,7 @@ proposer_ack_last(struct paxos_header *hdr, msgpack_object *o)
  * We also free all associated requests.
  */
 static void
-ilist_truncate_prefix(struct instance_list *ilist, paxid_t inum)
+ilist_truncate_prefix(instance_container *ilist, paxid_t inum)
 {
   struct paxos_instance *it;
   struct paxos_request *req;

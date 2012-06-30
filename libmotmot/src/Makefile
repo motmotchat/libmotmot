@@ -4,11 +4,11 @@ CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0` -O2
 MURMURDIR = ../ext/murmurhash
 MURMUR = $(MURMURDIR)/murmurhash3
 
-CFLAGS += -I../include -I$(MURMURDIR)
+CFLAGS += -I. -I../include -I$(MURMURDIR)
 LDFLAGS = `pkg-config --libs glib-2.0` -lmsgpack
 
 DEPDIR = .deps/
-SRC = $(wildcard *.c)
+SRC = $(wildcard *.c) $(wildcard types/*.c)
 
 ifdef DEBUG
 	CFLAGS += -DDEBUG
@@ -21,6 +21,7 @@ motmot: $(SRC:.c=.o) murmurhash
 
 .c.o:
 	@mkdir -p $(DEPDIR)
+	@mkdir -p $(DEPDIR)/types
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPDIR)$(<:.c=.d) -c $< -o $@
 
 murmurhash:

@@ -7,13 +7,13 @@
 
 #include "paxos.h"
 #include "paxos_continue.h"
-#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_state.h"
 #include "paxos_util.h"
-#include "list.h"
+#include "containers/list.h"
 
 /**
  * proposer_welcome - Welcome a new protocol participant by passing along
@@ -145,13 +145,13 @@ acceptor_ack_welcome(struct paxos_peer *source, struct paxos_header *hdr,
   assert(arr->type == MSGPACK_OBJECT_ARRAY);
   p = (arr++)->via.array.ptr;
 
-  paxos_uuid_unpack(&pax->session_id, p++);
+  paxos_uuid_unpack(pax->session_id, p++);
   assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
   pax->ibase = (p++)->via.u64;
 
   // Add a sync for this session.
   uuid = g_malloc0(sizeof(*uuid));
-  *uuid = pax->session_id;
+  *uuid = *pax->session_id;
   g_timeout_add_seconds(1, paxos_sync, uuid);
 
   // Make sure the alist is well-formed.

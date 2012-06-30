@@ -6,7 +6,6 @@
 
 #include "motmot.h"
 #include "paxos.h"
-#include "list.h"
 
 /**
  * motmot_init - Initialize libmotmot.

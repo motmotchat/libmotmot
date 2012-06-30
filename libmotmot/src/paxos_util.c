@@ -1,6 +1,6 @@
 /**
- * paxos_util.c - Utility functions for Paxos which read and write to session
- * state.  Closer to the protocol than paxos_helper.c.
+ * paxos_util.c - Utility functions for Paxos.  Most of these functions
+ * manipulate session-local state (i.e., pax) in some way.
  */
 
 #include <assert.h>
@@ -8,13 +8,13 @@
 
 #include "paxos.h"
 #include "paxos_continue.h"
-#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_state.h"
 #include "paxos_util.h"
-#include "list.h"
+#include "containers/list.h"
 
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -73,7 +73,6 @@ request_needs_cached(dkind_t dkind)
 {
   return (dkind == DEC_CHAT || dkind == DEC_JOIN);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -140,4 +139,52 @@ proposer_decree_part(struct paxos_acceptor *acc, int force)
   } else {
     return proposer_decree(inst);
   }
+}
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Message delivery I/O wrappers
+//
+
+/**
+ * Send a message to any acceptor.
+ */
+int
+paxos_send(struct paxos_acceptor *acc, struct paxos_yak *py)
+{
+  return paxos_peer_send(acc->pa_peer, paxos_payload_data(py),
+      paxos_payload_size(py));
+}
+
+/**
+ * Send a message to the proposer.
+ */
+int
+paxos_send_to_proposer(struct paxos_yak *py)
+{
+  if (pax->proposer == NULL) {
+    return 1;
+  }
+
+  return paxos_send(pax->proposer, py);
+}
+
+/**
+ * Broadcast a message to all acceptors.
+ */
+int
+paxos_broadcast(struct paxos_yak *py)
+{
+  int r = 0;
+  struct paxos_acceptor *acc;
+
+  LIST_FOREACH(acc, &(pax->alist), pa_le) {
+    if (acc->pa_peer == NULL) {
+      continue;
+    }
+
+    ERR_ACCUM(r, paxos_send(acc, py));
+  }
+
+  return r;
 }

@@ -7,13 +7,13 @@
 
 #include "paxos.h"
 #include "paxos_continue.h"
-#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_state.h"
 #include "paxos_util.h"
-#include "list.h"
+#include "containers/list.h"
 
 /**
  * acceptor_retry - Ask the proposer to give us a commit we are missing.

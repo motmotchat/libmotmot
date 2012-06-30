@@ -8,13 +8,13 @@
 
 #include "paxos.h"
 #include "paxos_continue.h"
-#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_state.h"
 #include "paxos_util.h"
-#include "list.h"
+#include "containers/list.h"
 
 #define DEATH_ADJUSTED(n) ((n) + (LIST_COUNT(&pax->alist) - pax->live_count))
 
@@ -175,7 +175,7 @@ do_continue_ack_redirect(GIOChannel *chan, struct paxos_acceptor *acc,
     // Destroy the defer list; we're finished trying to prepare.
     // XXX: Do we want to somehow pass it to the real proposer?  How do we
     // know which requests were made for us?
-    instance_list_destroy(&pax->idefer);
+    instance_container_destroy(&pax->idefer);
 
     // Say hello.
     return paxos_hello(acc);
@@ -302,7 +302,7 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
     // out about the drop and then reprepare.
     g_free(pax->prep);
     pax->prep = NULL;
-    instance_list_destroy(&pax->idefer);
+    instance_container_destroy(&pax->idefer);
 
     // Say hello.
     ERR_ACCUM(r, paxos_hello(acc));

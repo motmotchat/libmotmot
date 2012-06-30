@@ -7,13 +7,13 @@
 
 #include "paxos.h"
 #include "paxos_continue.h"
-#include "paxos_helper.h"
 #include "paxos_io.h"
 #include "paxos_msgpack.h"
 #include "paxos_print.h"
 #include "paxos_protocol.h"
+#include "paxos_state.h"
 #include "paxos_util.h"
-#include "list.h"
+#include "containers/list.h"
 
 static inline void
 swap(void **p1, void **p2)
@@ -117,7 +117,7 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
   }
 
   // Initialize a Paxos header.
-  hdr.ph_session = pax->session_id;
+  hdr.ph_session = *pax->session_id;
   hdr.ph_ballot.id = pax->prep->pp_ballot.id;
   hdr.ph_ballot.gen = pax->prep->pp_ballot.gen;
   hdr.ph_opcode = OP_PREPARE;
@@ -137,7 +137,7 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
  * number <= inum.  We are passed in an iterator to simulate a continuation.
  */
 static struct paxos_instance *
-get_instance_glb(struct paxos_instance *it, struct instance_list *ilist,
+get_instance_glb(struct paxos_instance *it, instance_container *ilist,
     paxid_t inum)
 {
   struct paxos_instance *prev;

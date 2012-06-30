@@ -6,8 +6,16 @@
 
 #include "paxos.h"
 #include "paxos_io.h"
+#include "paxos_protocol.h"
+#include "paxos_state.h"
 
 #define PIO_BUFSIZE 4096
+
+struct paxos_peer {
+  GIOChannel *pp_channel;         // Channel to the peer.
+  msgpack_unpacker pp_unpacker;   // Unpacker (and its associated read buffer).
+  GString *pp_write_buffer;       // Write buffer.
+};
 
 // Private stuff.
 int paxos_peer_read(GIOChannel *, GIOCondition, void *);

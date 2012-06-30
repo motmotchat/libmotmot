@@ -9,6 +9,9 @@
 
 #include "paxos.h"
 
+/* Dispatch. */
+int paxos_dispatch(struct paxos_peer *, const msgpack_object *);
+
 /* Learner operations. */
 int paxos_commit(struct paxos_instance *);
 int paxos_learn(struct paxos_instance *, struct paxos_request *);

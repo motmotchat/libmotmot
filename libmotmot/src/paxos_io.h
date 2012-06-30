@@ -7,12 +7,7 @@
 #include <glib.h>
 #include <msgpack.h>
 
-// Clients of paxos_io.h should treat this struct as opaque.
-struct paxos_peer {
-  GIOChannel *pp_channel;         // Channel to the peer.
-  msgpack_unpacker pp_unpacker;   // Unpacker (and its associated read buffer).
-  GString *pp_write_buffer;       // Write buffer.
-};
+struct paxos_peer;
 
 struct paxos_peer *paxos_peer_init(GIOChannel *);
 void paxos_peer_destroy(struct paxos_peer *);
