@@ -200,6 +200,3 @@ if __name__ == '__main__':
     send = sendGreenlet(sock)
     send.start()
     recv.join()
-
-
-

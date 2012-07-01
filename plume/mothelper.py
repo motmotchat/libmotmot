@@ -19,5 +19,3 @@ def execute_query(q, params):
     finally:
         if con:
             con.close()
-
-

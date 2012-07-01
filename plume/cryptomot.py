@@ -64,4 +64,3 @@ def signCert(cert_dir, certStr, userName):
         return crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
     else:
         raise CertNameMismatch
-
