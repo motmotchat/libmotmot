@@ -5,21 +5,13 @@ import gevent.socket
 import gevent.server
 import gevent.queue
 import msgpack
-import sys
-import socket as bSock
 
 import rpc
 import cryptomot
 
-DOMAIN_NAME = ""
-
 class Connection():
     new = gevent.queue.Queue()
     dead = gevent.queue.Queue()
-
-    # used to allow for push updates
-    # XXX: I don't think this works as expected...
-    connTbl = {}
 
     def __init__(self, socket, address):
         self.socket = socket
@@ -34,10 +26,6 @@ class Connection():
         # Spawn off reader-writer greenlets to process the queues
         gevent.spawn(self.__reader__)
         gevent.spawn(self.__writer__)
-
-        # give the connection the server domain
-        # this is needed for server-server auth
-        self.domain = DOMAIN_NAME
 
         Connection.new.put(self)
 
@@ -67,12 +55,10 @@ class Connection():
             self.socket.sendall(buf)
 
 if __name__ == '__main__':
-    DOMAIN_NAME = sys.argv[1]
     cryptomot.create_self_signed_cert('cert', DOMAIN_NAME)
     gevent.spawn(rpc.new_connection_watcher, Connection.new)
 
-    server = gevent.server.StreamServer(
-            (bSock.gethostbyname(DOMAIN_NAME), 8888),
+    server = gevent.server.StreamServer(('127.0.0.1', 8888),
             Connection,
             keyfile='cert/motmot.key',
             certfile='cert/motmot.crt')
