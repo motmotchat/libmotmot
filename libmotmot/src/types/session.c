@@ -14,6 +14,7 @@ session_new(void *data, int gen_uuid)
   struct paxos_session *session;
 
   session = g_malloc0(sizeof(*session));
+  session->session_id = g_malloc0(sizeof(*session->session_id));
 
   // Generate a UUID and set client data pointer if desired.
   if (gen_uuid) {
