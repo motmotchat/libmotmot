@@ -30,10 +30,10 @@ murmurhash:
 tags: $(wildcard *.c) $(wildcard *.h)
 	ctags -R
 
-clean: disconn
+clean: unsock
 	-rm -rf $(DEPDIR) $(SRC:.c=.o) motmot
 
-disconn:
-	-rm -rf conn/*
+unsock:
+	-rm -rf sock/*
 
 -include $(addprefix $(DEPDIR),$(SRC:.c=.d))
