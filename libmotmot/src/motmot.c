@@ -27,9 +27,9 @@ motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
  * motmot_session - Start a new motmot chat.
  */
 void *
-motmot_session(const void *desc, size_t size, void *data)
+motmot_session(const char *alias, size_t size, void *data)
 {
-  return paxos_start(desc, size, data);
+  return paxos_start(alias, size, data);
 }
 
 /**
@@ -45,9 +45,9 @@ motmot_watch(GIOChannel *channel)
  * motmot_invite - Add user to chat.
  */
 int
-motmot_invite(const void *handle, size_t len, void *data)
+motmot_invite(const char *alias, size_t len, void *data)
 {
-  return paxos_request(data, DEC_JOIN, handle, len);
+  return paxos_request(data, DEC_JOIN, alias, len);
 }
 
 /**

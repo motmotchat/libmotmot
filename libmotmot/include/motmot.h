@@ -32,14 +32,14 @@ struct motmot_connect_cb {
 /**
  * connect_t - Connection establishment callback type.
  *
- * @param desc      An opaque descriptor recognized by the client that uniquely
+ * @param alias     String handle recognized by the client that uniquely
  *                  identifies an individual to connect to.
- * @param size      The size of the handle.
+ * @param size      Length of the alias.
  * @param cb        A callback to be used when the connection attempt
  *                  completes.
  * @returns         0 on success, nonzero on error.
  */
-typedef int (*connect_t)(const void *desc, size_t size,
+typedef int (*connect_t)(const char *alias, size_t size,
     struct motmot_connect_cb *cb);
 
 /**
@@ -48,14 +48,14 @@ typedef int (*connect_t)(const void *desc, size_t size,
  * @param message   The message to learn.  For chats, this is the chat message
  *                  itself.  It is not used for joins and parts.
  * @param len       The size of that message.
- * @param desc      Opaque descriptor identifying a client.  For chats, it
- *                  is the message source; for joins and parts, it is the
- *                  joining or parting client.
- * @param size      Size of the descriptor object.
+ * @param alias     String handle identifying a client.  For chats, it is the
+ *                  message source; for joins and parts, it is the joining or
+ *                  parting client.
+ * @param size      Length of the alias.
  * @param data      Data pointer used by the client to identify the session.
  * @returns         0 on success, nonzero on error.
  */
-typedef int (*learn_t)(const void *message, size_t len, void *desc,
+typedef int (*learn_t)(const void *message, size_t len, const char *alias,
     size_t size, void *data);
 
 /**
@@ -96,14 +96,14 @@ int motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
 /**
  * motmot_session - Start a new motmot chat.
  *
- * @param desc      Opaque descriptor identifying the chat initiator.
- * @param size      Size of the descriptor object.
+ * @param alias     String handle identifying the chat initiator.
+ * @param size      Length of the alias.
  * @param data      Data pointer used by the client to identify the session.
  * @returns         Pointer to motmot's internal session data.  This object
  *                  should be treated as opaque by the client and should be
  *                  passed as an argument to relevant motmot functions.
  */
-void *motmot_session(const void *desc, size_t size, void *data);
+void *motmot_session(const char *alias, size_t size, void *data);
 
 /**
  * motmot_watch - Watch a given channel for activity.
@@ -116,13 +116,13 @@ int motmot_watch(GIOChannel *channel);
 /**
  * motmot_invite - Add user to chat.
  *
- * @param desc      Opaque descriptor recognized by the client's connect
- *                  callback, used to identify the invitee.
- * @param size      Size of the descriptor object.
+ * @param alias     String handle recognized by the client's connect callback,
+ *                  used to uniquely identify the invitee.
+ * @param size      Length of the alias.
  * @param data      Data pointer used by motmot to identify the session.
  * @returns         0 on success, nonzero on error.
  */
-int motmot_invite(const void *desc, size_t size, void *data);
+int motmot_invite(const char *alias, size_t size, void *data);
 
 /**
  * motmot_disconnect - Request to disconnect from a chat.

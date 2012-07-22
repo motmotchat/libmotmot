@@ -27,7 +27,7 @@ void *session;
  * socket_open - Create a local UNIX socket and wrap it in a GIOChannel.
  */
 GIOChannel *
-socket_open(const char *handle, size_t len, bool listening)
+socket_open(const char *alias, size_t len, bool listening)
 {
   int s;
   struct sockaddr_un *saddr;
@@ -35,7 +35,7 @@ socket_open(const char *handle, size_t len, bool listening)
 
   saddr = g_malloc0(sizeof(short) + len);
   saddr->sun_family = AF_UNIX;
-  memcpy(&saddr->sun_path, handle, len);
+  memcpy(&saddr->sun_path, alias, len);
 
   err((s = socket(PF_LOCAL, SOCK_STREAM, 0)) < 0, "socket");
 
@@ -57,17 +57,17 @@ socket_open(const char *handle, size_t len, bool listening)
 }
 
 GIOChannel *
-listen_unix(const void *handle, size_t len)
+listen_unix(const char *alias, size_t len)
 {
-  return socket_open((char *)handle, len, true);
+  return socket_open(alias, len, true);
 }
 
 int
-connect_unix(const void *handle, size_t len, struct motmot_connect_cb *cb)
+connect_unix(const char *alias, size_t len, struct motmot_connect_cb *cb)
 {
   GIOChannel *chan;
 
-  chan = socket_open((char *)handle, len, false);
+  chan = socket_open(alias, len, false);
   return cb->func(chan, cb->data);
 }
 
@@ -150,25 +150,28 @@ input_loop(GIOChannel *channel, GIOCondition condition, void *data)
 }
 
 int
-print_chat(const void *buf, size_t len, void *desc, size_t size, void *data)
+print_chat(const void *buf, size_t len, const char *alias,
+    size_t size, void *data)
 {
-  printf("CHAT(%.*s): %.*s\n", (int)size, (char *)desc, (int)len, (char *)buf);
+  printf("CHAT(%.*s): %.*s\n", (int)size, alias, (int)len, (char *)buf);
   fflush(stdout);
   return 0;
 }
 
 int
-print_join(const void *buf, size_t len, void *desc, size_t size, void *data)
+print_join(const void *buf, size_t len, const char *alias,
+    size_t size, void *data)
 {
-  printf("JOIN: %.*s\n", (int)size, (char *)desc);
+  printf("JOIN: %.*s\n", (int)size, alias);
   fflush(stdout);
   return 0;
 }
 
 int
-print_part(const void *buf, size_t len, void *desc, size_t size, void *data)
+print_part(const void *buf, size_t len, const char *alias,
+    size_t size, void *data)
 {
-  printf("PART: %.*s\n", (int)size, (char *)desc);
+  printf("PART: %.*s\n", (int)size, alias);
   fflush(stdout);
   return 0;
 }
