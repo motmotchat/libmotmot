@@ -19,16 +19,22 @@ typedef struct paxid_pair {
   paxid_t gen;            // generation number of some sort
 } ppair_t;
 
-/* A string!  Used in Paxos! */
+/* A string!  Used in Paxos!  Also it's const. */
 typedef struct paxos_string {
-  size_t size;
   const char *data;
+  size_t size;
 } pax_str_t;
 
 /* Comparison functions. */
 int paxid_compare(paxid_t, paxid_t);
 int ppair_compare(ppair_t, ppair_t);
 int pax_str_compare(pax_str_t *, pax_str_t *);
+
+/* String wrapping. */
+void pax_str_init(pax_str_t *, const char *, size_t);
+void pax_str_reset(pax_str_t *);
+pax_str_t *pax_str_new(const char *, size_t);
+void pax_str_destroy(pax_str_t *);
 
 /* UUID helpers. */
 void pax_uuid_gen(pax_uuid_t *);

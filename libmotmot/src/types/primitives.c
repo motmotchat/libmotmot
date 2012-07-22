@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <glib.h>
+
 #include "paxos_msgpack.h"
 #include "types/primitives.h"
 
@@ -57,6 +59,41 @@ pax_str_compare(pax_str_t *x, pax_str_t *y) {
   } else /* x->size == y->size */ {
     return memcmp(x->data, y->data, x->size);
   }
+}
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  String wrapping.
+//
+
+void
+pax_str_init(pax_str_t *str, const char *data, size_t size)
+{
+  str->data = g_memdup(data, size);
+  str->size = size;
+}
+
+void
+pax_str_reset(pax_str_t *str)
+{
+  g_free((void *)str->data);
+  str->data = NULL;
+  str->size = 0;
+}
+
+pax_str_t *
+pax_str_new(const char *data, size_t size) {
+  pax_str_t *str;
+
+  str = g_malloc(sizeof(*str));
+  pax_str_init(str, data, size);
+
+  return str;
+}
+
+void pax_str_destroy(pax_str_t *str) {
+  pax_str_reset(str);
+  g_free(str);
 }
 
 ///////////////////////////////////////////////////////////////////////////
