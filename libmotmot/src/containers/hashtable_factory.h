@@ -89,6 +89,32 @@
   }
 
 /**
+ * Factory for implementing hashtable remove for a Paxos struct that
+ * contains its key as an inlined field.
+ *
+ * @param name        Name of the struct, i.e., struct paxos_{name}.
+ */
+#define HASHTABLE_IMPLEMENT_REMOVE_INL(name, key_field)                     \
+  inline void                                                               \
+  name##_remove(name##_container *ht, struct paxos_##name *value)           \
+  {                                                                         \
+    g_hash_table_remove(ht, &value->key_field);                             \
+  }
+
+/**
+ * Factory for implementing hashtable remove for a Paxos struct that
+ * contains a pointer to its key as a field.
+ *
+ * @param name        Name of the struct, i.e., struct paxos_{name}.
+ */
+#define HASHTABLE_IMPLEMENT_REMOVE_PTR(name, key_field)                     \
+  inline void                                                               \
+  name##_remove(name##_container *ht, struct paxos_##name *value)           \
+  {                                                                         \
+    g_hash_table_remove(ht, value->key_field);                              \
+  }
+
+/**
  * Declare a hashtable type and hashtable utility prototypes.
  */
 #define HASHTABLE_DECLARE(name)                                             \
@@ -98,7 +124,8 @@
   inline void name##_container_destroy(name##_container *);                 \
   inline struct paxos_##name *name##_find(name##_container *, void *);      \
   inline struct paxos_##name *name##_insert(name##_container *,             \
-      struct paxos_##name *);
+      struct paxos_##name *);                                               \
+  inline void name##_remove(name##_container *, struct paxos_##name *);
 
 /**
  * Implement a list container for a particular Paxos struct.
@@ -108,4 +135,5 @@
   HASHTABLE_IMPLEMENT_NEW(name, hash, equals);                              \
   HASHTABLE_IMPLEMENT_DESTROY(name);                                        \
   HASHTABLE_IMPLEMENT_FIND(name);                                           \
-  HASHTABLE_IMPLEMENT_INSERT##_fkind(name, key_field);
+  HASHTABLE_IMPLEMENT_INSERT##_fkind(name, key_field);                      \
+  HASHTABLE_IMPLEMENT_REMOVE##_fkind(name, key_field);

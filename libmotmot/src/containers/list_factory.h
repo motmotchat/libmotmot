@@ -135,6 +135,19 @@
   }
 
 /**
+ * Factory for implementing list remove for a Paxos struct.
+ *
+ * @param name        Name of the struct, i.e., struct paxos_{name}.
+ * @param le_field    Name of the struct's list entry field.
+ */
+#define LIST_IMPLEMENT_REMOVE(name, le_field)                               \
+  inline void                                                               \
+  name##_remove(name##_container *head, struct paxos_##name *elt)           \
+  {                                                                         \
+    LIST_REMOVE(head, elt, le_field);                                       \
+  }
+
+/**
  * Declare a list type and list utility prototypes.
  */
 #define LIST_DECLARE(name, id_t)                                            \
@@ -144,7 +157,8 @@
   void name##_container_destroy(name##_container *);                        \
   struct paxos_##name *name##_find(name##_container *, id_t);               \
   struct paxos_##name *name##_insert(name##_container *,                    \
-      struct paxos_##name *);
+      struct paxos_##name *);                                               \
+  inline void name##_remove(name##_container *, struct paxos_##name *);
 
 /**
  * Implement a list container for a particular Paxos struct.
@@ -154,4 +168,5 @@
   LIST_IMPLEMENT_NEW(name);                                                 \
   LIST_IMPLEMENT_DESTROY(name, le_field, dstr);                             \
   LIST_IMPLEMENT_FIND(name, id_t, le_field, id_field, cmp, _f);             \
-  LIST_IMPLEMENT_INSERT(name, le_field, id_field, cmp, _i);
+  LIST_IMPLEMENT_INSERT(name, le_field, id_field, cmp, _i);                 \
+  LIST_IMPLEMENT_REMOVE(name, le_field);
