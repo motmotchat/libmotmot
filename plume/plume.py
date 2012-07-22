@@ -7,6 +7,7 @@ import gevent.server
 gevent.monkey.patch_all()
 
 from connection import Connection
+import db
 import rpc
 
 if __name__ == '__main__':
