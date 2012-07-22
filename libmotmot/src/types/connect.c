@@ -13,6 +13,31 @@ uint32_t murmurseed;
 
 HASHTABLE_IMPLEMENT(connect, pc_id, connect_key_hash, connect_key_equals, _INL);
 
+struct paxos_connect *
+connect_new(const char *handle, size_t size)
+{
+  struct paxos_connect *conn;
+
+  conn = g_malloc0(sizeof(*conn));
+  conn->pc_id.size = size;
+  conn->pc_id.data = g_memdup(handle, size);
+
+  return conn;
+}
+
+void
+connect_destroy(struct paxos_connect *conn)
+{
+  g_free((void *)conn->pc_id.data);
+  paxos_peer_destroy(conn->pc_peer);
+  g_free(conn);
+}
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Hashtable callbacks.
+//
+
 /**
  * Initialize Murmurhash.
  */

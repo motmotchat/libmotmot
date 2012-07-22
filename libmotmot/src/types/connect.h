@@ -19,6 +19,9 @@ struct paxos_connect {
 
 HASHTABLE_DECLARE(connect);
 
+struct paxos_connect *connect_new(const char *, size_t);
+void connect_destroy(struct paxos_connect *);
+
 /* Paxos connection GLib hashtable utilities. */
 void connect_hashinit(void);
 unsigned connect_key_hash(const void *);
