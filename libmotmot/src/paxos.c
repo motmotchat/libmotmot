@@ -130,13 +130,14 @@ paxos_end(void *session)
 {
   pax = (struct paxos_session *)session;
 
-  // Destroy the session.
-  LIST_REMOVE(&state.sessions, pax, session_le);
-  session_destroy(pax);
-
   // Tell the client that the session is ending.  The client must promise us
   // that no more calls into Paxos will be made for the terminating session.
   state.leave(pax->client_data);
+
+  // Destroy the session.
+  LIST_REMOVE(&state.sessions, pax, session_le);
+  session_destroy(pax);
+  pax = NULL;
 
   return 1;
 }
