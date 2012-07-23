@@ -2,6 +2,7 @@
  * connect.c - Utilities for Paxos connections.
  */
 
+#include <assert.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <murmurhash3.h>
@@ -79,4 +80,36 @@ int
 connect_key_equals(const void *x, const void *y)
 {
   return !pax_str_compare((pax_str_t *)x, (pax_str_t *)y);
+}
+
+///////////////////////////////////////////////////////////////////////////
+//
+//  Msgpack helpers.
+//
+
+void
+paxos_connect_pack(struct paxos_yak *py, struct paxos_connect *conn)
+{
+  msgpack_pack_array(py->pk, 1);
+  msgpack_pack_raw(py->pk, conn->pc_alias.size);
+  msgpack_pack_raw_body(py->pk, conn->pc_alias.data, conn->pc_alias.size);
+}
+
+void
+paxos_connect_unpack(struct paxos_connect *conn, msgpack_object *o)
+{
+  msgpack_object *p;
+
+  // Make sure the input is well-formed.
+  assert(o->type == MSGPACK_OBJECT_ARRAY);
+  assert(o->via.array.size == 1);
+
+  conn->pc_peer = NULL;
+  conn->pc_refs = 0;
+  conn->pc_pending = false;
+
+  p = o->via.array.ptr;
+  assert(p->type == MSGPACK_OBJECT_RAW);
+  conn->pc_alias.size = p->via.raw.size;
+  conn->pc_alias.data = g_memdup(p->via.raw.ptr, p->via.raw.size);
 }
