@@ -1,5 +1,5 @@
 /**
- * paxos_continue.h - Boilerplate macro for continuation-like callbacks which
+ * paxos_connect.h - Boilerplate macro for continuation-like callbacks which
  * are invoked by the client once GIOChannel connections are established.
  */
 
