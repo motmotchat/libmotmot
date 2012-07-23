@@ -9,8 +9,8 @@ from collections import defaultdict
 
 # Hey look a database!
 try:
-    db = redis.StrictRedis(host='localhost', port=6379, db=0)
-    db.get('') # A dummy key so we actually hit the database
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
+    r.get('') # A dummy key so we actually hit the database
 except redis.ConnectionError:
     print "Could not connect to redis :("
     print "Aborting..."
@@ -21,7 +21,7 @@ except redis.ConnectionError:
 __subscriptions = defaultdict(set)
 
 def publish(chan, obj):
-    db.publish(chan, msgpack.packb(obj))
+    r.publish(chan, msgpack.packb(obj))
 
 def subscribe(chan, queue):
     __subscriptions[chan].add(queue)
@@ -30,7 +30,7 @@ def unsubscribe(chan, queue):
     __subscriptions[chan].remove(queue)
 
 def __subscription_consumer():
-    pubsub = db.pubsub()
+    pubsub = r.pubsub()
     pubsub.subscribe('*')
     for msg in pubsub.listen():
         chan = msg['channel']
