@@ -1,28 +1,14 @@
 /**
- * session_local.h - Session local datatypes for Paxos.
+ * decree.h - Datatypes associated with Paxos decrees.
  */
-#ifndef __PAXOS_TYPES_SESSION_LOCAL_H__
-#define __PAXOS_TYPES_SESSION_LOCAL_H__
+#ifndef __PAXOS_TYPES_DECREE_H__
+#define __PAXOS_TYPES_DECREE_H__
 
 #include "paxos_msgpack.h"
 
 #include "containers/list_factory.h"
 #include "types/primitives.h"
 #include "types/core.h"
-
-/* A Paxos protocol participant. */
-struct paxos_acceptor {
-  paxid_t pa_paxid;                   // instance number of the agent's JOIN
-  struct paxos_connect *pa_conn;      // connection to acceptor
-  LIST_ENTRY(paxos_acceptor) pa_le;   // sorted linked list of all participants
-  // TODO: remove
-  struct paxos_peer *pa_peer;
-  size_t pa_size;
-  void *pa_desc;
-};
-
-LIST_DECLARE(acceptor, paxid_t);
-void acceptor_destroy(struct paxos_acceptor *);
 
 /* An instance of the "synod" algorithm. */
 struct paxos_instance {
@@ -52,11 +38,9 @@ LIST_DECLARE(request, reqid_t);
 void request_destroy(struct paxos_request *);
 
 /* Msgpack helpers. */
-void paxos_request_pack(struct paxos_yak *, struct paxos_request *);
-void paxos_request_unpack(struct paxos_request *, msgpack_object *);
-void paxos_acceptor_pack(struct paxos_yak *, struct paxos_acceptor *);
-void paxos_acceptor_unpack(struct paxos_acceptor *, msgpack_object *);
 void paxos_instance_pack(struct paxos_yak *, struct paxos_instance *);
 void paxos_instance_unpack(struct paxos_instance *, msgpack_object *);
+void paxos_request_pack(struct paxos_yak *, struct paxos_request *);
+void paxos_request_unpack(struct paxos_request *, msgpack_object *);
 
-#endif /* __PAXOS_TYPES_SESSION_LOCAL_H__ */
+#endif /* __PAXOS_TYPES_DECREE_H__ */

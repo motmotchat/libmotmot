@@ -10,7 +10,7 @@
 #include "containers/list_factory.h"
 #include "types/primitives.h"
 #include "types/core.h"
-#include "types/session_local.h"
+#include "types/decree.h"
 
 /* Continuation-style callbacks for connect_t calls. */
 struct paxos_continuation {

@@ -10,8 +10,9 @@
 #include "containers/list_factory.h"
 #include "types/primitives.h"
 #include "types/core.h"
+#include "types/decree.h"
+#include "types/acceptor.h"
 #include "types/continuation.h"
-#include "types/session_local.h"
 
 /* Preparation state used by new proposers. */
 struct paxos_prep {

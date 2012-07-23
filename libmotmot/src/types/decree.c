@@ -1,14 +1,11 @@
 /**
- * session_local.c - Utilities for Paxos acceptors, instances, and requests
- * along with factorized container implementations.
+ * decree.c - Utilities for Paxos instances and requests.
  */
 
 #include <glib.h>
 
-#include "paxos_io.h"
-
 #include "containers/list_factory.h"
-#include "types/session_local.h"
+#include "types/decree.h"
 
 /**
  * Reset the metadata fields of a Paxos instance.
@@ -28,8 +25,6 @@ instance_init_metadata(struct paxos_instance *inst)
 //  Container manufacturing.
 //
 
-LIST_IMPLEMENT(acceptor, paxid_t, pa_le, pa_paxid, paxid_compare,
-    acceptor_destroy, _FWD, _REV);
 LIST_IMPLEMENT(instance, paxid_t, pi_le, pi_hdr.ph_inum, paxid_compare,
     instance_destroy, _REV, _REV);
 LIST_IMPLEMENT(request, reqid_t, pr_le, pr_val.pv_reqid, reqid_compare,
@@ -39,16 +34,6 @@ LIST_IMPLEMENT(request, reqid_t, pr_le, pr_val.pv_reqid, reqid_compare,
 //
 //  Destructor routines.
 //
-
-void
-acceptor_destroy(struct paxos_acceptor *acc)
-{
-  if (acc != NULL) {
-    paxos_peer_destroy(acc->pa_peer);
-    g_free(acc->pa_desc);
-  }
-  g_free(acc);
-}
 
 void
 instance_destroy(struct paxos_instance *inst)
@@ -69,34 +54,6 @@ request_destroy(struct paxos_request *req)
 //
 //  Msgpack helpers.
 //
-
-void
-paxos_acceptor_pack(struct paxos_yak *py, struct paxos_acceptor *acc)
-{
-  msgpack_pack_array(py->pk, 2);
-  msgpack_pack_paxid(py->pk, acc->pa_paxid);
-  msgpack_pack_raw(py->pk, acc->pa_size);
-  msgpack_pack_raw_body(py->pk, acc->pa_desc, acc->pa_size);
-}
-
-void
-paxos_acceptor_unpack(struct paxos_acceptor *acc, msgpack_object *o)
-{
-  msgpack_object *p;
-
-  // Make sure the input is well-formed.
-  assert(o->type == MSGPACK_OBJECT_ARRAY);
-  assert(o->via.array.size == 2);
-
-  p = o->via.array.ptr;
-
-  acc->pa_peer = NULL;
-  assert(p->type == MSGPACK_OBJECT_POSITIVE_INTEGER);
-  acc->pa_paxid = (p++)->via.u64;
-  assert(p->type == MSGPACK_OBJECT_RAW);
-  acc->pa_size = p->via.raw.size;
-  acc->pa_desc = g_memdup(p->via.raw.ptr, p->via.raw.size);
-}
 
 void
 paxos_instance_pack(struct paxos_yak *py, struct paxos_instance *inst)

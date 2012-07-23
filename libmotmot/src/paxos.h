@@ -9,9 +9,10 @@
 #include "motmot.h"
 #include "types/primitives.h"
 #include "types/core.h"
-#include "types/connect.h"
+#include "types/decree.h"
+#include "types/acceptor.h"
 #include "types/continuation.h"
-#include "types/session_local.h"
+#include "types/connect.h"
 #include "types/session.h"
 
 /* Table of client learning callbacks. */
