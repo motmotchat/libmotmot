@@ -39,18 +39,22 @@ class RemoteException(Exception):
             return "[FATAL] %s" % _str
         return _str
 
-def MalformedRequest(RemoteException):
+class MalformedRequest(RemoteException):
     """
     Thrown iff the RPC message deserialized into an unexpected form.
     """
     def __init__(self, additional=""):
-        super(-1, "There was an error with the protocol, and we were unable " +
-            "to read your request.%s" % (' ' + additional), fatal=True)
+        error = "There was an error with the protocol, and we were unable" + \
+            "to read your request."
+        if additional:
+            error += ' ' + additional
+        super(MalformedRequest, self).__init__(-1, error, fatal=True)
 
-def UnknownOperation(RemoteException):
+class UnknownOperation(RemoteException):
     """
     Thrown iff the protocol format appears to be correct, but the opcode that
     was requested cannot be found
     """
     def __init__(self):
-        super(-2, "We did not recognize the opcode you submitted.", fatal=True)
+        super(UnknownOperation, self).__init__(-2,
+                "We did not recognize the opcode you submitted.", fatal=True)
