@@ -49,7 +49,7 @@ struct paxos_session {
   unsigned live_count;                // number of acceptors we think are live
   acceptor_container alist;           // list of all Paxos participants
   acceptor_container adefer;          // list of deferred hello acks
-  continuation_container clist;       // list of connectinuations
+  continuation_list clist;            // list of connectinuations
 
   instance_container ilist;           // list of all instances
   instance_container idefer;          // list of deferred instances

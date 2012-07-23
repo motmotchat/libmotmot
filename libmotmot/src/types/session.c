@@ -42,7 +42,7 @@ session_destroy(struct paxos_session *session)
   // Wipe all our lists.
   acceptor_container_destroy(&pax->alist);
   acceptor_container_destroy(&pax->adefer);
-  continuation_container_destroy(&pax->clist);
+  continuation_list_destroy(&pax->clist);
   instance_container_destroy(&pax->ilist);
   instance_container_destroy(&pax->idefer);
   request_container_destroy(&pax->rcache);

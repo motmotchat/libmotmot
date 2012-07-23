@@ -33,4 +33,13 @@ continuation_destroy(struct paxos_continuation *k)
   g_free(k);
 }
 
-LIST_IMPLEMENT_DESTROY(continuation, pk_le, continuation_destroy);
+void
+continuation_list_destroy(continuation_list *head)
+{
+  struct paxos_continuation *it;
+
+  LIST_WHILE_FIRST(it, head) {
+    LIST_REMOVE(head, it, pk_le);
+    continuation_destroy(it);
+  }
+}

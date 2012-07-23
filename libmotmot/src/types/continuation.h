@@ -24,10 +24,9 @@ struct paxos_continuation {
   LIST_ENTRY(paxos_continuation) pk_le;   // list entry
 };
 
-/* Continuation chain. */
-typedef LIST_HEAD(continuation_container, paxos_continuation)
-  continuation_container;
-void continuation_container_destroy(continuation_container *);
+/* Continuation list. */
+typedef LIST_HEAD(continuation_list, paxos_continuation) continuation_list;
+void continuation_list_destroy(continuation_list *);
 
 /* Creation and destruction. */
 struct paxos_continuation *
