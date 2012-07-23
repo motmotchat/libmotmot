@@ -12,7 +12,7 @@
  */
 int
 motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
-    enter_t enter, leave_t leave)
+    enter_t enter, leave_t leave, const char *alias, size_t size)
 {
   struct learn_table learn;
 
@@ -20,16 +20,16 @@ motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
   learn.join = join;
   learn.part = part;
 
-  return paxos_init(connect, &learn, enter, leave);
+  return paxos_init(connect, &learn, enter, leave, alias, size);
 }
 
 /**
  * motmot_session - Start a new motmot chat.
  */
 void *
-motmot_session(const char *alias, size_t size, void *data)
+motmot_session(void *data)
 {
-  return paxos_start(alias, size, data);
+  return paxos_start(data);
 }
 
 /**

@@ -215,11 +215,12 @@ main(int argc, char *argv[])
   g_io_add_watch(g_io_channel_unix_new(0), G_IO_IN, input_loop, NULL);
 
   // Initialize motmot.
-  motmot_init(connect_unix, print_chat, print_join, print_part, enter, leave);
+  motmot_init(connect_unix, print_chat, print_join, print_part, enter, leave,
+      argv[1], strlen(argv[1]));
 
   // Start a new chat.
   if (argc > 2) {
-    session = motmot_session(argv[1], strlen(argv[1]), NULL);
+    session = motmot_session(NULL);
   }
 
   // Invite our friends!

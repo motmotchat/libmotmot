@@ -22,8 +22,9 @@ struct learn_table {
 };
 
 /* Paxos protocol interface. */
-int paxos_init(connect_t, struct learn_table *, enter_t, leave_t);
-void *paxos_start(const void *, size_t, void *);
+int paxos_init(connect_t, struct learn_table *, enter_t, leave_t,
+    const char *, size_t);
+void *paxos_start(void *);
 int paxos_end(void *data);
 
 int paxos_register_connection(GIOChannel *);

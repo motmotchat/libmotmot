@@ -30,7 +30,7 @@ int proposer_force_kill(struct paxos_peer *);
  */
 int
 paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
-    leave_t leave)
+    leave_t leave, const char *alias, size_t size)
 {
   state.connect = connect;
   state.enter = enter;
@@ -40,8 +40,16 @@ paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
   state.learn.part = learn->part;
 
   LIST_INIT(&state.sessions);
+
   connect_hashinit();
   state.connections = connect_container_new();
+  if (state.connections == NULL) {
+    return 1;
+  }
+
+  state.self = connect_new(alias, size);
+  state.self->pc_refs++;  // Global reference.
+  connect_insert(state.connections, state.self);
 
   return 0;
 }
@@ -50,12 +58,15 @@ paxos_init(connect_t connect, struct learn_table *learn, enter_t enter,
  * paxos_start - Start up the Paxos protocol with ourselves as the proposer.
  */
 void *
-paxos_start(const void *desc, size_t size, void *data)
+paxos_start(void *data)
 {
   pax_uuid_t *uuid;
   struct paxos_request *req;
   struct paxos_instance *inst;
+  struct paxos_connect *conn;
   struct paxos_acceptor *acc;
+
+  conn = state.self;
 
   // Create a new session with a fresh UUID.
   pax = session_new(data, 1);
@@ -75,8 +86,8 @@ paxos_start(const void *desc, size_t size, void *data)
   req->pr_val.pv_reqid.id = pax->self_id;
   req->pr_val.pv_reqid.gen = (++pax->req_id);
 
-  req->pr_size = size;
-  req->pr_data = g_memdup(desc, size);
+  req->pr_size = conn->pc_alias.size;
+  req->pr_data = g_memdup(conn->pc_alias.data, conn->pc_alias.size);
 
   LIST_INSERT_TAIL(&pax->rcache, req, pr_le);
 
@@ -105,8 +116,8 @@ paxos_start(const void *desc, size_t size, void *data)
   acc = g_malloc0(sizeof(*acc));
   acc->pa_paxid = pax->self_id;
   acc->pa_peer = NULL;
-  acc->pa_size = size;
-  acc->pa_desc = g_memdup(desc, size);
+  acc->pa_size = conn->pc_alias.size;
+  acc->pa_desc = g_memdup(conn->pc_alias.data, conn->pc_alias.size);
 
   LIST_INSERT_HEAD(&pax->alist, acc, pa_le);
   pax->live_count = 1;

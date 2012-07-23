@@ -5,6 +5,8 @@
 #include "paxos.h"
 
 struct paxos_state {
+  struct paxos_connect *self;         // null connection for ourselves
+
   connect_t connect;                  // callback for initiating connections
   enter_t enter;                      // callback for entering chat
   leave_t leave;                      // callback for leaving chat

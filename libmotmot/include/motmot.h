@@ -88,22 +88,22 @@ typedef void (*leave_t)(void *data);
  * @param part      Client callback invoked when a user parts the chat.
  * @param enter     Client callback invoked when a chat session is joined.
  * @param leave     Client callback invoked when a chat session is left.
+ * @param alias     String handle uniquely identifying ourselves.
+ * @param size      Length of the alias.
  * @return          0 on success, nonzero on error.
  */
 int motmot_init(connect_t connect, learn_t chat, learn_t join, learn_t part,
-    enter_t enter, leave_t leave);
+    enter_t enter, leave_t leave, const char *alias, size_t size);
 
 /**
  * motmot_session - Start a new motmot chat.
  *
- * @param alias     String handle identifying the chat initiator.
- * @param size      Length of the alias.
  * @param data      Data pointer used by the client to identify the session.
  * @returns         Pointer to motmot's internal session data.  This object
  *                  should be treated as opaque by the client and should be
  *                  passed as an argument to relevant motmot functions.
  */
-void *motmot_session(const char *alias, size_t size, void *data);
+void *motmot_session(void *data);
 
 /**
  * motmot_watch - Watch a given channel for activity.
