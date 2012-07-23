@@ -14,13 +14,14 @@
 struct paxos_connect {
   struct paxos_peer *pc_peer;         // wrapper around I/O channel
   pax_str_t pc_alias;                 // string identifying the client
+  unsigned pc_refs;                   // number of references
   bool pc_pending;                    // pending reconnection?
 };
 
 HASHTABLE_DECLARE(connect);
 
 struct paxos_connect *connect_new(const char *, size_t);
-void connect_destroy(struct paxos_connect *);
+void connect_deref(struct paxos_connect **);
 
 /* Paxos connection GLib hashtable utilities. */
 void connect_hashinit(void);

@@ -26,12 +26,21 @@ connect_new(const char *alias, size_t size)
   return conn;
 }
 
-void
+static void
 connect_destroy(struct paxos_connect *conn)
 {
   g_free((void *)conn->pc_alias.data);
   paxos_peer_destroy(conn->pc_peer);
   g_free(conn);
+}
+
+void
+connect_deref(struct paxos_connect **conn)
+{
+  if (--((*conn)->pc_refs) == 0) {
+    connect_destroy(*conn);
+  }
+  *conn = NULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////
