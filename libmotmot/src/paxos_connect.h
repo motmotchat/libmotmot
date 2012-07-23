@@ -2,6 +2,8 @@
  * paxos_connect.h - Boilerplate macro for continuation-like callbacks which
  * are invoked by the client once GIOChannel connections are established.
  */
+#ifndef __PAXOS_CONNECT_H__
+#define __PAXOS_CONNECT_H__
 
 #define CONNECTINUATE(op)                                       \
   int                                                           \
@@ -29,3 +31,5 @@
                                                                 \
     return r;                                                   \
   }
+
+#endif /* __PAXOS_CONNECT_H__ */

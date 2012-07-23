@@ -1,6 +1,8 @@
 /**
  * paxos_state.h - Global state of the multi-session Paxos protocol.
  */
+#ifndef __PAXOS_STATE_H__
+#define __PAXOS_STATE_H__
 
 #include "paxos.h"
 
@@ -24,3 +26,5 @@ extern struct paxos_state state;
  * but of course we aren't.
  */
 extern struct paxos_session *pax;
+
+#endif /* __PAXOS_STATE_H__ */
