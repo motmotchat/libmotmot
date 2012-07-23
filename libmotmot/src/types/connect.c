@@ -11,16 +11,17 @@
 
 uint32_t murmurseed;
 
-HASHTABLE_IMPLEMENT(connect, pc_id, connect_key_hash, connect_key_equals, _INL);
+HASHTABLE_IMPLEMENT(connect, pc_alias, connect_key_hash,
+    connect_key_equals, _INL);
 
 struct paxos_connect *
-connect_new(const char *handle, size_t size)
+connect_new(const char *alias, size_t size)
 {
   struct paxos_connect *conn;
 
   conn = g_malloc0(sizeof(*conn));
-  conn->pc_id.size = size;
-  conn->pc_id.data = g_memdup(handle, size);
+  conn->pc_alias.size = size;
+  conn->pc_alias.data = g_memdup(alias, size);
 
   return conn;
 }
@@ -28,7 +29,7 @@ connect_new(const char *handle, size_t size)
 void
 connect_destroy(struct paxos_connect *conn)
 {
-  g_free((void *)conn->pc_id.data);
+  g_free((void *)conn->pc_alias.data);
   paxos_peer_destroy(conn->pc_peer);
   g_free(conn);
 }

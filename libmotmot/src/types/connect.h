@@ -13,8 +13,8 @@
 /* Connection to another client; shared among sessions. */
 struct paxos_connect {
   struct paxos_peer *pc_peer;         // wrapper around I/O channel
+  pax_str_t pc_alias;                 // string identifying the client
   bool pc_pending;                    // pending reconnection?
-  pax_str_t pc_id;                    // string identifying the client
 };
 
 HASHTABLE_DECLARE(connect);
