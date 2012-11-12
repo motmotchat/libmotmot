@@ -1,11 +1,13 @@
 \documentclass[12pt]{article}
 
-\usepackage{fancyhdr, geometry, xspace}
+\usepackage{fancyhdr, geometry, hyperref, xspace}
 \usepackage[parfill]{parskip}
+
 \geometry{letterpaper,text={7in,9in},centering}
 \pagestyle{fancy}
 
 \fancyhead[RO]{Carl Jackson and Max Wang}
+\fancyhead[LO]{\url{http://github.com/motmotchat/trill}}
 
 \newcommand{\Trill}{\textsc{Trill}\xspace}
 
@@ -62,8 +64,9 @@ Due to restrictions on many firewalls and NATs in place on the Internet, it is
 impossible for arbitrary clients on the internet to establish peer-to-peer
 communication. There are techniques for firewall/NAT traversal which involve
 ``tricking'' the networking layer into establishing a connection. We plan on
-reimplementing something similar to \texttt{chownat} (http://samy.pl/chownat/)
-for \Trill, which appears to be a standard way to do this.
+reimplementing something similar to \texttt{chownat}
+(\url{http://samy.pl/chownat/}) for \Trill, which appears to be a standard way
+to do this.
 
 \section*{Networking Abstractions}
 While using UDP allows us to traverse firewalls, it does not present a
