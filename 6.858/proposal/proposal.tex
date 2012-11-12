@@ -48,11 +48,12 @@ be based on DNS.  Every domain name with a SRV record can act as a \Trill
 identity realm, supporting email address-like identities (an \verb!addr-spec!
 as defined in RFC 2822).
 
-To grant a user an identity on a realm, the user first presents a username and
-password to the server, after which the server delegates authority for that
-name to the client by signing that client's key. This key-signing process is
-the method by which peers can authenticate securely to each other without a
-centralized broker.
+Each \Trill domain should host a federation server, which is able to delegate
+authority for identities to various clients.  Any client may present the server
+with an identity and a password for that identity.  If the client's
+authentication succeeds, the server signs the client's key and returns the
+resultant certificate.  Using these certificates, clients can then authenticate
+securely to one another without further use of the server.
 
 \section*{Firewall Traversal}
 Due to restrictions on many firewalls and NATs in place on the Internet, it is
