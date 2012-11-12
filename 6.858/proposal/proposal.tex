@@ -43,7 +43,16 @@ as its transport layer, and we will be using the implementation of DTLS
 provided by the open source GnuTLS library.
 
 \section*{Federated Identity}
-% TODO
+As with other federated protocols like XMPP and email, \Trill identities will
+be based on DNS.  Every domain name with a SRV record can act as a \Trill
+identity realm, supporting email address-like identities (an \verb!addr-spec!
+as defined in RFC 2822).
+
+To grant a user an identity on a realm, the user first presents a username and
+password to the server, after which the server delegates authority for that
+name to the client by signing that client's key. This key-signing process is
+the method by which peers can authenticate securely to each other without a
+centralized broker.
 
 \section*{Firewall Traversal}
 % TODO
