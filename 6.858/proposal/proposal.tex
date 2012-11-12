@@ -62,10 +62,20 @@ Due to restrictions on many firewalls and NATs in place on the Internet, it is
 impossible for arbitrary clients on the internet to establish peer-to-peer
 communication. There are techniques for firewall/NAT traversal which involve
 ``tricking'' the networking layer into establishing a connection. We plan on
-reimplementing something similar to \texttt{chownat} (http://samy.pl/chownat/),
-which appears to be a standard way to do this.
+reimplementing something similar to \texttt{chownat} (http://samy.pl/chownat/)
+for \Trill, which appears to be a standard way to do this.
 
 \section*{Networking Abstractions}
-% TODO
+While using UDP allows us to traverse firewalls, it does not present a
+particularly nice interface to the programmer. As always, those who do not
+understand TCP are doomed to reimplement it, poorly. We hope to sidestep this
+problem entirely by providing an abstraction more similar to SCTP: datagrams may
+be of arbitrary length, and will arrive correctly ordered in their entirety or
+not at all. However, datagrams may be received in any order relative to other
+datagrams. We believe that this is the right level of abstraction to expose for
+most peer-to-peer applications.
+
+If time permits, we will additionally provide TCP-like congestion control in
+\Trill.
 
 \end{document}
