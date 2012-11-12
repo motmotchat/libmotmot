@@ -1,21 +1,33 @@
 \documentclass[12pt]{article}
 
-\usepackage{geometry, xspace}
+\usepackage{fancyhdr, geometry, xspace}
 \usepackage[parfill]{parskip}
-\geometry{letterpaper}
+\geometry{letterpaper,text={7in,9in},centering}
+\pagestyle{fancy}
 
-\newcommand{\trill}{\textsc{Trill}\xspace}
+\newcommand{\Trill}{\textsc{Trill}\xspace}
 
-\title{Trill: Secure firewall-traversing networking}
+\title{\Trill: Secure firewall-traversing networking}
 \author{Carl Jackson and Max Wang}
 \date{November 5, 2012}
+
+\makeatletter
+\renewcommand{\maketitle}{%
+  \thispagestyle{plain}%
+  \begin{center}%
+    {\LARGE \@title \par}%
+    {\large \@author \par}%
+    {\large \@date \par}%
+  \end{center}%
+}
+\makeatother
 
 \begin{document}
 
 \maketitle
 
 \section*{Overview}
-We propose to design and implement \trill, a networking abstraction that
+We propose to design and implement \Trill, a networking abstraction that
 provides secure communication between federated identities, either of which
 could be behind a firewall.
 
@@ -24,11 +36,11 @@ The security of our system will be based on standard cryptographic
 infrastructure and libraries. By ``identities,'' we mean public key pairs, the
 private half of which is uniquely known by an individual. This identity can be
 given one or more names by means of X.509 certificates, and standard mechanisms
-like TLS allow owners of names to securely establish a communication channel and
-mutually verify the other's identity. Due to implementation restrictions in our
-target environment, we will be using DTLS, a younger protocol that uses UDP as
-its transport layer, and we will be using the implementation of DTLS provided by
-the open source GnuTLS library.
+like TLS allow owners of names to securely establish a communication channel
+and mutually verify the other's identity. Due to implementation restrictions in
+our target environment, we will be using DTLS, a younger protocol that uses UDP
+as its transport layer, and we will be using the implementation of DTLS
+provided by the open source GnuTLS library.
 
 \section*{Federated Identity}
 % TODO
