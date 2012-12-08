@@ -14,7 +14,7 @@ tags: $(wildcard *.c) $(wildcard *.h)
 	ctags -R
 
 clean:
-	-rm -rf $(DEPDIR) $(SRC:.c=.o)
+	-rm -rf $(DEPDIR) $(SRC:.c=.o) trill
 
 
 -include $(addprefix $(DEPDIR),$(SRC:.c=.d))
