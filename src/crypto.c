@@ -65,8 +65,5 @@ trill_crypto_identity_new(const char *cafile, const char *crlfile,
     return NULL;
   }
 
-  // TODO: how do you free one of these?
-  gnutls_key_generate(&id->tci_cookie_key, GNUTLS_COOKIE_KEY_SIZE);
-
   return id;
 }

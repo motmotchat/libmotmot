@@ -6,7 +6,6 @@
 
 struct trill_crypto_identity {
   gnutls_certificate_credentials_t tci_creds;   // An X509 certificate
-  gnutls_datum_t tci_cookie_key;                // To sign DTLS cookies
 };
 
 int trill_crypto_init(void);
