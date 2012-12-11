@@ -44,7 +44,7 @@ trill_crypto_identity_new(const char *cafile, const char *crlfile,
     if (gnutls_certificate_set_x509_trust_file(id->tci_creds, cafile,
           GNUTLS_X509_FMT_PEM) < 0) {
       log_error("Error setting x509 CA file");
-      free(id);
+      trill_crypto_identity_free(id);
       return NULL;
     }
   }
@@ -53,7 +53,7 @@ trill_crypto_identity_new(const char *cafile, const char *crlfile,
     if (gnutls_certificate_set_x509_crl_file(id->tci_creds, crlfile,
           GNUTLS_X509_FMT_PEM) < 0) {
       log_error("Error setting x509 CRL file");
-      free(id);
+      trill_crypto_identity_free(id);
       return NULL;
     }
   }
@@ -61,9 +61,18 @@ trill_crypto_identity_new(const char *cafile, const char *crlfile,
   if (gnutls_certificate_set_x509_key_file(id->tci_creds, certfile, keyfile,
         GNUTLS_X509_FMT_PEM)) {
     log_error("Error setting x509 keys");
-    free(id);
+    trill_crypto_identity_free(id);
     return NULL;
   }
 
   return id;
+}
+
+void
+trill_crypto_identity_free(struct trill_crypto_identity *id)
+{
+  assert(id != NULL && "Attempting to free a null identity");
+
+  gnutls_certificate_free_credentials(id->tci_creds);
+  free(id->tci_creds);
 }
