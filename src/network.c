@@ -148,7 +148,16 @@ trill_connection_free(struct trill_connection *conn)
 int
 trill_connection_can_read(struct trill_connection *conn)
 {
-  // TODO: stub
+  char buf[64];
+  char raddr[32];
+  struct sockaddr_in remote;
+  int len;
+  socklen_t retlen = sizeof(remote);
+
+  len = recvfrom(conn->tc_sock_fd, buf, sizeof(buf), 0,
+      (struct sockaddr *)&remote, &retlen);
+  inet_ntop(AF_INET, &remote, raddr, sizeof(raddr));
+  log_info("Received a message from %s: %.*s", raddr, len, buf);
   return 1;
 }
 
@@ -166,6 +175,8 @@ trill_connection_broker(struct trill_connection *conn)
 
   // TODO: stub
   log_info("About to broker a connection!");
+  sendto(conn->tc_sock_fd, "hi", 3, 0, (struct sockaddr *)&conn->tc_remote,
+      sizeof(conn->tc_remote));
 
   return 1;
 }
