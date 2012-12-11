@@ -4,7 +4,6 @@
 #include <strings.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 
 #include "network.h"
@@ -56,6 +55,19 @@ trill_connection_new()
     return NULL;
   }
   conn->tc_port = addr.sin_port;
+
+  // DTLS requires that we disable IP fragmentation
+  // It appears that OS X doesn't support this without writing raw UDP packets
+  // ourselves, and we can't do that. "Oh well."
+  // http://lists.apple.com/archives/macnetworkprog/2006/Jul/msg00018.html
+#if defined IP_DONTFRAG
+  int optval = 1;
+  setsockopt(conn->tc_sock_fd, IPROTO_IP, IP_DONTFRAG, &optval, sizeof(optval));
+#elif defined IP_MTU_DISCOVER
+  int optval = IP_PMTUDISC_DO;
+  setsockopt(conn->tc_sock_fd, IPROTO_IP, IP_MTU_DISCOVER, &optval,
+      sizeof(optval));
+#endif
 
   return conn;
 }

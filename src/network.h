@@ -2,6 +2,7 @@
 #define __NETWORK_H__
 
 #include <stdint.h>
+#include <netinet/in.h>
 
 struct trill_connection {
   int tc_sock_fd;                 // A bound listening UDP socket
