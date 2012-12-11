@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -31,7 +32,7 @@ trill_connection_new()
   struct trill_connection *conn;
   struct sockaddr_in addr;
   socklen_t addr_len;
-  int ret;
+  int ret, flags;
 
   conn = calloc(1, sizeof(*conn));
   if (conn == NULL) {
@@ -84,6 +85,15 @@ trill_connection_new()
   setsockopt(conn->tc_sock_fd, IPROTO_IP, IP_MTU_DISCOVER, &optval,
       sizeof(optval));
 #endif
+
+  flags = fcntl(conn->tc_sock_fd, F_GETFL, 0);
+  if (flags == -1 || fcntl(conn->tc_sock_fd, F_SETFL, flags | O_NONBLOCK)) {
+    log_error("Error setting socket in nonblocking mode");
+    if (trill_connection_free(conn)) {
+      log_error("Error freeing connection");
+    }
+    return NULL;
+  }
 
   conn->tc_can_read_cb = trill_connection_can_read;
   conn->tc_can_write_cb = trill_connection_can_write;
