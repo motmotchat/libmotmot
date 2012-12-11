@@ -18,9 +18,19 @@ trill_crypto_init(void)
     return 1;
   }
 
-  gnutls_priority_init(&priority_cache, priorities, NULL);
+  if (gnutls_priority_init(&priority_cache, priorities, NULL)) {
+    log_error("Error initializing priority cache");
+    return 1;
+  }
 
   return 0;
+}
+
+void
+trill_crypto_deinit(void)
+{
+  gnutls_priority_deinit(priority_cache);
+  gnutls_global_deinit();
 }
 
 struct trill_crypto_identity *

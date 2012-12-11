@@ -9,6 +9,7 @@ struct trill_crypto_identity {
 };
 
 int trill_crypto_init(void);
+void trill_crypto_deinit(void);
 struct trill_crypto_identity *trill_crypto_identity_new(const char *cafile,
     const char *crlfile, const char *certfile, const char *keyfile);
 void trill_crypto_identity_free(struct trill_crypto_identity *id);
