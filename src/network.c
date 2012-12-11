@@ -9,6 +9,22 @@
 #include "network.h"
 #include "log.h"
 
+trill_net_want_write_cb_t want_write_cb;
+trill_net_want_timeout_cb_t want_timeout_cb;
+
+int
+trill_net_init(trill_net_want_write_cb_t want_write,
+    trill_net_want_timeout_cb_t want_timeout)
+{
+  assert(want_write != NULL && "Want write callback is NULL");
+  assert(want_timeout != NULL && "Want timeout callback is NULL");
+
+  want_write_cb = want_write;
+  want_timeout_cb = want_timeout;
+
+  return 0;
+}
+
 struct trill_connection *
 trill_connection_new()
 {
@@ -17,7 +33,7 @@ trill_connection_new()
   socklen_t addr_len;
   int ret;
 
-  conn = malloc(sizeof(*conn));
+  conn = calloc(1, sizeof(*conn));
   if (conn == NULL) {
     return NULL;
   }
@@ -69,6 +85,10 @@ trill_connection_new()
       sizeof(optval));
 #endif
 
+  conn->tc_can_read_cb = trill_connection_can_read;
+  conn->tc_can_write_cb = trill_connection_can_write;
+  conn->tc_timeout_cb = trill_connection_broker;
+
   return conn;
 }
 
@@ -93,6 +113,8 @@ trill_connection_connect(struct trill_connection *conn, const char *remote,
     return -1;
   }
 
+  want_timeout_cb(conn, 1000);
+
   return 0;
 }
 
@@ -111,4 +133,29 @@ trill_connection_free(struct trill_connection *conn)
   free(conn);
 
   return retval;
+}
+
+int
+trill_connection_can_read(struct trill_connection *conn)
+{
+  // TODO: stub
+  return 1;
+}
+
+int
+trill_connection_can_write(struct trill_connection *conn)
+{
+  // TODO: stub
+  return 1;
+}
+
+int
+trill_connection_broker(struct trill_connection *conn)
+{
+  assert(conn->tc_remote.sin_port != 0 && "Connection does not have a remote");
+
+  // TODO: stub
+  log_info("About to broker a connection!");
+
+  return 1;
 }
