@@ -10,7 +10,7 @@ require 'msgpack'
 require 'openssl'
 require 'readline'
 
-require_relative 'plume_em.rb'
+require_relative 'conn.rb'
 
 SERVER = ARGV[0] || 'localhost'
 CLIENT_CRT = 'pem/client.crt'
@@ -18,7 +18,7 @@ CLIENT_CRT = 'pem/client.crt'
 #
 # EventMachine client for the Plume login server.
 #
-class LoginClient < PlumeEM
+class LoginClient < PlumeConn
 
   KEY_FILE = 'pem/client.key'
   CRT_FILE = CLIENT_CRT
@@ -75,7 +75,7 @@ end
 #
 # Plume client.
 #
-class PlumeClient < PlumeEM
+class PlumeClient < PlumeConn
 
   USAGE = "\nUsage:\n" + <<-eos
     [h]elp              Show usage instructions.

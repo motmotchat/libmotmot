@@ -8,9 +8,9 @@ require 'eventmachine'
 require 'msgpack'
 require 'openssl'
 
-require_relative 'plume_em.rb'
+require_relative 'conn.rb'
 
-class PlumeLogin < PlumeEM
+class PlumeLogin < PlumeConn
 
   KEY_FILE = 'pem/login.key'
   CRT_FILE = 'pem/login.crt'

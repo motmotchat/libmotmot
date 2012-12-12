@@ -8,11 +8,11 @@ require 'eventmachine'
 require 'msgpack'
 require 'openssl'
 
-require_relative 'plume_em.rb'
+require_relative 'conn.rb'
 
 $conns = {}
 
-class Plume < PlumeEM
+class Plume < PlumeConn
 
   KEY_FILE = 'pem/plume.key'
   CRT_FILE = 'pem/plume.crt'
