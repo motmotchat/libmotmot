@@ -35,9 +35,7 @@ class LoginClient < PlumeEM
     true
   end
 
-  def ssl_handshake_completed
-    login
-  end
+  def ssl_handshake_completed; login end
 
   def unbind
     abort ERROR_MSG if error?
@@ -103,9 +101,7 @@ class PlumeClient < PlumeEM
     true
   end
 
-  def ssl_handshake_completed
-    prompt
-  end
+  def ssl_handshake_completed; prompt end
 
   def unbind
     puts "PlumeClient: An error occurred." if error?
