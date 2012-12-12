@@ -3,22 +3,39 @@
 #
 
 require 'eventmachine'
+require 'mail'
 require 'msgpack'
 require 'openssl'
 require 'socket'
 
 class PlumeEM < EM::Connection
+
   KEY_FILE = nil
   CRT_FILE = nil
   LEGAL_OPS = []
   OP_PREFIX = ''
 
+  attr_reader :peer_handle
+
+  #
+  # Initiate TLS by default.
+  #
   def post_init
     start_tls(
       :verify_peer => true,
-      :private_key_file => KEY_FILE,
-      :cert_chain_file => CRT_FILE
+      :private_key_file => self.class::KEY_FILE,
+      :cert_chain_file => self.class::CRT_FILE
     )
+  end
+
+  #
+  # Verify our peer's cert.
+  #
+  def ssl_verify_peer(cert)
+    cert = OpenSSL::X509::Certificate.new cert
+
+    #cert.verify cert.public_key
+    true
   end
 
   def receive_data(data)
@@ -52,7 +69,19 @@ class PlumeEM < EM::Connection
     @cert ||= OpenSSL::X509::Certificate.new File.read self.class::CRT_FILE
   end
 
+  #
+  # Return the IP address and port of our peer.
+  #
   def get_peeraddr
     Socket.unpack_sockaddr_in(get_peername).reverse
+  end
+
+  #
+  # Parse an email address string, returning a Mail::Address object on success,
+  # or nil.
+  #
+  def parse_email(s)
+    e = Mail::Address.new(s)
+    (s == '' || e.address != s || e.local == e.address) ? nil : e
   end
 end

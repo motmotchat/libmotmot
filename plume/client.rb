@@ -31,10 +31,6 @@ class LoginClient < PlumeEM
     start_tls(:verify_peer => true)
   end
 
-  def ssl_verify_peer(cert)
-    true
-  end
-
   def ssl_handshake_completed; login end
 
   def unbind
@@ -76,6 +72,9 @@ class LoginClient < PlumeEM
   end
 end
 
+#
+# Plume client.
+#
 class PlumeClient < PlumeEM
 
   USAGE = "\nUsage:\n" + <<-eos
@@ -89,8 +88,9 @@ class PlumeClient < PlumeEM
   LEGAL_OPS = %w(connect)
   OP_PREFIX = 'recv_'
 
-  def ssl_verify_peer(cert)
-    true
+  def initialize
+    super()
+    @peers = {}
   end
 
   def ssl_handshake_completed; prompt end
@@ -116,8 +116,8 @@ class PlumeClient < PlumeEM
 
     case input[0]
     when 'connect', 'c'
-      if input[1].nil?
-        prompt "Must specify a peer to connect to."
+      if input[1].nil? or parse_email(input[1]).nil?
+        prompt "Must specify a valid peer to connect to."
       else
         connect input[1]
       end
@@ -135,8 +135,16 @@ class PlumeClient < PlumeEM
   # Request information from the Plume server to connect to peer.
   #
   def connect(peer)
-    send_data ['connect', [nil, peer]].to_msgpack
+    @peers[peer] = true
+    send_data ['connect', [cert.to_pem, peer, nil]].to_msgpack
+
     prompt
+  end
+
+  #
+  # Receive a connection request from a peer.
+  #
+  def recv_connect(peer_cert, _, payload)
   end
 end
 

@@ -16,10 +16,6 @@ class PlumeLogin < PlumeEM
   CRT_FILE = 'pem/login.crt'
   LEGAL_OPS = %w(login)
 
-  def ssl_verify_peer(cert)
-    true
-  end
-
   def login(csr)
     csr = OpenSSL::X509::Request.new csr
 
