@@ -103,10 +103,11 @@ trill_crypto_session_init(struct trill_connection *conn)
   }
   conn->tc_crypto->tcs_conn = conn;
 
-  if (conn->tc_state == TC_STATE_HANDSHAKE_CLIENT) {
-    flags = GNUTLS_CLIENT | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
-  } else if (conn->tc_state == TC_STATE_HANDSHAKE_SERVER) {
+  if (conn->tc_state == TC_STATE_HANDSHAKE_SERVER ||
+      conn->tc_state == TC_STATE_PRESHAKE_SERVER) {
     flags = GNUTLS_SERVER | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
+  } else if (conn->tc_state == TC_STATE_HANDSHAKE_CLIENT) {
+    flags = GNUTLS_CLIENT | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
   } else {
     assert(0 && "Unexpected state when initializing crypto");
   }
@@ -148,25 +149,36 @@ int
 trill_crypto_handshake(struct trill_crypto_session *session)
 {
   int ret;
+
   do {
+    log_warn("Attempting handshake");
     ret = gnutls_handshake(session->tcs_session);
   } while (gnutls_error_is_fatal(ret));
 
   if (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED) {
     // Do we need a write?
     if (gnutls_record_get_direction(session->tcs_session) == 1) {
+      log_info("We want a write");
       trill_net_want_write_cb(session->tcs_conn);
     }
+  } else if (ret == 0) {
+    log_info("TLS is established!");
+    session->tcs_conn->tc_state = TC_STATE_ENCRYPTED;
+  } else {
+    log_error("Something went wrong with the TLS handshake");
   }
+
   return 0;
 }
 
 int
 trill_crypto_can_read(struct trill_connection *conn)
 {
+  log_info("Can read");
   char buf[1024];
   switch (conn->tc_state) {
     case TC_STATE_HANDSHAKE_SERVER:
+    case TC_STATE_PRESHAKE_SERVER:
     case TC_STATE_HANDSHAKE_CLIENT:
       trill_crypto_handshake(conn->tc_crypto);
       break;
@@ -183,8 +195,10 @@ trill_crypto_can_read(struct trill_connection *conn)
 int
 trill_crypto_can_write(struct trill_connection *conn)
 {
+  log_info("Can write");
   switch (conn->tc_state) {
     case TC_STATE_HANDSHAKE_SERVER:
+    case TC_STATE_PRESHAKE_SERVER:
     case TC_STATE_HANDSHAKE_CLIENT:
       trill_crypto_handshake(conn->tc_crypto);
       break;

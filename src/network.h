@@ -33,7 +33,6 @@ enum trill_connection_state {
 
 struct trill_connection {
   int tc_sock_fd;                 // A bound listening UDP socket
-  struct sockaddr_in tc_remote;   // The remote address we're connected to
   void *tc_event_loop_descriptor; // An opaque pointer that represents this
                                   // connection on the event loop
   uint16_t tc_port;               // The local UDP port we're listening on

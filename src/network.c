@@ -1,12 +1,14 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <net/if.h>
 
 #include "network.h"
 #include "log.h"
@@ -30,6 +32,7 @@ trill_connection_new(struct trill_crypto_identity *id)
   struct trill_connection *conn;
   struct sockaddr_in addr;
   socklen_t addr_len;
+  struct ifaddrs *interface_list, *interface;
   int ret, flags;
 
   conn = calloc(1, sizeof(*conn));
@@ -49,7 +52,24 @@ trill_connection_new(struct trill_crypto_identity *id)
   bzero(&addr, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = 0; // Pick a random port
-  addr.sin_addr.s_addr = INADDR_ANY;
+
+  // Let's go hunting for an IP address!
+  if (getifaddrs(&interface_list)) {
+    log_errno("Unable to list interfaces");
+    if (trill_connection_free(conn)) {
+      log_error("Error freeing connection");
+    }
+    return NULL;
+  }
+  for (interface = interface_list; interface; interface = interface->ifa_next) {
+    if ((interface->ifa_flags & IFF_UP) &&
+        !(interface->ifa_flags & IFF_LOOPBACK) &&
+        interface->ifa_addr->sa_family == AF_INET) {
+      addr.sin_addr.s_addr =
+        ((struct sockaddr_in *)interface->ifa_addr)->sin_addr.s_addr;
+    }
+  }
+  freeifaddrs(interface_list);
 
   ret = bind(conn->tc_sock_fd, (struct sockaddr *) &addr, sizeof(addr));
   if (ret == -1) {
@@ -112,14 +132,15 @@ trill_connection_connect(struct trill_connection *conn, const char *remote,
     uint16_t port)
 {
   int ret;
+  struct sockaddr_in addr;
 
   assert(conn != NULL && "Attempting to connect with a null connection");
   assert(remote != NULL && "Connecting to a null address");
 
-  bzero(&conn->tc_remote, sizeof(conn->tc_remote));
-  conn->tc_remote.sin_family = AF_INET;
-  conn->tc_remote.sin_port = htons(port);
-  ret = inet_pton(AF_INET, remote, &conn->tc_remote.sin_addr);
+  bzero(&addr, sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
+  ret = inet_pton(AF_INET, remote, &addr.sin_addr);
   if (ret == 0) {
     log_warn("Unparseable remote address %s", remote);
     return -1;
@@ -127,6 +148,8 @@ trill_connection_connect(struct trill_connection *conn, const char *remote,
     log_errno("System error while parsing remote address");
     return -1;
   }
+
+  connect(conn->tc_sock_fd, (struct sockaddr *) &addr, sizeof(addr));
 
   conn->tc_state = TC_STATE_PROBING;
 
@@ -177,8 +200,7 @@ trill_connection_probe(struct trill_connection *conn)
   *(uint32_t *)(buf + 1) = htonl(conn->tc_server_priority[0]);
   *(uint32_t *)(buf + 5) = htonl(conn->tc_server_priority[1]);
 
-  if (sendto(conn->tc_sock_fd, buf, sizeof(buf), 0,
-      (struct sockaddr *)&conn->tc_remote, sizeof(conn->tc_remote)) < 0) {
+  if (send(conn->tc_sock_fd, buf, sizeof(buf), 0) < 0) {
     if (errno != EAGAIN && errno != EINTR) {
       log_errno("Error sending a probe");
     }
@@ -192,22 +214,18 @@ trill_connection_read_probe(struct trill_connection *conn)
 {
   char buf[9];
   uint32_t a, b;
-  char raddr[32];
-  struct sockaddr_in remote;
   int len;
-  socklen_t retlen = sizeof(remote);
 
-  len = recvfrom(conn->tc_sock_fd, buf, sizeof(buf), 0,
-      (struct sockaddr *)&remote, &retlen);
+  len = recv(conn->tc_sock_fd, buf, sizeof(buf), 0);
   if (len > 0) {
-    inet_ntop(AF_INET, &remote, raddr, sizeof(raddr));
-    log_info("Received a message from %s:%d", raddr, ntohs(remote.sin_port));
+    log_info("Received a message");
   } else {
     log_errno("Error reading a probe");
   }
 
   if (len == 1 && buf[0] == '\x02') {
     conn->tc_state = TC_STATE_HANDSHAKE_CLIENT;
+    log_warn("I'm going to go ahead!");
     trill_crypto_session_init(conn);
     return 1;
   } else if (len != 9) {
@@ -226,12 +244,10 @@ trill_connection_read_probe(struct trill_connection *conn)
       // I'm the server!
       conn->tc_timeout_cb = trill_connection_go_ahead;
       log_warn("I'm the server!");
-      if (buf[0]) {
-        conn->tc_state = TC_STATE_HANDSHAKE_SERVER;
-        trill_crypto_session_init(conn);
-      } else {
-        conn->tc_state = TC_STATE_PRESHAKE_SERVER;
-      }
+      if (buf[0]) conn->tc_state = TC_STATE_HANDSHAKE_SERVER;
+      else        conn->tc_state = TC_STATE_PRESHAKE_SERVER;
+
+      trill_crypto_session_init(conn);
     } else {
       if (buf[0]) conn->tc_state = TC_STATE_HANDSHAKE_CLIENT;
       else        conn->tc_state = TC_STATE_PRESHAKE_CLIENT;
@@ -251,8 +267,7 @@ trill_connection_go_ahead(struct trill_connection *conn)
   log_warn("Go ahead!");
 
   // Send the single byte "2"
-  if (sendto(conn->tc_sock_fd, "\x02", 1, 0,
-        (struct sockaddr *)&conn->tc_remote, sizeof(conn->tc_remote)) < 0) {
+  if (send(conn->tc_sock_fd, "\x02", 1, 0) < 0) {
     if (errno != EAGAIN && errno != EINTR) {
       log_errno("Error sending a probe");
     }
