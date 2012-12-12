@@ -27,7 +27,7 @@ class LoginClient < PlumeEM
 
   ERROR_MSG = "PlumeClient: An error occurred.  Please try again."
 
-  def connection_completed
+  def post_init
     start_tls(:verify_peer => true)
   end
 
@@ -72,7 +72,7 @@ class LoginClient < PlumeEM
     File.open(CRT_FILE, 'w') { |f| f.write(csr_cert) }
     close_connection
 
-    EM.next_tick { EM.connect SERVER, 9000, PlumeClient }
+    EM.connect SERVER, 9000, PlumeClient
   end
 end
 
@@ -88,14 +88,6 @@ class PlumeClient < PlumeEM
   CRT_FILE = CLIENT_CRT
   LEGAL_OPS = %w(connect)
   OP_PREFIX = 'recv_'
-
-  def connection_completed
-    start_tls(
-      :verify_peer => true,
-      :private_key_file => KEY_FILE,
-      :cert_chain_file => CRT_FILE
-    )
-  end
 
   def ssl_verify_peer(cert)
     true
@@ -115,8 +107,10 @@ class PlumeClient < PlumeEM
   end
 
   def _prompt
-    buf = Readline.readline('> ', true)
-    return close_connection if buf.nil?
+    unless buf = Readline.readline('> ', true)
+      close_connection
+      abort "\n"
+    end
 
     input = buf.strip.split
 
@@ -131,11 +125,15 @@ class PlumeClient < PlumeEM
       prompt USAGE
     when 'exit', 'quit', 'q'
       close_connection
+      exit
     else
       prompt "Invalid command.  Type 'h' for help."
     end
   end
 
+  #
+  # Request information from the Plume server to connect to peer.
+  #
   def connect(peer)
     send_data ['connect', [nil, peer]].to_msgpack
     prompt

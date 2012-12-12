@@ -16,14 +16,6 @@ class PlumeLogin < PlumeEM
   CRT_FILE = 'pem/login.crt'
   LEGAL_OPS = %w(login)
 
-  def post_init
-    start_tls(
-      :verify_peer => true,
-      :private_key_file => KEY_FILE,
-      :cert_chain_file => CRT_FILE
-    )
-  end
-
   def ssl_verify_peer(cert)
     true
   end

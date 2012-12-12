@@ -13,6 +13,14 @@ class PlumeEM < EM::Connection
   LEGAL_OPS = []
   OP_PREFIX = ''
 
+  def post_init
+    start_tls(
+      :verify_peer => true,
+      :private_key_file => KEY_FILE,
+      :cert_chain_file => CRT_FILE
+    )
+  end
+
   def receive_data(data)
     op, data = MessagePack.unpack(data)
 
