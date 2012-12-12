@@ -34,7 +34,6 @@ class Plume < PlumeEM
   #
   def unbind
     $conns.delete @peer_handle
-    puts @peer_handle
   end
 
   private
