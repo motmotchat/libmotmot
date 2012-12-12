@@ -7,22 +7,20 @@ require 'rubygems'
 require 'eventmachine'
 require 'msgpack'
 require 'openssl'
-require 'socket'
 
-class Plume < EM::Connection
-  def public_key
-    @key_pub ||= OpenSSL::PKey::RSA.new File.read 'pem/plume.pub'
-  end
+require_relative 'plume_em.rb'
 
-  def private_key
-    @key_priv ||= OpenSSL::PKey::RSA.new File.read 'pem/plume.key'
-  end
+class Plume < PlumeEM
+
+  KEY_FILE = 'pem/plume.key'
+  CRT_FILE = 'pem/plume.crt'
+  LEGAL_OPS = %w(connect route)
 
   def post_init
     start_tls(
       :verify_peer => true,
-      :private_key_file => 'pem/plume.key',
-      :cert_chain_file => 'pem/plume.crt'
+      :private_key_file => KEY_FILE,
+      :cert_chain_file => CRT_FILE
     )
   end
 
@@ -30,23 +28,12 @@ class Plume < EM::Connection
     true
   end
 
-  def receive_data(data)
-    op, data = MessagePack.unpack(data)
-    op = op.to_sym
-
-    close_connection if not [:connect, :route].include? op
-    send op, *data
-  end
+  private
 
   def connect(sig, dst)
     _, username, domain = dst.match(/(.+)@(.+)/).to_a
     puts username, domain
   end
-
-  def method_missing(method, *args, &blk)
-    port, ip = Socket.unpack_sockaddr_in(get_peername)
-    puts "Plume: #{ip}:#{port} requested invalid op '#{method}'"
-  end
 end
 
-EM.run { EM.start_server 'localhost', '8080', Plume }
+EM.run { EM.start_server 'localhost', '9000', Plume }
