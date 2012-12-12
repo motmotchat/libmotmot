@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -10,9 +11,6 @@
 #include "network.h"
 #include "log.h"
 
-trill_net_want_write_cb_t want_write_cb;
-trill_net_want_timeout_cb_t want_timeout_cb;
-
 int
 trill_net_init(trill_net_want_write_cb_t want_write,
     trill_net_want_timeout_cb_t want_timeout)
@@ -20,14 +18,14 @@ trill_net_init(trill_net_want_write_cb_t want_write,
   assert(want_write != NULL && "Want write callback is NULL");
   assert(want_timeout != NULL && "Want timeout callback is NULL");
 
-  want_write_cb = want_write;
-  want_timeout_cb = want_timeout;
+  trill_net_want_write_cb = want_write;
+  trill_net_want_timeout_cb = want_timeout;
 
   return 0;
 }
 
 struct trill_connection *
-trill_connection_new()
+trill_connection_new(struct trill_crypto_identity *id)
 {
   struct trill_connection *conn;
   struct sockaddr_in addr;
@@ -95,9 +93,16 @@ trill_connection_new()
     return NULL;
   }
 
-  conn->tc_can_read_cb = trill_connection_can_read;
-  conn->tc_can_write_cb = trill_connection_can_write;
-  conn->tc_timeout_cb = trill_connection_broker;
+  conn->tc_state = TC_STATE_INIT;
+
+  conn->tc_server_priority[0] = random();
+  conn->tc_server_priority[1] = random();
+
+  conn->tc_can_read_cb = trill_connection_read_probe;
+  conn->tc_can_write_cb = NULL;
+  conn->tc_timeout_cb = trill_connection_probe;
+
+  conn->tc_id = id;
 
   return conn;
 }
@@ -123,7 +128,9 @@ trill_connection_connect(struct trill_connection *conn, const char *remote,
     return -1;
   }
 
-  want_timeout_cb(conn, 1000);
+  conn->tc_state = TC_STATE_PROBING;
+
+  trill_net_want_timeout_cb(conn, 1000);
 
   return 0;
 }
@@ -146,9 +153,45 @@ trill_connection_free(struct trill_connection *conn)
 }
 
 int
-trill_connection_can_read(struct trill_connection *conn)
+trill_connection_probe(struct trill_connection *conn)
 {
-  char buf[64];
+  char buf[9];
+
+  if (conn->tc_state == TC_STATE_HANDSHAKE_CLIENT) {
+    return 0;
+  }
+
+  assert(conn->tc_state == TC_STATE_PROBING ||
+      conn->tc_state == TC_STATE_PRESHAKE_CLIENT);
+
+  // Build the probe message. This looks like
+  // +-----+---------------+--------------+
+  // | c'd | priority high | priority low |
+  // +-----+---------------+--------------+
+  // where connected is a single 1 byte if we've received a message from the
+  // other party, and 0 otherwise.
+  // We manually order the 32-bit priorities since there doesn't appear to be a
+  // cross-platform 64-bit htonl-like function.
+  buf[0] = conn->tc_state == TC_STATE_PRESHAKE_SERVER ||
+    conn->tc_state == TC_STATE_PRESHAKE_CLIENT;
+  *(uint32_t *)(buf + 1) = htonl(conn->tc_server_priority[0]);
+  *(uint32_t *)(buf + 5) = htonl(conn->tc_server_priority[1]);
+
+  if (sendto(conn->tc_sock_fd, buf, sizeof(buf), 0,
+      (struct sockaddr *)&conn->tc_remote, sizeof(conn->tc_remote)) < 0) {
+    if (errno != EAGAIN && errno != EINTR) {
+      log_errno("Error sending a probe");
+    }
+  }
+
+  return 1;
+}
+
+int
+trill_connection_read_probe(struct trill_connection *conn)
+{
+  char buf[9];
+  uint32_t a, b;
   char raddr[32];
   struct sockaddr_in remote;
   int len;
@@ -156,28 +199,64 @@ trill_connection_can_read(struct trill_connection *conn)
 
   len = recvfrom(conn->tc_sock_fd, buf, sizeof(buf), 0,
       (struct sockaddr *)&remote, &retlen);
-  inet_ntop(AF_INET, &remote, raddr, sizeof(raddr));
-  log_info("Received a message from %s:%d -- %.*s", raddr,
-      ntohs(remote.sin_port), len, buf);
+  if (len > 0) {
+    inet_ntop(AF_INET, &remote, raddr, sizeof(raddr));
+    log_info("Received a message from %s:%d", raddr, ntohs(remote.sin_port));
+  } else {
+    log_errno("Error reading a probe");
+  }
+
+  if (len == 1 && buf[0] == '\x02') {
+    conn->tc_state = TC_STATE_HANDSHAKE_CLIENT;
+    trill_crypto_session_init(conn);
+    return 1;
+  } else if (len != 9) {
+    log_error("Probe was a bad length; discarding");
+    return 1;
+  }
+
+  a = ntohl(*(uint32_t *)(buf + 1));
+  b = ntohl(*(uint32_t *)(buf + 5));
+  if (conn->tc_state == TC_STATE_PROBING) {
+    // XXX: we make the assumption here that two 64-bit random numbers will
+    // never collide. This is probably an okay assumption in practice, but is
+    // sort of a hack
+    if (a > conn->tc_server_priority[0] ||
+        (a == conn->tc_server_priority[0] && b > conn->tc_server_priority[0])) {
+      // I'm the server!
+      conn->tc_timeout_cb = trill_connection_go_ahead;
+      log_warn("I'm the server!");
+      if (buf[0]) {
+        conn->tc_state = TC_STATE_HANDSHAKE_SERVER;
+        trill_crypto_session_init(conn);
+      } else {
+        conn->tc_state = TC_STATE_PRESHAKE_SERVER;
+      }
+    } else {
+      if (buf[0]) conn->tc_state = TC_STATE_HANDSHAKE_CLIENT;
+      else        conn->tc_state = TC_STATE_PRESHAKE_CLIENT;
+    }
+  }
+
   return 1;
 }
 
 int
-trill_connection_can_write(struct trill_connection *conn)
+trill_connection_go_ahead(struct trill_connection *conn)
 {
-  // TODO: stub
-  return 1;
-}
+  if (conn->tc_state == TC_STATE_ENCRYPTED) {
+    return 0;
+  }
 
-int
-trill_connection_broker(struct trill_connection *conn)
-{
-  assert(conn->tc_remote.sin_port != 0 && "Connection does not have a remote");
+  log_warn("Go ahead!");
 
-  // TODO: stub
-  log_info("About to broker a connection!");
-  sendto(conn->tc_sock_fd, "hi", 3, 0, (struct sockaddr *)&conn->tc_remote,
-      sizeof(conn->tc_remote));
+  // Send the single byte "2"
+  if (sendto(conn->tc_sock_fd, "\x02", 1, 0,
+        (struct sockaddr *)&conn->tc_remote, sizeof(conn->tc_remote)) < 0) {
+    if (errno != EAGAIN && errno != EINTR) {
+      log_errno("Error sending a probe");
+    }
+  }
 
   return 1;
 }

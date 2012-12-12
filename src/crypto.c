@@ -86,3 +86,114 @@ trill_crypto_identity_free(struct trill_crypto_identity *id)
   gnutls_certificate_free_credentials(id->tci_creds);
   free(id->tci_creds);
 }
+
+int
+trill_crypto_session_init(struct trill_connection *conn)
+{
+  struct trill_crypto_session *session;
+  unsigned int flags;
+
+  log_warn("Starting DTLS!");
+
+  assert(conn != NULL && "Attempting to initalize crypto for null");
+
+  session = conn->tc_crypto = calloc(1, sizeof(*conn->tc_crypto));
+  if (session == NULL) {
+    return 1;
+  }
+  conn->tc_crypto->tcs_conn = conn;
+
+  if (conn->tc_state == TC_STATE_HANDSHAKE_CLIENT) {
+    flags = GNUTLS_CLIENT | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
+  } else if (conn->tc_state == TC_STATE_HANDSHAKE_SERVER) {
+    flags = GNUTLS_SERVER | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
+  } else {
+    assert(0 && "Unexpected state when initializing crypto");
+  }
+
+  if (gnutls_init(&session->tcs_session, flags)) {
+    log_error("Unable to initialize new session");
+    free(session);
+    conn->tc_crypto = NULL;
+    return 1;
+  }
+
+  if (gnutls_priority_set(session->tcs_session, priority_cache)) {
+    log_error("Unable to set priorities on new session");
+    free(session);
+    conn->tc_crypto = NULL;
+    return 1;
+  }
+
+  gnutls_transport_set_ptr(session->tcs_session,
+      (gnutls_transport_ptr_t) (ssize_t) conn->tc_sock_fd);
+
+  // TODO: We should probably determine this in a better way
+  gnutls_dtls_set_mtu(session->tcs_session, 1500);
+
+  gnutls_handshake_set_timeout(session->tcs_session,
+      GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+
+  //gnutls_dtls_get_timeout(session->tcs_session);
+
+  conn->tc_can_read_cb = trill_crypto_can_read;
+  conn->tc_can_read_cb = trill_crypto_can_write;
+
+  trill_crypto_handshake(session); // TODO: check for errors
+
+  return 0;
+}
+
+int
+trill_crypto_handshake(struct trill_crypto_session *session)
+{
+  int ret;
+  do {
+    ret = gnutls_handshake(session->tcs_session);
+  } while (gnutls_error_is_fatal(ret));
+
+  if (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED) {
+    // Do we need a write?
+    if (gnutls_record_get_direction(session->tcs_session) == 1) {
+      trill_net_want_write_cb(session->tcs_conn);
+    }
+  }
+  return 0;
+}
+
+int
+trill_crypto_can_read(struct trill_connection *conn)
+{
+  char buf[1024];
+  switch (conn->tc_state) {
+    case TC_STATE_HANDSHAKE_SERVER:
+    case TC_STATE_HANDSHAKE_CLIENT:
+      trill_crypto_handshake(conn->tc_crypto);
+      break;
+    case TC_STATE_ENCRYPTED:
+      gnutls_record_recv(conn->tc_crypto->tcs_session, buf, sizeof(buf));
+      log_info("MSG: %s\n", buf);
+      break;
+    default:
+      assert(0 && "In an unexpected state in crypto read");
+  }
+  return 1;
+}
+
+int
+trill_crypto_can_write(struct trill_connection *conn)
+{
+  switch (conn->tc_state) {
+    case TC_STATE_HANDSHAKE_SERVER:
+    case TC_STATE_HANDSHAKE_CLIENT:
+      trill_crypto_handshake(conn->tc_crypto);
+      break;
+    case TC_STATE_ENCRYPTED:
+      // Resume the write
+      gnutls_record_send(conn->tc_crypto->tcs_session, NULL, 0);
+      break;
+    default:
+      assert(0 && "In an unexpected state in crypto write");
+  }
+  return 0;
+}

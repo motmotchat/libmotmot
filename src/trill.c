@@ -1,7 +1,10 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <glib.h>
 
+#include "crypto.h"
 #include "log.h"
 #include "network.h"
 
@@ -12,6 +15,8 @@ socket_can_read(GIOChannel *source, GIOCondition cond, void *data)
 {
   struct trill_connection *conn = data;
 
+  assert(conn->tc_can_read_cb != NULL && "Read callback is null");
+
   return conn->tc_can_read_cb(conn);
 }
 
@@ -20,6 +25,8 @@ socket_can_write(GIOChannel *source, GIOCondition cond, void *data)
 {
   struct trill_connection *conn = data;
 
+  assert(conn->tc_can_write_cb != NULL && "Write callback is null");
+
   return conn->tc_can_write_cb(conn);
 }
 
@@ -27,6 +34,8 @@ gboolean
 timeout_trigger(void *data)
 {
   struct trill_connection *conn = data;
+
+  assert(conn->tc_timeout_cb != NULL && "Timeout callback is null");
 
   return conn->tc_timeout_cb(conn);
 }
@@ -53,14 +62,20 @@ main(int argc, char *argv[])
 {
   GIOChannel *chan;
   struct trill_connection *conn;
+  struct trill_crypto_identity *id;
   char buf[25];
   char *buf_ptr;
+
+  srandomdev();
 
   gmain = g_main_loop_new(g_main_context_default(), 0);
 
   trill_net_init(want_write, want_timeout);
+  trill_crypto_init();
 
-  conn = trill_connection_new();
+  id = trill_crypto_identity_new("mycert.pem", NULL, "mycert.pem", "mycert.pem");
+
+  conn = trill_connection_new(id);
   log_info("Listening on port %d", conn->tc_port);
 
   chan = g_io_channel_unix_new(conn->tc_sock_fd);
