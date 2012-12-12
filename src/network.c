@@ -71,7 +71,7 @@ trill_connection_new()
     }
     return NULL;
   }
-  conn->tc_port = addr.sin_port;
+  conn->tc_port = ntohs(addr.sin_port);
 
   // DTLS requires that we disable IP fragmentation
   // It appears that OS X doesn't support this without writing raw UDP packets
@@ -113,7 +113,7 @@ trill_connection_connect(struct trill_connection *conn, const char *remote,
 
   bzero(&conn->tc_remote, sizeof(conn->tc_remote));
   conn->tc_remote.sin_family = AF_INET;
-  conn->tc_remote.sin_port = port;
+  conn->tc_remote.sin_port = htons(port);
   ret = inet_pton(AF_INET, remote, &conn->tc_remote.sin_addr);
   if (ret == 0) {
     log_warn("Unparseable remote address %s", remote);
@@ -157,7 +157,8 @@ trill_connection_can_read(struct trill_connection *conn)
   len = recvfrom(conn->tc_sock_fd, buf, sizeof(buf), 0,
       (struct sockaddr *)&remote, &retlen);
   inet_ntop(AF_INET, &remote, raddr, sizeof(raddr));
-  log_info("Received a message from %s: %.*s", raddr, len, buf);
+  log_info("Received a message from %s:%d -- %.*s", raddr,
+      ntohs(remote.sin_port), len, buf);
   return 1;
 }
 
