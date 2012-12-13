@@ -10,6 +10,11 @@ all: trill tags
 trill: $(SRC:.c=.o)
 	$(CC) $(LDFLAGS) -o trill $(SRC:.c=.o)
 
+.c.o:
+	@mkdir -p $(DEPDIR)
+	@mkdir -p $(DEPDIR)/types
+	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPDIR)$(<:.c=.d) -c $< -o $@
+
 tags: $(wildcard *.c) $(wildcard *.h)
 	ctags -R
 
