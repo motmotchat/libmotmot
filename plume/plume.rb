@@ -16,7 +16,7 @@ class Plume < PlumeConn
 
   KEY_FILE = 'pem/plume.key'
   CRT_FILE = 'pem/plume.crt'
-  LEGAL_OPS = %w(connect route)
+  LEGAL_OPS = %w(route forward)
 
   #
   # Add a connection to our table.
@@ -39,9 +39,10 @@ class Plume < PlumeConn
   private
 
   #
-  # Help a client connect to a peer by passing data to the peer's Plume server.
+  # Route a message for our client to a peer by passing it to another Plume
+  # server.
   #
-  def connect(cert, peer, payload)
+  def route(cert, peer, op, payload)
     email = parse_email(peer)
     return close_connection if email.nil?
 
@@ -52,17 +53,17 @@ class Plume < PlumeConn
 
     # Route the connection request to the peer's Plume server.
     EM.connect(addr, port, Plume) do |plume|
-      plume.send_data ['route', [cert, peer, payload]].to_msgpack
+      plume.send_data ['forward', [cert, peer, op, payload]].to_msgpack
     end
   end
 
   #
-  # Route a connection request from another Plume server to our client.
+  # Pass a message to a peer.
   #
-  def route(cert, peer, payload)
+  def forward(cert, peer, op, payload)
     return close_connection if not $conns[peer]
 
-    $conns[peer].send_data ['connect', [cert, peer, payload]].to_msgpack
+    $conns[peer].send_data [op, [cert, peer, payload]].to_msgpack
   end
 end
 

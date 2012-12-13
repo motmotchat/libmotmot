@@ -85,7 +85,7 @@ class PlumeClient < PlumeConn
 
   KEY_FILE = 'pem/client.key'
   CRT_FILE = CLIENT_CRT
-  LEGAL_OPS = %w(connect)
+  LEGAL_OPS = %w(connect pubkey)
   OP_PREFIX = 'recv_'
 
   def initialize
@@ -136,7 +136,14 @@ class PlumeClient < PlumeConn
   #
   def connect(peer)
     @peers[peer] = true
-    send_data ['connect', [cert.to_pem, peer, nil]].to_msgpack
+
+    ip, port = get_sockaddr
+    cc = OpenSSL::PKCS7.sign(cert, key, [cert.to_pem, ip, port].to_msgpack)
+
+    send_data [
+      'route',
+      [cert.to_pem, peer, 'connect', cc.to_pem]
+    ].to_msgpack
 
     prompt
   end

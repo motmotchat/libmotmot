@@ -8,7 +8,7 @@ require 'msgpack'
 require 'openssl'
 require 'socket'
 
-class PlumeEM < EM::Connection
+class PlumeConn < EM::Connection
 
   KEY_FILE = nil
   CRT_FILE = nil
@@ -16,6 +16,11 @@ class PlumeEM < EM::Connection
   OP_PREFIX = ''
 
   attr_reader :peer_handle
+
+  def initialize
+    super()
+    @buffer = ''
+  end
 
   #
   # Initiate TLS by default.
@@ -38,8 +43,15 @@ class PlumeEM < EM::Connection
     true
   end
 
-  def receive_data(data)
-    op, data = MessagePack.unpack(data)
+  def receive_data(buf)
+    @buffer += buf
+
+    begin
+      op, data = MessagePack.unpack(@buffer)
+    rescue MessagePack::UnpackError
+      return
+    end
+    @buffer = ''
 
     return close_connection unless self.class::LEGAL_OPS.include? op
 
@@ -67,6 +79,13 @@ class PlumeEM < EM::Connection
 
   def cert
     @cert ||= OpenSSL::X509::Certificate.new File.read self.class::CRT_FILE
+  end
+
+  #
+  # Return our own IP and port.
+  #
+  def get_sockaddr
+    Socket.unpack_sockaddr_in(get_sockname).reverse
   end
 
   #
