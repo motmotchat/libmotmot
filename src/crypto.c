@@ -126,6 +126,9 @@ trill_crypto_session_init(struct trill_connection *conn)
     return 1;
   }
 
+  gnutls_credentials_set(session->tcs_session, GNUTLS_CRD_CERTIFICATE,
+      conn->tc_id->tci_creds);
+
   gnutls_transport_set_ptr(session->tcs_session,
       (gnutls_transport_ptr_t) (ssize_t) conn->tc_sock_fd);
 
@@ -138,7 +141,7 @@ trill_crypto_session_init(struct trill_connection *conn)
   //gnutls_dtls_get_timeout(session->tcs_session);
 
   conn->tc_can_read_cb = trill_crypto_can_read;
-  conn->tc_can_read_cb = trill_crypto_can_write;
+  conn->tc_can_write_cb = trill_crypto_can_write;
 
   trill_crypto_handshake(session); // TODO: check for errors
 
