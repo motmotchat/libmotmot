@@ -35,5 +35,6 @@ end
 # Extract the common name from an OpenSSL::X509::Certificate.
 #
 def cert_cn(crt)
+  crt = OpenSSL::X509::Certificate.new crt if crt.is_a? String
   OpenSSL::X509::Name.new(crt.subject).to_a.find { |a| a.first == 'CN' }[1]
 end

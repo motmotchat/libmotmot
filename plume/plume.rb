@@ -25,7 +25,7 @@ class PlumeServer < PlumeConn
   # Add a connection to our table.
   #
   def ssl_handshake_completed
-    @peer_handle = cert_cn(OpenSSL::X509::Certificate.new(get_peer_cert))
+    @peer_handle = cert_cn(get_peer_cert)
     @conns[@peer_handle] = self
   end
 

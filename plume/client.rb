@@ -56,7 +56,7 @@ def prompt(conn, msg=nil)
 end
 
 def conn_plume
-  identity = cert_cn(OpenSSL::X509::Certificate.new File.read @crt_file)
+  identity = cert_cn(File.read @crt_file)
 
   # Validate the login certificate.
   email = parse_email(identity)
