@@ -10,6 +10,10 @@ static const char *priorities =
   "SECURE256:-VERS-TLS-ALL:+VERS-DTLS1.0:%SERVER_PRECEDENCE";
 static gnutls_priority_t priority_cache;
 
+int trill_crypto_handshake_retry(struct trill_connection *conn);
+int trill_crypto_can_read(struct trill_connection *conn);
+int trill_crypto_can_write(struct trill_connection *conn);
+
 int
 trill_crypto_init(void)
 {
@@ -103,10 +107,9 @@ trill_crypto_session_init(struct trill_connection *conn)
   }
   conn->tc_crypto->tcs_conn = conn;
 
-  if (conn->tc_state == TC_STATE_HANDSHAKE_SERVER ||
-      conn->tc_state == TC_STATE_PRESHAKE_SERVER) {
+  if (conn->tc_state == TC_STATE_SERVER) {
     flags = GNUTLS_SERVER | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
-  } else if (conn->tc_state == TC_STATE_HANDSHAKE_CLIENT) {
+  } else if (conn->tc_state == TC_STATE_CLIENT) {
     flags = GNUTLS_CLIENT | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
   } else {
     assert(0 && "Unexpected state when initializing crypto");
@@ -135,13 +138,11 @@ trill_crypto_session_init(struct trill_connection *conn)
   // TODO: We should probably determine this in a better way
   gnutls_dtls_set_mtu(session->tcs_session, 1500);
 
-  gnutls_handshake_set_timeout(session->tcs_session,
-      GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
-
-  //gnutls_dtls_get_timeout(session->tcs_session);
-
   conn->tc_can_read_cb = trill_crypto_can_read;
   conn->tc_can_write_cb = trill_crypto_can_write;
+
+  trill_net_want_timeout_cb(conn, trill_crypto_handshake_retry,
+      GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
   trill_crypto_handshake(session); // TODO: check for errors
 
@@ -149,12 +150,26 @@ trill_crypto_session_init(struct trill_connection *conn)
 }
 
 int
+trill_crypto_handshake_retry(struct trill_connection *conn)
+{
+  if (conn->tc_state != TC_STATE_ESTABLISHED) {
+    trill_crypto_handshake(conn->tc_crypto);
+  }
+
+  return conn->tc_state != TC_STATE_ESTABLISHED;
+}
+
+int
 trill_crypto_handshake(struct trill_crypto_session *session)
 {
   int ret;
 
+  assert((session->tcs_conn->tc_state == TC_STATE_SERVER ||
+      session->tcs_conn->tc_state == TC_STATE_CLIENT) &&
+      "In a bad state during handshake");
+
   do {
-    log_warn("Attempting handshake");
+    log_info("Attempting handshake");
     ret = gnutls_handshake(session->tcs_session);
   } while (gnutls_error_is_fatal(ret));
 
@@ -163,10 +178,12 @@ trill_crypto_handshake(struct trill_crypto_session *session)
     if (gnutls_record_get_direction(session->tcs_session) == 1) {
       log_info("We want a write");
       trill_net_want_write_cb(session->tcs_conn);
+    } else {
+      log_info("We want a read");
     }
   } else if (ret == 0) {
     log_info("TLS is established!");
-    session->tcs_conn->tc_state = TC_STATE_ENCRYPTED;
+    session->tcs_conn->tc_state = TC_STATE_ESTABLISHED;
   } else {
     log_error("Something went wrong with the TLS handshake");
   }
@@ -177,17 +194,14 @@ trill_crypto_handshake(struct trill_crypto_session *session)
 int
 trill_crypto_can_read(struct trill_connection *conn)
 {
-  log_info("Can read");
   char buf[1024];
   switch (conn->tc_state) {
-    case TC_STATE_HANDSHAKE_SERVER:
-    case TC_STATE_PRESHAKE_SERVER:
-    case TC_STATE_HANDSHAKE_CLIENT:
+    case TC_STATE_SERVER:
+    case TC_STATE_CLIENT:
       trill_crypto_handshake(conn->tc_crypto);
       break;
-    case TC_STATE_ENCRYPTED:
+    case TC_STATE_ESTABLISHED:
       gnutls_record_recv(conn->tc_crypto->tcs_session, buf, sizeof(buf));
-      log_info("MSG: %s\n", buf);
       break;
     default:
       assert(0 && "In an unexpected state in crypto read");
@@ -198,15 +212,12 @@ trill_crypto_can_read(struct trill_connection *conn)
 int
 trill_crypto_can_write(struct trill_connection *conn)
 {
-  log_info("Can write");
   switch (conn->tc_state) {
-    case TC_STATE_HANDSHAKE_SERVER:
-    case TC_STATE_PRESHAKE_SERVER:
-    case TC_STATE_HANDSHAKE_CLIENT:
+    case TC_STATE_SERVER:
+    case TC_STATE_CLIENT:
       trill_crypto_handshake(conn->tc_crypto);
       break;
-    case TC_STATE_ENCRYPTED:
-      // Resume the write
+    case TC_STATE_ESTABLISHED:
       gnutls_record_send(conn->tc_crypto->tcs_session, NULL, 0);
       break;
     default:

@@ -16,19 +16,41 @@ typedef int (*trill_net_want_write_cb_t)(struct trill_connection *conn);
 // connection? If so, we might need an additional tag somewhere. But we might
 // just be able to structure things such that timeout callbacks are idempotent
 typedef int (*trill_net_want_timeout_cb_t)(struct trill_connection *conn,
-    unsigned millis);
+    trill_net_cb_t cb, unsigned millis);
 
 trill_net_want_write_cb_t trill_net_want_write_cb;
 trill_net_want_timeout_cb_t trill_net_want_timeout_cb;
 
+/**
+ * Connection state diagram:
+ *
+ *          INIT (new)
+ *              |
+ *              | (connect)
+ *              v
+ *           PROBING  -- (recv probe, we win) -->  SERVER
+ *              |                                    |
+ *              | (recv probe, we lose,              | (DTLS handshake)
+ *              |  acknowledge bit set)              |
+ *              v                                    v
+ *           CLIENT  -- (DTLS handshake) -----> ESTABLISHED
+ *
+ */
 enum trill_connection_state {
-  TC_STATE_INIT,              // Connection has been created
-  TC_STATE_PROBING,           // Connection has a remote, is probing them
-  TC_STATE_PRESHAKE_SERVER,   // We think we're connected and are the server
-  TC_STATE_PRESHAKE_CLIENT,   // We think we're connected and are the client
-  TC_STATE_HANDSHAKE_SERVER,  // We have a connection, and we are the server
-  TC_STATE_HANDSHAKE_CLIENT,  // We have a connection, and we are the client
-  TC_STATE_ENCRYPTED          // An encrypted channel has been established
+  TC_STATE_INIT,
+  TC_STATE_PROBING,
+  TC_STATE_SERVER,
+  TC_STATE_CLIENT,
+  TC_STATE_ESTABLISHED
+};
+
+/**
+ * These were chosen to be non-colliding with TLS ContentTypes
+ * http://tools.ietf.org/html/rfc2246#appendix-A.1
+ */
+enum trill_net_message_types {
+  TRILL_NET_ACK = 99,
+  TRILL_NET_NOACK = 100
 };
 
 struct trill_connection {
@@ -43,7 +65,6 @@ struct trill_connection {
   // Connection event callback vtable
   trill_net_cb_t tc_can_read_cb;
   trill_net_cb_t tc_can_write_cb;
-  trill_net_cb_t tc_timeout_cb;
 
   struct trill_crypto_session *tc_crypto;
   struct trill_crypto_identity *tc_id;

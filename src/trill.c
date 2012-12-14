@@ -10,6 +10,11 @@
 
 GMainLoop *gmain;
 
+struct timeout_callback {
+  struct trill_connection *conn;
+  trill_net_cb_t cb;
+};
+
 gboolean
 socket_can_read(GIOChannel *source, GIOCondition cond, void *data)
 {
@@ -33,11 +38,16 @@ socket_can_write(GIOChannel *source, GIOCondition cond, void *data)
 gboolean
 timeout_trigger(void *data)
 {
-  struct trill_connection *conn = data;
+  struct timeout_callback *cb = data;
+  int ret;
 
-  assert(conn->tc_timeout_cb != NULL && "Timeout callback is null");
+  ret = cb->cb(cb->conn);
 
-  return conn->tc_timeout_cb(conn);
+  if (ret == 0) {
+    free(cb);
+  }
+
+  return ret;
 }
 
 int
@@ -50,9 +60,15 @@ want_write(struct trill_connection *conn)
 }
 
 int
-want_timeout(struct trill_connection *conn, unsigned millis)
+want_timeout(struct trill_connection *conn, trill_net_cb_t fn, unsigned millis)
 {
-  g_timeout_add(millis, timeout_trigger, conn);
+  struct timeout_callback *cb;
+
+  cb = malloc(sizeof(*cb));
+  cb->conn = conn;
+  cb->cb = fn;
+
+  g_timeout_add(millis, timeout_trigger, cb);
 
   return 0;
 }

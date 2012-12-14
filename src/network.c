@@ -120,7 +120,6 @@ trill_connection_new(struct trill_crypto_identity *id)
 
   conn->tc_can_read_cb = trill_connection_read_probe;
   conn->tc_can_write_cb = NULL;
-  conn->tc_timeout_cb = trill_connection_probe;
 
   conn->tc_id = id;
 
@@ -153,7 +152,7 @@ trill_connection_connect(struct trill_connection *conn, const char *remote,
 
   conn->tc_state = TC_STATE_PROBING;
 
-  trill_net_want_timeout_cb(conn, 1000);
+  trill_net_want_timeout_cb(conn, trill_connection_probe, 1000);
 
   return 0;
 }
@@ -180,23 +179,23 @@ trill_connection_probe(struct trill_connection *conn)
 {
   char buf[9];
 
-  if (conn->tc_state == TC_STATE_HANDSHAKE_CLIENT) {
-    return 0;
-  }
-
-  assert(conn->tc_state == TC_STATE_PROBING ||
-      conn->tc_state == TC_STATE_PRESHAKE_CLIENT);
-
   // Build the probe message. This looks like
   // +-----+---------------+--------------+
-  // | c'd | priority high | priority low |
+  // | ack | priority high | priority low |
   // +-----+---------------+--------------+
-  // where connected is a single 1 byte if we've received a message from the
-  // other party, and 0 otherwise.
+  // where ack is TRILL_NET_ACK if we've received a message from them, and
+  // TRILL_NET_NOACK otherwise.
   // We manually order the 32-bit priorities since there doesn't appear to be a
   // cross-platform 64-bit htonl-like function.
-  buf[0] = conn->tc_state == TC_STATE_PRESHAKE_SERVER ||
-    conn->tc_state == TC_STATE_PRESHAKE_CLIENT;
+  if (conn->tc_state == TC_STATE_PROBING) {
+    buf[0] = TRILL_NET_NOACK;
+  } else if (conn->tc_state == TC_STATE_SERVER) {
+    buf[0] = TRILL_NET_ACK;
+  } else if (conn->tc_state == TC_STATE_ESTABLISHED) {
+    return 0;
+  } else {
+    assert(0 && "Probing while in a bad state");
+  }
   *(uint32_t *)(buf + 1) = htonl(conn->tc_server_priority[0]);
   *(uint32_t *)(buf + 5) = htonl(conn->tc_server_priority[1]);
 
@@ -212,9 +211,13 @@ trill_connection_probe(struct trill_connection *conn)
 int
 trill_connection_read_probe(struct trill_connection *conn)
 {
-  char buf[9];
+  char buf[10];
   uint32_t a, b;
-  int len;
+  int len, winning;
+
+  assert((conn->tc_state == TC_STATE_PROBING ||
+      conn->tc_state == TC_STATE_CLIENT) &&
+      "Bad state when reading probe");
 
   len = recv(conn->tc_sock_fd, buf, sizeof(buf), 0);
   if (len > 0) {
@@ -223,54 +226,29 @@ trill_connection_read_probe(struct trill_connection *conn)
     log_errno("Error reading a probe");
   }
 
-  if (len == 1 && buf[0] == '\x02') {
-    conn->tc_state = TC_STATE_HANDSHAKE_CLIENT;
-    log_warn("I'm going to go ahead!");
-    trill_crypto_session_init(conn);
-    return 1;
-  } else if (len != 9) {
-    log_error("Probe was a bad length; discarding");
+  if (len != 9) {
+    log_warn("Probe was a bad length; discarding");
     return 1;
   }
 
+  // XXX: we make the assumption here that two 64-bit random numbers will
+  // never collide. This is probably an okay assumption in practice, but is
+  // sort of a hack
   a = ntohl(*(uint32_t *)(buf + 1));
   b = ntohl(*(uint32_t *)(buf + 5));
-  if (conn->tc_state == TC_STATE_PROBING) {
-    // XXX: we make the assumption here that two 64-bit random numbers will
-    // never collide. This is probably an okay assumption in practice, but is
-    // sort of a hack
-    if (a > conn->tc_server_priority[0] ||
-        (a == conn->tc_server_priority[0] && b > conn->tc_server_priority[0])) {
-      // I'm the server!
-      conn->tc_timeout_cb = trill_connection_go_ahead;
-      log_warn("I'm the server!");
-      if (buf[0]) conn->tc_state = TC_STATE_HANDSHAKE_SERVER;
-      else        conn->tc_state = TC_STATE_PRESHAKE_SERVER;
+  winning = a > conn->tc_server_priority[0] ||
+    (a == conn->tc_server_priority[0] && b > conn->tc_server_priority[0]);
 
-      trill_crypto_session_init(conn);
-    } else {
-      if (buf[0]) conn->tc_state = TC_STATE_HANDSHAKE_CLIENT;
-      else        conn->tc_state = TC_STATE_PRESHAKE_CLIENT;
-    }
-  }
-
-  return 1;
-}
-
-int
-trill_connection_go_ahead(struct trill_connection *conn)
-{
-  if (conn->tc_state == TC_STATE_ENCRYPTED) {
-    return 0;
-  }
-
-  log_warn("Go ahead!");
-
-  // Send the single byte "2"
-  if (send(conn->tc_sock_fd, "\x02", 1, 0) < 0) {
-    if (errno != EAGAIN && errno != EINTR) {
-      log_errno("Error sending a probe");
-    }
+  if (winning) {
+    log_info("Probing done; we're the server");
+    conn->tc_state = TC_STATE_SERVER;
+    // Manually trigger the probe, since we have new data
+    trill_connection_probe(conn);
+    trill_crypto_session_init(conn);
+  } else if (!winning && buf[0] == TRILL_NET_ACK) {
+    log_info("Probing done; we're the client");
+    conn->tc_state = TC_STATE_CLIENT;
+    trill_crypto_session_init(conn);
   }
 
   return 1;
