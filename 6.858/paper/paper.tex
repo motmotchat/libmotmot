@@ -1,41 +1,39 @@
-\documentclass[12pt]{article}
+\documentclass[11pt]{article}
 
-\usepackage{fancyhdr, geometry, hyperref, xspace}
+\usepackage{fancyhdr, geometry, hyperref, sectsty, titlesec, xspace}
 \usepackage[parfill]{parskip}
 
 \geometry{letterpaper,text={7in,9in},centering}
 \pagestyle{fancy}
 
-\fancyhead[RO]{Carl Jackson and Max Wang}
+\sectionfont{\vspace{-2pt}\large}
+\subsectionfont{\vspace{-2pt}\normalsize}
+\subsubsectionfont{\normalfont\itshape}
+
+\titlespacing\section{0pt}{10pt}{2pt}
+\titlespacing\subsection{0pt}{8pt}{0pt}
+
+\fancyhead[RO]{Carl Jackson \& Max Wang}
 \fancyhead[LO]{\url{http://github.com/motmotchat/trill}}
 
 \newcommand{\Trill}{\textsc{Trill}\xspace}
+\newcommand{\Plume}{\textsc{Plume}\xspace}
 
 \title{\Trill: Secure firewall-traversing networking}
-\author{Carl Jackson and Max Wang}
+\author{Carl Jackson \and Max Wang}
 \date{December 14, 2012}
-
-\makeatletter
-\renewcommand{\maketitle}{%
-  \thispagestyle{plain}%
-  \begin{center}%
-    {\LARGE \@title \par}%
-    {\large \@author \par}%
-    {\large \@date \par}%
-  \end{center}%
-}
-\makeatother
 
 \begin{document}
 
 \maketitle
 
-\section*{Overview}
 We implemented \Trill, a networking abstraction that provides secure
 communication between federated identities, either of which could be behind a
 firewall.
 
-\section*{Security}
+\section{Design}
+
+\subsection{Security}
 The security of our system is based on standard cryptographic infrastructure and
 libraries. By ``identities,'' we mean public key pairs, the private half of
 which is uniquely known by an individual. This identity can be given one or more
@@ -111,7 +109,7 @@ relatively few registrars that support it. While we hope the situation improves,
 it seems like CA-rooted trust is the most compatible system for implementing
 \Trill in the near future, and it is what we have used in our implementation.
 
-\section*{Firewall Traversal}
+\subsection{Firewall Traversal}
 Due to restrictions on many firewalls and NATs in place on the Internet, it is
 impossible for arbitrary clients on the internet to establish peer-to-peer
 communication. There are techniques for firewall/NAT traversal which involve
@@ -119,11 +117,14 @@ communication. There are techniques for firewall/NAT traversal which involve
 something similar to \texttt{chownat} (\url{http://samy.pl/chownat/}) in \Trill,
 which appears to be a standard way to do this.
 
-\section*{Implementation}
+\section{Implementation}
 % trill - client library. allows plug-and-play event loops, architected to (one
 %   day!) support multiple TLS libraries.
 % plume - server. separate login and protocol servers. access to domain root
 %   keys has very small surface area. chroot more!
 
+\subsection{Trill client library}
+
+\subsection{Plume server}
 
 \end{document}
