@@ -23,7 +23,5 @@ struct trill_crypto_identity *trill_crypto_identity_new(const char *cafile,
 void trill_crypto_identity_free(struct trill_crypto_identity *id);
 
 int trill_crypto_handshake(struct trill_crypto_session *session);
-int trill_crypto_can_read(struct trill_connection *conn);
-int trill_crypto_can_write(struct trill_connection *conn);
 
 #endif // __CRYPTO_H__
