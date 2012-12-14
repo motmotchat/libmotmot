@@ -258,6 +258,10 @@ trill_tls_can_read(struct trill_connection *conn)
       len = gnutls_record_recv_seq(conn->tc_tls.tt_session, buf, sizeof(buf),
           (unsigned char *)&seq);
 
+      // TODO: sequence number is in big-endian. It'd probably be more useful to
+      // everyone if it was converted into host endinanness, but be64toh is
+      // Linux only.
+
       assert(conn->tc_recv_cb != NULL && "No callback set");
       conn->tc_recv_cb(conn->tc_event_loop_data, buf, len, &seq);
       break;
