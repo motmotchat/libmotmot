@@ -59,7 +59,8 @@ class PlumeServer < PlumeConn
     return close_connection if addr.nil? or port.nil?
 
     # Route the connection request to the peer's Plume server.
-    EM.connect(addr, port, PlumeServer, key_file, crt_file, @conns) do |conn|
+    EM.connect(addr, port, PlumeServer,
+               key_file, crt_file, @conns, @udp_reqs) do |conn|
       conn.send_data ['route', [cert, peer, op, payload]].to_msgpack
     end
   end
