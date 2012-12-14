@@ -32,6 +32,8 @@ class ClientPlumeConn < PlumeConn
     super key_file, crt_file
     @peers = {}
     @udps = {}
+
+    @prng = Random.new
     @timers = {}
   end
 
@@ -56,7 +58,7 @@ class ClientPlumeConn < PlumeConn
 
     # If we don't know our UDP IP and port for this peer, ask the server.
     if not @udps[peer]
-      cookie = 49897392   # TODO: make this random
+      cookie = @prng.rand(1 << 64)
       @udps[cookie] = peer
 
       send_data ['udp', [cert.to_pem, cookie]].to_msgpack
