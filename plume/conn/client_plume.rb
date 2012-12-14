@@ -26,7 +26,7 @@ class ClientPlumeConn < PlumeConn
   def initialize(key_file, crt_file)
     super key_file, crt_file
     @peers = {}
-    @upds = {}
+    @udps = {}
     @timers = {}
   end
 
@@ -51,8 +51,8 @@ class ClientPlumeConn < PlumeConn
 
     # If we don't know our UDP IP and port for this peer, ask the server.
     if not @udps[peer]
-      cookie = 97392   # TODO: make this random
-      @upds[cookie] = peer
+      cookie = 49897392   # TODO: make this random
+      @udps[cookie] = peer
 
       send_data ['udp', [cert.to_pem, cookie]].to_msgpack
       return

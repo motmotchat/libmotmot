@@ -68,7 +68,7 @@ class PlumeServer < PlumeConn
   #
   # Register a UDP self-identification request.
   #
-  def udp(cookie)
+  def udp(cert, cookie)
     @udp_reqs[cookie] = self
     send_data ['ack_udp', [cookie]].to_msgpack
   end
