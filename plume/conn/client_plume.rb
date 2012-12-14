@@ -6,6 +6,7 @@ require 'msgpack'
 require 'openssl'
 
 require_relative 'conn.rb'
+require_relative '../util.rb'
 
 class ClientPlumeConn < PlumeConn
 

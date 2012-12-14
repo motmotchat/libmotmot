@@ -4,14 +4,12 @@
 
 require 'rubygems'
 
-require 'dnsruby'
 require 'eventmachine'
 require 'msgpack'
 require 'openssl'
 
 require_relative 'conn/conn.rb'
-
-DNSRuby = Dnsruby
+require_relative 'util.rb'
 
 class PlumeServer < PlumeConn
 
@@ -26,10 +24,7 @@ class PlumeServer < PlumeConn
   # Add a connection to our table.
   #
   def ssl_handshake_completed
-    peer_cert = OpenSSL::X509::Certificate.new get_peer_cert
-    name = OpenSSL::X509::Name.new(peer_cert.subject)
-    @peer_handle = name.to_a.find { |a| a.first == 'CN' }[1]
-
+    @peer_handle = cert_cn(OpenSSL::X509::Certificate.new(get_peer_cert))
     @conns[@peer_handle] = self
   end
 
@@ -58,12 +53,8 @@ class PlumeServer < PlumeConn
     addr, port = '', 0
 
     # Determine the address and port of the peer's Plume server.
-    DNSRuby::DNS.open do |dns|
-      srv = dns.getresource("_plume._tcp.#{email.domain}", DNSRuby::Types.SRV)
-      addr, port = srv.target, srv.port
-    end
-
-    return close_connection if addr == '.' or addr == '' or port == 0
+    addr, port = dns_get_srv("_plume._tcp.#{email.domain}")
+    return close_connection if addr.nil? or port.nil?
 
     # Route the connection request to the peer's Plume server.
     EM.connect(addr, port, PlumeServer, key_file, crt_file, @conns) do |conn|
@@ -77,7 +68,7 @@ conns = {}
 key_file = 'pem/plume.key'
 crt_file = 'pem/plume.crt'
 
-port = ARGV[0] || '9000'
+port = ARGV[0] || '42000'
 
 EM.run {
   EM.start_server 'localhost', port, PlumeServer, key_file, crt_file, conns

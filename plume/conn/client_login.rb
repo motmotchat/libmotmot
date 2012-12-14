@@ -25,11 +25,8 @@ class ClientLoginConn < PlumeConn
   #
   # Generate a CSR and send it to the login server.
   #
-  def login(&blk)
+  def login(identity, password, &blk)
     @cb = blk
-
-    identity = ask('Identity: ') { |q| q.echo = true }
-    password = ask('Password: ') { |q| q.echo = false }
 
     name = OpenSSL::X509::Name.parse "CN=#{identity}"
 

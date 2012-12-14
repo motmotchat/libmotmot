@@ -3,7 +3,6 @@
 #
 
 require 'eventmachine'
-require 'mail'
 require 'msgpack'
 require 'openssl'
 require 'socket'
@@ -94,14 +93,5 @@ class PlumeConn < EM::Connection
   #
   def get_peeraddr
     Socket.unpack_sockaddr_in(get_peername).reverse
-  end
-
-  #
-  # Parse an email address string, returning a Mail::Address object on success,
-  # or nil.
-  #
-  def parse_email(s)
-    e = Mail::Address.new(s)
-    (s == '' || e.address != s || e.local == e.address) ? nil : e
   end
 end

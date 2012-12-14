@@ -46,6 +46,6 @@ end
 key_file = 'pem/login.key'
 crt_file = 'pem/login.crt'
 
-port = ARGV[0] || '9001'
+port = ARGV[0] || '42001'
 
 EM.run { EM.start_server 'localhost', port, PlumeLogin, key_file, crt_file }
