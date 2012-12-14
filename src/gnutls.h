@@ -1,5 +1,5 @@
-#ifndef __GNUTLS_H__
-#define __GNUTLS_H__
+#ifndef __TRILL_GNUTLS_H__
+#define __TRILL_GNUTLS_H__
 
 #include <gnutls/gnutls.h>
 #include <gnutls/dtls.h>
@@ -9,4 +9,4 @@ struct trill_tls {
   gnutls_session_t tt_session;
 };
 
-#endif // __GNUTLS_H__
+#endif // __TRILL_GNUTLS_H__

@@ -1,5 +1,5 @@
-#ifndef __LOG_H__
-#define __LOG_H__
+#ifndef __TRILL_LOG_H__
+#define __TRILL_LOG_H__
 
 #define PRINTFLIKE(fmt, arg) __attribute__((format(printf, fmt, arg)))
 
@@ -19,4 +19,4 @@ void log_level(enum log_level level, const char *fmt, ...) PRINTFLIKE(2, 3);
 
 void log_errno(const char *msg);
 
-#endif // __LOG_H__
+#endif // __TRILL_LOG_H__

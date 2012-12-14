@@ -1,5 +1,5 @@
-#ifndef __NETWORK_H__
-#define __NETWORK_H__
+#ifndef __TRILL_NETWORK_H__
+#define __TRILL_NETWORK_H__
 
 #include <stdint.h>
 #include <netinet/in.h>
@@ -19,4 +19,4 @@ enum trill_net_message_types {
 int trill_connection_probe(struct trill_connection *conn);
 int trill_connection_read_probe(struct trill_connection *conn);
 
-#endif // __NETWORK_H__
+#endif // __TRILL_NETWORK_H__

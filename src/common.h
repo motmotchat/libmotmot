@@ -1,5 +1,5 @@
-#ifndef __COMMON_H__
-#define __COMMON_H__
+#ifndef __TRILL_COMMON_H__
+#define __TRILL_COMMON_H__
 
 #include <stdint.h>
 
@@ -54,4 +54,4 @@ struct trill_connection {
 trill_want_write_callback_t trill_want_write_callback;
 trill_want_timeout_callback_t trill_want_timeout_callback;
 
-#endif // __COMMON_H__
+#endif // __TRILL_COMMON_H__

@@ -53,4 +53,4 @@ void trill_set_recv_callback(struct trill_connection *conn,
 
 ssize_t trill_send(struct trill_connection *conn, const void *data, size_t len);
 
-#endif
+#endif // __TRILL_H__
