@@ -116,7 +116,7 @@ main(int argc, char *argv[])
   }
   *buf_ptr++ = '\0';
 
-  trill_connect(conn, buf, atoi(buf_ptr));
+  trill_connect(conn, "testing.com", buf, atoi(buf_ptr));
   log_info("Connecting to %s on port %d", buf, atoi(buf_ptr));
 
   g_io_add_watch(myconn->chan, G_IO_IN, socket_can_read, conn);

@@ -18,6 +18,7 @@ static gnutls_priority_t priority_cache;
 int trill_tls_can_read(struct trill_connection *conn);
 int trill_tls_can_write(struct trill_connection *conn);
 int trill_tls_handshake_retry(struct trill_connection *conn);
+int trill_tls_verify_cert(gnutls_session_t session);
 
 int
 trill_crypto_init(void)
@@ -53,6 +54,9 @@ trill_tls_init(struct trill_connection *conn)
     log_error("Error allocating crypto credentials");
     return 1;
   }
+
+  gnutls_certificate_set_verify_function(conn->tc_tls.tt_creds,
+      trill_tls_verify_cert);
 
   return 0;
 }
@@ -132,6 +136,8 @@ trill_start_tls(struct trill_connection *conn)
     return 1;
   }
 
+  gnutls_session_set_ptr(conn->tc_tls.tt_session, conn);
+
   if (gnutls_priority_set(conn->tc_tls.tt_session, priority_cache)) {
     log_error("Unable to set priorities on new session");
     return 1;
@@ -205,6 +211,17 @@ trill_tls_handshake(struct trill_connection *conn)
   }
 
   return 0;
+}
+
+int
+trill_tls_verify_cert(gnutls_session_t session)
+{
+  unsigned int errors;
+  struct trill_connection *conn = gnutls_session_get_ptr(session);
+
+  gnutls_certificate_verify_peers3(session, conn->tc_remote_user, &errors);
+
+  return errors == 0;
 }
 
 ssize_t

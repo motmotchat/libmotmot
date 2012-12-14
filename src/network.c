@@ -6,6 +6,7 @@
 #include <net/if.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -116,8 +117,8 @@ trill_connection_new()
 }
 
 int
-trill_connect(struct trill_connection *conn, const char *remote,
-    uint16_t port)
+trill_connect(struct trill_connection *conn, const char *who,
+    const char *remote, uint16_t port)
 {
   int ret;
   struct sockaddr_in addr;
@@ -145,6 +146,7 @@ trill_connect(struct trill_connection *conn, const char *remote,
   connect(conn->tc_sock_fd, (struct sockaddr *) &addr, sizeof(addr));
 
   conn->tc_state = TC_STATE_PROBING;
+  conn->tc_remote_user = strdup(who);
 
   trill_want_timeout_callback(conn->tc_event_loop_data, trill_connection_probe, 1000);
 

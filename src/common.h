@@ -47,6 +47,8 @@ struct trill_connection {
 
   uint32_t tc_server_priority[2];
 
+  char *tc_remote_user;
+
   trill_callback_t tc_can_read_cb;
   trill_callback_t tc_can_write_cb;
 

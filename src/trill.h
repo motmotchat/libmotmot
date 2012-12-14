@@ -123,13 +123,14 @@ int trill_connection_free(struct trill_connection *conn);
  * trill_connect - Connect to another Trill client.
  *
  * @param conn      The connection on which to connect.
+ * @param who       The remote hostname to connect to.
  * @param address   The remote address to connect to. Should be an IPv4 address
  *                  in presentation format (see `inet_pton`).
  * @param port      The remote port to connect to.
  * @return          0 on success, nonzero on error.
  */
-int trill_connect(struct trill_connection *conn, const char *address,
-    uint16_t port);
+int trill_connect(struct trill_connection *conn, const char *who,
+    const char *address, uint16_t port);
 
 /**
  * trill_get_fd - Get the file descriptor associated with a given connection.
