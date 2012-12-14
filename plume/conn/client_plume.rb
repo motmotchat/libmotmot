@@ -26,6 +26,8 @@ class ClientPlumeConn < PlumeConn
   def initialize(key_file, crt_file)
     super key_file, crt_file
     @peers = {}
+    @upds = {}
+    @timers = {}
   end
 
   def unbind
@@ -47,6 +49,16 @@ class ClientPlumeConn < PlumeConn
       return
     end
 
+    # If we don't know our UDP IP and port for this peer, ask the server.
+    if not @udps[peer]
+      cookie = 97392   # TODO: make this random
+      @upds[cookie] = peer
+
+      send_data ['udp', [cert.to_pem, cookie]].to_msgpack
+      return
+    end
+
+    # Sign our IP and port, encrypt the signature, and send it to our peer.
     sig = OpenSSL::PKCS7.sign(cert, key, get_sockaddr.join(':'))
     id_enc = @peers[peer].cert.public_key.public_encrypt_block(sig.to_pem)
 
@@ -86,5 +98,33 @@ class ClientPlumeConn < PlumeConn
 
     @peers[peer] = PlumeID.new(peer_cert)
     connect peer
+  end
+
+  #
+  # Receive the server's acknowledgment of our UDP self-identification request
+  # and begin sending datagrams.
+  #
+  def recv_ack_udp(cookie)
+    return unless @udps[cookie]
+
+    @timers[cookie] = EM::PeriodicTimer.new(0.5) do
+      domain = parse_email(cert_cn(cert)).domain
+      addr, port = dns_get_srv("_plume-upd._udp.#{domain}")
+
+      send_datagram cookie.to_msgpack, addr, port
+    end
+  end
+
+  #
+  # Receive a response to a UDP self-identification request.
+  #
+  def recv_udp(cookie, ip_port)
+    # Match the peer with our UDP IP and port.
+    @udps[@udps[cookie]] = ip_port
+
+    # Clear relevant state.
+    @timers[cookie].cancel
+    @timers.delete cookie
+    @udps.delete cookie
   end
 end
