@@ -123,8 +123,44 @@ which appears to be a standard way to do this.
 % plume - server. separate login and protocol servers. access to domain root
 %   keys has very small surface area. chroot more!
 
+Our implementation of \Trill has two major components: a client library for
+connecting to peers, and a set of server implementations which handle the
+secure, federated message routing.
+
+\subsection{Plume servers}
+
+We break the server-side workload into two separate servers.  The first of
+these is the \Plume login server.  The login server bears the full
+responsibility of authenticating clients.  Each domain (or each login server on
+each domain) can determine its own method for deciding whether or not to
+endorse any given client's claimed identity.  This behavior is unspecified by
+\Trill; the login server can only endorse identities in its domain, but can
+endorse them however it sees fit.
+
+The actual process of ``logging in'' requires a client to send the login server
+a X.509 certificate signing request (CSR).  The login server, if it so chooses,
+can then endorse the client's identity by signing a cert and returning it to
+the user.  The client uses cert whenever it connects to \Plume protocol servers
+or to peers in order to assert its identity.  These servers and parties can
+then walk their way up the chain of trust to verify the user's identity and the
+authority of the login server that endorsed it.
+
+With this cert, the client is then able to connect to the \Plume protocol
+servers.  These servers will only talk over TLS to clients with valid
+identities (connections to the login servers are also secured by TLS, but only
+the login server's cert is used).  These \Plume servers server two major
+purposes:
+
+\begin{enumerate}
+  \item Message routing.  Clients can ask their \Plume servers to pass messages
+    to peers.  If they are on the same domain and are connected to the server,
+    the message is routed directly; otherwise, the message is forwarded first
+    to the proper server
+\end{enumerate}
+
+Discovery of server addresses and ports
+
 \subsection{Trill client library}
 
-\subsection{Plume server}
 
 \end{document}
