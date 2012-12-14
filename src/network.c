@@ -10,24 +10,13 @@
 #include <sys/socket.h>
 #include <net/if.h>
 
-#include "network.h"
+#include "common.h"
+#include "crypto.h"
 #include "log.h"
-
-int
-trill_net_init(trill_net_want_write_cb_t want_write,
-    trill_net_want_timeout_cb_t want_timeout)
-{
-  assert(want_write != NULL && "Want write callback is NULL");
-  assert(want_timeout != NULL && "Want timeout callback is NULL");
-
-  trill_net_want_write_cb = want_write;
-  trill_net_want_timeout_cb = want_timeout;
-
-  return 0;
-}
+#include "network.h"
 
 struct trill_connection *
-trill_connection_new(struct trill_crypto_identity *id)
+trill_connection_new()
 {
   struct trill_connection *conn;
   struct sockaddr_in addr;
@@ -121,13 +110,13 @@ trill_connection_new(struct trill_crypto_identity *id)
   conn->tc_can_read_cb = trill_connection_read_probe;
   conn->tc_can_write_cb = NULL;
 
-  conn->tc_id = id;
+  trill_tls_init(conn);
 
   return conn;
 }
 
 int
-trill_connection_connect(struct trill_connection *conn, const char *remote,
+trill_connect(struct trill_connection *conn, const char *remote,
     uint16_t port)
 {
   int ret;
@@ -152,7 +141,7 @@ trill_connection_connect(struct trill_connection *conn, const char *remote,
 
   conn->tc_state = TC_STATE_PROBING;
 
-  trill_net_want_timeout_cb(conn, trill_connection_probe, 1000);
+  trill_want_timeout_callback(conn->tc_event_loop_data, trill_connection_probe, 1000);
 
   return 0;
 }
@@ -172,6 +161,36 @@ trill_connection_free(struct trill_connection *conn)
   free(conn);
 
   return retval;
+}
+
+int
+trill_get_fd(const struct trill_connection *conn)
+{
+  return conn->tc_sock_fd;
+}
+
+uint16_t
+trill_get_port(const struct trill_connection *conn)
+{
+  return conn->tc_port;
+}
+
+void
+trill_set_data(struct trill_connection *conn, void *data)
+{
+  conn->tc_event_loop_data = data;
+}
+
+int
+trill_can_read(struct trill_connection *conn)
+{
+  return conn->tc_can_read_cb(conn);
+}
+
+int
+trill_can_write(struct trill_connection *conn)
+{
+  return conn->tc_can_write_cb(conn);
 }
 
 int
@@ -244,11 +263,11 @@ trill_connection_read_probe(struct trill_connection *conn)
     conn->tc_state = TC_STATE_SERVER;
     // Manually trigger the probe, since we have new data
     trill_connection_probe(conn);
-    trill_crypto_session_init(conn);
+    trill_start_tls(conn);
   } else if (!winning && buf[0] == TRILL_NET_ACK) {
     log_info("Probing done; we're the client");
     conn->tc_state = TC_STATE_CLIENT;
-    trill_crypto_session_init(conn);
+    trill_start_tls(conn);
   }
 
   return 1;

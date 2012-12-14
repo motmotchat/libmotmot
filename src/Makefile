@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0 gnutls` -O2
+CFLAGS = -ggdb3 -Wall -Werror `pkg-config --cflags glib-2.0 gnutls` -O2 -DTRILL_USE_GNUTLS=1
 LDFLAGS = `pkg-config --libs glib-2.0 gnutls` -lmsgpack
 
 DEPDIR = .deps/
