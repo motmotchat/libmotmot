@@ -76,10 +76,12 @@ def conn_plume
 end
 
 def conn_login
+  email, identity = nil, nil
+
   # Get the user's identity handle and password.
   loop do
     identity = ask('Identity: ') { |q| q.echo = true }
-    email = parse_email(identity)
+    email = parse_email(identity.to_s)
 
     break if not email.nil?
     puts "Please try again."
@@ -94,7 +96,7 @@ def conn_login
 
   # Login with the server.
   EM.connect(addr, port, ClientLoginConn, @key_file, @crt_file) do |conn|
-    conn.login identity, password, &method(:plume)
+    conn.login identity, password, &method(:conn_plume)
   end
 end
 

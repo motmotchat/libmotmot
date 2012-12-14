@@ -50,4 +50,4 @@ crt_file = ENV['PLUME_LOGIN_CRT'] || "~/.plume/#{hostname}/login.crt"
 
 port = ARGV[0] || '42001'
 
-EM.run { EM.start_server 'localhost', port, PlumeLogin, key_file, crt_file }
+EM.run { EM.start_server '0.0.0.0', port, PlumeLogin, key_file, crt_file }
