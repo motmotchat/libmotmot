@@ -48,7 +48,7 @@ class PlumeServer < PlumeConn
 
     # If we have a connection to the peer, route directly.
     if @conns[peer]
-      return @conns[peer].send_data [op, [cert, peer, payload]].to_msgpack
+      return @conns[peer].send_data [op, [cert, payload]].to_msgpack
     end
 
     addr, port = '', 0

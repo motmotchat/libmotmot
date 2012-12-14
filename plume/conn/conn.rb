@@ -81,6 +81,10 @@ class PlumeConn < EM::Connection
     @cert ||= OpenSSL::X509::Certificate.new File.read crt_file
   end
 
+  def handle
+    @handle ||= cert_cn(cert)
+  end
+
   #
   # Return our own IP and port.
   #
