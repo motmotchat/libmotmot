@@ -2,6 +2,7 @@
 # client_plume.rb - Connection between a client and a Plume server.
 #
 
+require 'eventmachine'
 require 'msgpack'
 require 'openssl'
 
@@ -16,6 +17,10 @@ class PlumeID
   def initialize(cert)
     @cert = cert
   end
+end
+
+class UDPConn < EM::Connection
+  attr_accessor :ip, :port
 end
 
 class ClientPlumeConn < PlumeConn
@@ -59,7 +64,8 @@ class ClientPlumeConn < PlumeConn
     end
 
     # Sign our IP and port, encrypt the signature, and send it to our peer.
-    sig = OpenSSL::PKCS7.sign(cert, key, get_sockaddr.join(':'))
+    ip, port = @udps[peer].ip, @udps[peer].port
+    sig = OpenSSL::PKCS7.sign(cert, key, "#{ip}:#{port}")
     id_enc = @peers[peer].cert.public_key.public_encrypt_block(sig.to_pem)
 
     send_data ['route', [cert.to_pem, peer, 'connect', id_enc]].to_msgpack
@@ -107,11 +113,13 @@ class ClientPlumeConn < PlumeConn
   def recv_ack_udp(cookie)
     return unless @udps[cookie]
 
+    @udps[@udps[cookie]] = EM::open_datagram_socket '0.0.0.0', 0, UDPConn
+
     @timers[cookie] = EM::PeriodicTimer.new(0.5) do
       domain = parse_email(cert_cn(cert)).domain
       addr, port = dns_get_srv("_plume-udp._udp.#{domain}")
 
-      send_datagram cookie.to_msgpack, addr, port
+      @udps[@udps[cookie]].send_datagram cookie.to_msgpack, addr, port
     end
   end
 
@@ -119,8 +127,9 @@ class ClientPlumeConn < PlumeConn
   # Receive a response to a UDP self-identification request.
   #
   def recv_udp(cookie, ip_port)
-    # Match the peer with our UDP IP and port.
-    @udps[@udps[cookie]] = ip_port
+    # Match the UDP connection with our IP and port.
+    udp_conn = @udps[@udps[cookie]]
+    udp_conn.ip, udp_conn.port = ip_port
 
     # Clear relevant state.
     @timers[cookie].cancel
