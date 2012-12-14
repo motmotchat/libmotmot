@@ -65,8 +65,8 @@ end
 
 conns = {}
 
-key_file = 'pem/plume.key'
-crt_file = 'pem/plume.crt'
+key_file = ENV['PLUME_KEY'] || '~/.plume/plume.key'
+crt_file = ENV['PLUME_CRT'] || '~/.plume/plume.crt'
 
 port = ARGV[0] || '42000'
 
