@@ -48,6 +48,9 @@ struct trill_connection {
   trill_callback_t tc_can_read_cb;
   trill_callback_t tc_can_write_cb;
 
+  trill_connected_callback_t tc_connected_cb;
+  trill_recv_callback_t tc_recv_cb;
+
   struct trill_tls tc_tls;
 };
 

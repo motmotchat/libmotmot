@@ -1,3 +1,5 @@
+#include <errno.h>
+
 #include "common.h"
 #include "crypto.h"
 #include "trill.h"
@@ -32,6 +34,20 @@ trill_set_data(struct trill_connection *conn, void *data)
   conn->tc_event_loop_data = data;
 }
 
+void
+trill_set_connected_callback(struct trill_connection *conn,
+    trill_connected_callback_t callback)
+{
+  conn->tc_connected_cb = callback;
+}
+
+void
+trill_set_recv_callback(struct trill_connection *conn,
+    trill_recv_callback_t callback)
+{
+  conn->tc_recv_cb = callback;
+}
+
 int
 trill_can_read(struct trill_connection *conn)
 {
@@ -42,4 +58,15 @@ int
 trill_can_write(struct trill_connection *conn)
 {
   return conn->tc_can_write_cb(conn);
+}
+
+ssize_t
+trill_send(struct trill_connection *conn, const void *data, size_t len)
+{
+  if (conn->tc_state != TC_STATE_ESTABLISHED) {
+    errno = ENOTCONN; // XXX: is it okay to spoof errno like this?
+    return -1;
+  }
+
+  return trill_tls_send(conn, data, len);
 }

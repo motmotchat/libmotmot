@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -196,17 +197,59 @@ trill_tls_handshake(struct trill_connection *conn)
   return 0;
 }
 
+ssize_t
+trill_tls_send(struct trill_connection *conn, const void *data, size_t len)
+{
+  ssize_t ret;
+  assert(conn != NULL);
+  assert(data != NULL);
+  assert(len > 0);
+  assert(conn->tc_state == TC_STATE_ESTABLISHED);
+
+  ret = gnutls_record_send(conn->tc_tls.tt_session, data, len);
+
+  // GnuTLS, like all helpful libraries, tries to translate errno errors into
+  // other negative-numbered error codes. Naturally, we don't want that. Make
+  // some kind of best-effort attempt to unmap the errors, so stdio-like clients
+  // can consume them in a more standard format.
+  switch (ret) {
+    case GNUTLS_E_AGAIN:
+      errno = EAGAIN;
+      trill_want_write_callback(conn->tc_event_loop_data);
+      return -1;
+    case GNUTLS_E_INTERRUPTED:
+      errno = EINTR;
+      trill_want_write_callback(conn->tc_event_loop_data);
+      return -1;
+  }
+
+  if (ret < 0) {
+    ret = -1;
+  }
+
+  return ret;
+}
+
 int
 trill_tls_can_read(struct trill_connection *conn)
 {
-  char buf[1024];
+  // TODO: How big should this be? This is bigger than the MTU, so it should be
+  // "good enough," but the size is pretty arbitrary.
+  static char buf[2048];
+  static uint64_t seq;
+  ssize_t len;
+
   switch (conn->tc_state) {
     case TC_STATE_SERVER:
     case TC_STATE_CLIENT:
       trill_tls_handshake(conn);
       break;
     case TC_STATE_ESTABLISHED:
-      gnutls_record_recv(conn->tc_tls.tt_session, buf, sizeof(buf));
+      len = gnutls_record_recv_seq(conn->tc_tls.tt_session, buf, sizeof(buf),
+          (unsigned char *)&seq);
+
+      assert(conn->tc_recv_cb != NULL && "No callback set");
+      conn->tc_recv_cb(conn->tc_event_loop_data, buf, len, &seq);
       break;
     default:
       assert(0 && "In an unexpected state in crypto read");
