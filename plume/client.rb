@@ -25,10 +25,12 @@ eos
 def prompt(conn, msg=nil)
   puts msg unless msg.nil?
 
-  EM.next_tick do
+  EM.defer do
     unless buf = Readline.readline('> ', true)
-      conn.close_connection
-      abort "\n"
+      EM.next_tick do
+        conn.close_connection
+        abort "\n"
+      end
     end
 
     input = buf.strip.split
@@ -40,18 +42,20 @@ def prompt(conn, msg=nil)
       if input[1].nil?
         msg = "Must specify a peer to connect to."
       else
-        conn.connect input[1]
+        EM.next_tick { conn.connect input[1] }
       end
     when 'help', 'h', '?'
       msg = USAGE
     when 'exit', 'quit', 'q'
-      conn.close_connection
-      exit
+      EM.next_tick do
+        conn.close_connection
+        exit
+      end
     else
       msg = "Invalid command.  Type 'h' for help."
     end
 
-    prompt conn, msg
+    EM.next_tick { prompt conn, msg }
   end
 end
 
