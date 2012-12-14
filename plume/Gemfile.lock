@@ -1,0 +1,27 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    dnsruby (1.53)
+    eventmachine (1.0.0)
+    highline (1.6.15)
+    i18n (0.6.1)
+    mail (2.5.3)
+      i18n (>= 0.4.0)
+      mime-types (~> 1.16)
+      treetop (~> 1.4.8)
+    mime-types (1.19)
+    msgpack (0.4.7)
+    polyglot (0.3.3)
+    treetop (1.4.12)
+      polyglot
+      polyglot (>= 0.3.1)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  dnsruby
+  eventmachine
+  highline
+  mail
+  msgpack
