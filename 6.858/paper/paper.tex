@@ -59,6 +59,22 @@ authentication succeeds, the server signs the client's key and returns the
 resultant certificate.  Using these certificates, clients can then authenticate
 securely to one another without further use of the server.
 
+\section*{Establishing Trust}
+% Trust can be rooted two ways:
+% - Traditional CAs: Verify plume certificate against CAs, verify identities
+%   against plume certificate
+% - DNSSEC: the key (or a fingerprint of the key) for any domain can be added as
+%   a signed TXT record. We can root our trust back up to the DNSSEC root.
+% This second way seems more secure: root CAs are allowed to sign any record,
+% compromising some CAs does not seem difficult. DNS has the interesting
+% property of hierarchically namespaced trust: it is likely that a root zone
+% compromise will be difficult (root keys only used rarely) and discovered
+% quickly; owners of ".cn" keys will be unable to spoof ".com"s, etc.
+
+% Also semantics of plume CAs are "have control of this domain" => "can give out
+% identities at this domain." No communications security is based on this, only
+% naming.
+
 \section*{Firewall Traversal}
 Due to restrictions on many firewalls and NATs in place on the Internet, it is
 impossible for arbitrary clients on the internet to establish peer-to-peer
@@ -66,5 +82,12 @@ communication. There are techniques for firewall/NAT traversal which involve
 ``tricking'' the networking layer into establishing a connection. We implemented
 something similar to \texttt{chownat} (\url{http://samy.pl/chownat/}) in \Trill,
 which appears to be a standard way to do this.
+
+\section*{Implementation}
+% trill - client library. allows plug-and-play event loops, architected to (one
+%   day!) support multiple TLS libraries.
+% plume - server. separate login and protocol servers. access to domain root
+%   keys has very small surface area. chroot more!
+
 
 \end{document}
