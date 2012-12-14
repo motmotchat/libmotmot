@@ -9,6 +9,8 @@
 #include "gnutls.h"
 #elif defined(TRILL_USE_OPENSSL)
 #error "OpenSSL not implemented yet!"
+#elif defined(TRILL_USE_NSS)
+#error "NSS not implemented yet!"
 #else
 #error "Unknown cryptographic library"
 #endif
