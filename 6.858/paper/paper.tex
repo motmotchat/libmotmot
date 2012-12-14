@@ -40,24 +40,32 @@ The security of our system is based on standard cryptographic infrastructure and
 libraries. By ``identities,'' we mean public key pairs, the private half of
 which is uniquely known by an individual. This identity can be given one or more
 names by means of X.509 certificates, and standard mechanisms like TLS allow
-owners of names to securely establish a communication channel and mutually
-verify the other's identity. Due to implementation restrictions in our target
-environment, we used DTLS, a younger protocol that uses UDP as its transport
-layer; specifically, we used the implementation of DTLS provided by the open
-source GnuTLS library.
+owners of identities to securely establish a communication channel and mutually
+verify the other's identity.
 
 \section*{Federated Identity}
-As with other federated protocols like XMPP and email, \Trill identities are
-based on DNS.  Every domain name with a SRV record can act as a \Trill identity
-realm, supporting email address-like identities (an \verb!addr-spec!  as defined
-in RFC 2822).
+As with other federated protocols like XMPP and email, \Trill handles are based
+on DNS. In particular, \Trill's handles use RFC 2822's \verb`addr-spec`
+specification, in which every \verb`domain` is allowed complete control over the
+\Trill handles given out as \verb`local-part`'s at their domain. Domains wishing
+to run \Trill must also publish information about its \Trill servers using DNS
+SRV records.
 
 Each \Trill domain hosts a federation server, which is able to delegate
 authority for identities to various clients.  Any client may present the server
 with an identity and a password for that identity.  If the client's
 authentication succeeds, the server signs the client's key and returns the
-resultant certificate.  Using these certificates, clients can then authenticate
-securely to one another without further use of the server.
+resultant certificate.  Using these certificates, clients can then prove their
+handles securely to one another without further use of the server.
+
+Note that the assigning of handles is orthogonal to the security of the protocol
+itself, and is only useful in associating human-friendly names to their actual
+cryptographic identity, i.e., their private key. Users who do not wish to use
+\Trill's federated identity system can instead self-sign their certificates and
+verify these credentials out-of-band. This is very similar to PGP's ``web of
+trust,'' and while we have not implemented such a system, we imagine the
+integration of \Trill with PGP would be trivial. An SSH-like Trust On First Use
+(TOFU) system might also be viable here.
 
 \section*{Establishing Trust}
 % Trust can be rooted two ways:
