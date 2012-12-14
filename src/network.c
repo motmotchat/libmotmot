@@ -1,14 +1,14 @@
+#include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
+#include <net/if.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <strings.h>
-#include <unistd.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
-#include <net/if.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "crypto.h"
@@ -161,36 +161,6 @@ trill_connection_free(struct trill_connection *conn)
   free(conn);
 
   return retval;
-}
-
-int
-trill_get_fd(const struct trill_connection *conn)
-{
-  return conn->tc_sock_fd;
-}
-
-uint16_t
-trill_get_port(const struct trill_connection *conn)
-{
-  return conn->tc_port;
-}
-
-void
-trill_set_data(struct trill_connection *conn, void *data)
-{
-  conn->tc_event_loop_data = data;
-}
-
-int
-trill_can_read(struct trill_connection *conn)
-{
-  return conn->tc_can_read_cb(conn);
-}
-
-int
-trill_can_write(struct trill_connection *conn)
-{
-  return conn->tc_can_write_cb(conn);
 }
 
 int
