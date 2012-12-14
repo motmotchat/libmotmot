@@ -19,7 +19,6 @@ USAGE = "\nUsage:\n" + <<-eos
     [q]uit              End the session.\n
 eos
 
-@server = ARGV[0] || 'localhost'
 @key_file = 'client.key'
 @crt_file = 'client.crt'
 
