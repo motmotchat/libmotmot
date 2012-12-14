@@ -10,6 +10,7 @@ require 'msgpack'
 require 'openssl'
 
 require_relative 'conn/conn.rb'
+require_relative 'conn/plume_udp.rb'
 require_relative 'util.rb'
 
 class PlumeServer < PlumeConn
@@ -71,29 +72,6 @@ class PlumeServer < PlumeConn
   def udp(cert, cookie)
     @udp_reqs[cookie] = self
     send_data ['ack_udp', [cookie]].to_msgpack
-  end
-end
-
-#
-# Plume UDP echo service listener.
-#
-class PlumeUDPEcho < PlumeConn
-
-  def initialize(udp_reqs)
-    @udp_reqs = udp_reqs
-  end
-
-  def receive_data(buf)
-    begin
-      cookie = MessagePack.unpack(buf)
-    rescue MessagePack::UnpackError
-    end
-
-    return unless @udp_reqs[cookie]
-
-    # Send the client's IP and port back via TCP, then clear the cookie.
-    @udp_reqs[cookie].send_data ['udp', [cookie, get_peeraddr]].to_msgpack
-    @udp_reqs.delete cookie
   end
 end
 
