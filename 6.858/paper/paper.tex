@@ -165,6 +165,40 @@ purposes:
 Discovery of server addresses and ports
 
 \subsection{Trill client library}
+The \Trill client library is fairly straightforward. Its job is simply to open a
+UDP socket, perform a \verb`chownat`-like discovery protocol (which we call
+``probing''), and then perform a DTLS handshake. The probing protocol is the
+only non-obvious part of this. In particular, since TLS demands that one party
+act as the server and the other as the client, the probing protocol must somehow
+decide on a winner and a loser. Unfortunately, a result from the distributed
+systems literature tells us that it is impossible for two parties to both agree
+on even a single bit of information on a lossy out-of-order channel like UDP, so
+the cause seems like a lost one. However, in practice, it is possible to use
+DTLS's retry behavior, combined with non-colliding message types and
+drop-on-error packet parsing semantics, to work around this. Both parties
+generate random 64-bit numbers, and the client with the larger number is the
+winner. If a client discovers it is the winner, it transitions to the ``server''
+state, in which it attempts to read (and parse) DTLS handshake records, but
+continues to send probes to its peer at regular intervals. If a client discovers
+that it is the loser, and that its peer has acknowledged this fact (an extra bit
+in the message), it transitions to ``client'' mode, in which it attempts a DTLS
+handshake, discarding probe packets it receives. The asymmetry around the
+acknowledge bit and the timeouts allow us to guarantee protocol progress in the
+limiting case.
 
+We wanted the \Trill client library to be as flexible as possible, and a large
+portion of the implementation effort was spent making sure the library was
+separated from both the particulars of the event loop implementation and the
+choice of cryptographic library. Clients of \Trill must pass in a table of
+function pointers which allow \Trill to be notified of various event loop
+events, such as socket read/write availability and timers.  Secondly, the choice
+of cryptographic library is controllable via a preprocessor flag, and \Trill
+implementations can provide several of them in the hopes of greater
+compatibility. Although we only provided implementations for Glib and GnuTLS
+(the libraries that \verb`libpurple`, a popular instant messaging application
+uses, which was the use case we originally envisioned for \Trill), a brief
+perusal of the APIs for \verb`libev`, \verb`libevent`, OpenSSL, and NSS confirms
+that the abstractions we expose in \Trill are sufficiently general to allow any
+combination of event loop and TLS implementation to be used.
 
 \end{document}
