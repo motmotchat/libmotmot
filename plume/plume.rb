@@ -14,7 +14,7 @@ require_relative 'util.rb'
 
 class PlumeServer < PlumeConn
 
-  LEGAL_OPS = %w(route)
+  LEGAL_OPS = %w(route udp)
 
   def initialize(key_file, crt_file, conn_table, udp_reqs)
     super key_file, crt_file

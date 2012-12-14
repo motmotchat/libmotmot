@@ -20,7 +20,7 @@ end
 
 class ClientPlumeConn < PlumeConn
 
-  LEGAL_OPS = %w(connect identify cert)
+  LEGAL_OPS = %w(connect identify cert ack_udp udp)
   OP_PREFIX = 'recv_'
 
   def initialize(key_file, crt_file)
