@@ -8,15 +8,16 @@ require 'eventmachine'
 require 'msgpack'
 require 'openssl'
 
-require_relative 'conn.rb'
+require_relative 'conn/conn.rb'
 
-$conns = {}
+class PlumeServer < PlumeConn
 
-class Plume < PlumeConn
+  LEGAL_OPS = %w(route)
 
-  KEY_FILE = 'pem/plume.key'
-  CRT_FILE = 'pem/plume.crt'
-  LEGAL_OPS = %w(route forward)
+  def initialize(key_file, crt_file, conn_table)
+    super(key_file, crt_file)
+    @conns = conn_table
+  end
 
   #
   # Add a connection to our table.
@@ -26,25 +27,30 @@ class Plume < PlumeConn
     name = OpenSSL::X509::Name.new(peer_cert.subject)
     @peer_handle = name.to_a.find { |a| a.first == 'CN' }[1]
 
-    $conns[@peer_handle] = self
+    @conns[@peer_handle] = self
   end
 
   #
   # Remove a dropped connection from our table.
   #
   def unbind
-    $conns.delete @peer_handle
+    @conns.delete @peer_handle
   end
 
   private
 
   #
-  # Route a message for our client to a peer by passing it to another Plume
-  # server.
+  # Route a message to a peer, via another Plume server or direct connection.
   #
   def route(cert, peer, op, payload)
+    # Validate the peer name.
     email = parse_email(peer)
     return close_connection if email.nil?
+
+    # If we have a connection to the peer, route directly.
+    if @conns[peer]
+      return @conns[peer].send_data [op, [cert, peer, payload]].to_msgpack
+    end
 
     # Determine the address and port of the peer's Plume server.
     # TODO: This.
@@ -52,21 +58,19 @@ class Plume < PlumeConn
     port = '9002'
 
     # Route the connection request to the peer's Plume server.
-    EM.connect(addr, port, Plume) do |plume|
-      plume.send_data ['forward', [cert, peer, op, payload]].to_msgpack
+    EM.connect(addr, port, PlumeServer, key_file, crt_file, @conns) do |conn|
+      conn.send_data ['route', [cert, peer, op, payload]].to_msgpack
     end
-  end
-
-  #
-  # Pass a message to a peer.
-  #
-  def forward(cert, peer, op, payload)
-    return close_connection if not $conns[peer]
-
-    $conns[peer].send_data [op, [cert, peer, payload]].to_msgpack
   end
 end
 
+conns = {}
+
+key_file = 'pem/plume.key'
+crt_file = 'pem/plume.crt'
+
 port = ARGV[0] || '9000'
 
-EM.run { EM.start_server 'localhost', port, Plume }
+EM.run {
+  EM.start_server 'localhost', port, PlumeServer, key_file, crt_file, conns
+}

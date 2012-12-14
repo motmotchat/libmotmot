@@ -10,15 +10,16 @@ require 'socket'
 
 class PlumeConn < EM::Connection
 
-  KEY_FILE = nil
-  CRT_FILE = nil
+  attr_reader :key_file, :crt_file
+
   LEGAL_OPS = []
   OP_PREFIX = ''
 
-  attr_reader :peer_handle
-
-  def initialize
+  def initialize(key_file, crt_file)
     super()
+
+    @key_file = key_file
+    @crt_file = crt_file
     @buffer = ''
   end
 
@@ -28,8 +29,8 @@ class PlumeConn < EM::Connection
   def post_init
     start_tls(
       :verify_peer => true,
-      :private_key_file => self.class::KEY_FILE,
-      :cert_chain_file => self.class::CRT_FILE
+      :private_key_file => key_file,
+      :cert_chain_file => crt_file
     )
   end
 
@@ -74,11 +75,11 @@ class PlumeConn < EM::Connection
   private
 
   def key
-    @key ||= OpenSSL::PKey::RSA.new File.read self.class::KEY_FILE
+    @key ||= OpenSSL::PKey::RSA.new File.read key_file
   end
 
   def cert
-    @cert ||= OpenSSL::X509::Certificate.new File.read self.class::CRT_FILE
+    @cert ||= OpenSSL::X509::Certificate.new File.read crt_file
   end
 
   #

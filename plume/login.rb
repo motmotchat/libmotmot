@@ -8,12 +8,10 @@ require 'eventmachine'
 require 'msgpack'
 require 'openssl'
 
-require_relative 'conn.rb'
+require_relative 'conn/conn.rb'
 
 class PlumeLogin < PlumeConn
 
-  KEY_FILE = 'pem/login.key'
-  CRT_FILE = 'pem/login.crt'
   LEGAL_OPS = %w(login)
 
   def login(csr)
@@ -45,4 +43,9 @@ class PlumeLogin < PlumeConn
   end
 end
 
-EM.run { EM.start_server 'localhost', '9001', PlumeLogin }
+key_file = 'pem/login.key'
+crt_file = 'pem/login.crt'
+
+port = ARGV[0] || '9001'
+
+EM.run { EM.start_server 'localhost', port, PlumeLogin, key_file, crt_file }
