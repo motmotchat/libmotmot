@@ -4,11 +4,14 @@
 
 require 'rubygems'
 
+require 'dnsruby'
 require 'eventmachine'
 require 'msgpack'
 require 'openssl'
 
 require_relative 'conn/conn.rb'
+
+DNSRuby = Dnsruby
 
 class PlumeServer < PlumeConn
 
@@ -52,10 +55,15 @@ class PlumeServer < PlumeConn
       return @conns[peer].send_data [op, [cert, peer, payload]].to_msgpack
     end
 
+    addr, port = '', 0
+
     # Determine the address and port of the peer's Plume server.
-    # TODO: This.
-    addr = 'localhost'
-    port = '9002'
+    DNSRuby::DNS.open do |dns|
+      srv = dns.getresource("_plume._tcp.#{email.domain}", DNSRuby::Types.SRV)
+      addr, port = srv.target, srv.port
+    end
+
+    return close_connection if addr == '.' or addr == '' or port == 0
 
     # Route the connection request to the peer's Plume server.
     EM.connect(addr, port, PlumeServer, key_file, crt_file, @conns) do |conn|

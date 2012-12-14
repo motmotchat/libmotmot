@@ -31,14 +31,15 @@ def prompt(conn, msg=nil)
     end
 
     input = buf.strip.split
+    msg = nil
 
     case input[0]
+    when nil
     when 'connect', 'c'
       if input[1].nil?
         msg = "Must specify a peer to connect to."
       else
         conn.connect input[1]
-        msg = nil
       end
     when 'help', 'h', '?'
       msg = USAGE
