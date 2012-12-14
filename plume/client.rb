@@ -27,10 +27,7 @@ def prompt(conn, msg=nil)
 
   EM.defer do
     unless buf = Readline.readline('> ', true)
-      EM.next_tick do
-        conn.close_connection
-        abort "\n"
-      end
+      abort "\n"
     end
 
     input = buf.strip.split
@@ -47,10 +44,7 @@ def prompt(conn, msg=nil)
     when 'help', 'h', '?'
       msg = USAGE
     when 'exit', 'quit', 'q'
-      EM.next_tick do
-        conn.close_connection
-        exit
-      end
+      exit
     else
       msg = "Invalid command.  Type 'h' for help."
     end
