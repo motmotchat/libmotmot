@@ -68,20 +68,48 @@ integration of \Trill with PGP would be trivial. An SSH-like Trust On First Use
 (TOFU) system might also be viable here.
 
 \section*{Establishing Trust}
-% Trust can be rooted two ways:
-% - Traditional CAs: Verify plume certificate against CAs, verify identities
-%   against plume certificate
-% - DNSSEC: the key (or a fingerprint of the key) for any domain can be added as
-%   a signed TXT record. We can root our trust back up to the DNSSEC root.
-% This second way seems more secure: root CAs are allowed to sign any record,
-% compromising some CAs does not seem difficult. DNS has the interesting
-% property of hierarchically namespaced trust: it is likely that a root zone
-% compromise will be difficult (root keys only used rarely) and discovered
-% quickly; owners of ".cn" keys will be unable to spoof ".com"s, etc.
+Trust in \Trill is established between two clients when each of them verifies
+that the other client's certificate is signed by the other client's domain key.
+However, the clients must also recursively verify this key, to make sure the
+purported domain key was actually issued by the controller of the domain name.
 
-% Also semantics of plume CAs are "have control of this domain" => "can give out
-% identities at this domain." No communications security is based on this, only
-% naming.
+This can be done in two ways. In the first, the user can use the traditional TLS
+mechanism of maintaining a set of ``root'' certificate authorities, which are
+securely preinstalled as part of the operating system or TLS library. The client
+can verify that the domain owner certificate has a chain of trust up to a root
+CA, which is sufficient to verify all end users at that domain. Note that the
+entire user-to-root certificate chain cannot be verified at once, since it is
+unlikely that the \Trill domain key is allowed to function as a certificate
+authority; instead, by convention, a certificate issued to a domain name is
+allowed by \Trill to subsequently sign the keys of users at that domain. One
+could imagine an extension to X.509 that properly codified this, and although
+writing RFCs is outside the scope of this project, we believe that such an
+extension would be useful for a wide variety of use cases (for instance, imagine
+an email service which was allowed to sign the keys of its users in this way).
+
+The second way trust can be established is through DNSSEC, which has very
+recently become mature enough to use in this way. In such a system, a domain's
+\Trill root key could be published as a DNSSEC-signed TXT record. A DNS client
+with the root zone signing keys can verify any DNSSEC-signed record recursively,
+and in this way, discover and authenticate any \Trill key it wishes.
+
+We believe this second mechanism is both more secure and more closely aligns
+with how we are using DNS in \Trill. Since root certificate authorities are
+allowed to sign keys for any common name, the compromise of a single certificate
+authority is sufficient to break the security of the entire system. In contrast,
+DNSSEC keys are hierarchical, such that the compromise of a single key
+(``\verb`.cn.`,'' say) cannot affect the security of unrelated parts of the system
+(``\verb`.com.`''), a very desirable property. Furthermore, since DNS (and
+DNSSEC) is the only way to establish ``ownership'' of a domain, it makes sense
+to fundamentally link trust in \Trill with trust in DNS. We consider any
+individual who is allowed to make DNSSEC-signed changes to a given domain's DNS
+records the ``owner'' of the domain, so a DNSSEC-rooted trust model is the most
+natural fit for \Trill.
+
+Unfortunately, while the \verb`.com.` realm is signed by DNSSEC, there are
+relatively few registrars that support it. While we hope the situation improves,
+it seems like CA-rooted trust is the most compatible system for implementing
+\Trill in the near future, and it is what we have used in our implementation.
 
 \section*{Firewall Traversal}
 Due to restrictions on many firewalls and NATs in place on the Internet, it is
