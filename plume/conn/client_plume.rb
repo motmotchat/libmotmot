@@ -14,7 +14,7 @@ class ClientPlumeConn < PlumeConn
   OP_PREFIX = 'recv_'
 
   def initialize(key_file, crt_file)
-    super(key_file, crt_file)
+    super key_file, crt_file
     @peers = {}
   end
 

@@ -17,7 +17,7 @@ class PlumeServer < PlumeConn
   LEGAL_OPS = %w(route)
 
   def initialize(key_file, crt_file, conn_table)
-    super(key_file, crt_file)
+    super key_file, crt_file
     @conns = conn_table
   end
 

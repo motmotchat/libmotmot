@@ -15,7 +15,7 @@ class PlumeConn < EM::Connection
   OP_PREFIX = ''
 
   def initialize(key_file, crt_file)
-    super()
+    super
 
     @key_file = key_file
     @crt_file = crt_file
