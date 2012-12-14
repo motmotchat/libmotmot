@@ -118,7 +118,7 @@ class ClientPlumeConn < PlumeConn
     @udps[@udps[cookie]] = EM::open_datagram_socket '0.0.0.0', 0, UDPConn
 
     @timers[cookie] = EM::PeriodicTimer.new(0.5) do
-      domain = parse_email(cert_cn(cert)).domain
+      domain = parse_email(handle).domain
       addr, port = dns_get_srv("_plume-udp._udp.#{domain}")
 
       @udps[@udps[cookie]].send_datagram cookie.to_msgpack, addr, port
