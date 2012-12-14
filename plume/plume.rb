@@ -68,7 +68,7 @@ conns = {}
 
 plume_dir = File.expand_path "~/.plume/#{ENV['PLUME_HOSTNAME'].to_s}"
 key_file = ENV['PLUME_KEY'] || plume_dir + '/plume.key'
-crt_file = ENV['PLUME_CRT'] || plume_dir + '/plume.key'
+crt_file = ENV['PLUME_CRT'] || plume_dir + '/plume.crt'
 
 port = ARGV[0] || '42000'
 
