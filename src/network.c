@@ -125,6 +125,11 @@ trill_connect(struct trill_connection *conn, const char *remote,
   assert(conn != NULL && "Attempting to connect with a null connection");
   assert(remote != NULL && "Connecting to a null address");
 
+  if (conn->tc_state != TC_STATE_INIT) {
+    log_error("Connection is in an inappropriate state!");
+    return -1;
+  }
+
   bzero(&addr, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
