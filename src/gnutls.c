@@ -197,6 +197,9 @@ trill_tls_handshake(struct trill_connection *conn)
   } else if (ret == 0) {
     log_info("TLS is established!");
     conn->tc_state = TC_STATE_ESTABLISHED;
+    if (conn->tc_connected_cb != NULL) {
+      conn->tc_connected_cb(conn->tc_event_loop_data);
+    }
   } else {
     log_error("Something went wrong with the TLS handshake");
   }
