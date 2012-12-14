@@ -153,9 +153,6 @@ int
 trill_tls_handshake_retry(struct trill_connection *conn)
 {
   assert(conn != NULL);
-  assert((conn->tc_state == TC_STATE_SERVER ||
-      conn->tc_state == TC_STATE_CLIENT) &&
-      "In a bad state during handshake retry");
 
   if (conn->tc_state != TC_STATE_ESTABLISHED) {
     trill_tls_handshake(conn);
@@ -173,6 +170,8 @@ trill_tls_handshake(struct trill_connection *conn)
   assert((conn->tc_state == TC_STATE_SERVER ||
       conn->tc_state == TC_STATE_CLIENT) &&
       "In a bad state during handshake");
+  assert(conn->tc_tls.tt_creds != NULL);
+  assert(conn->tc_tls.tt_session != NULL);
 
   do {
     log_info("Attempting handshake");
