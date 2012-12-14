@@ -150,7 +150,11 @@ int
 trill_connection_free(struct trill_connection *conn)
 {
   int retval = 0;
+
   assert(conn != NULL && "Attempting to free a null connection");
+
+  retval = trill_tls_free(conn);
+
   if (conn->tc_sock_fd != -1) {
     if (close(conn->tc_sock_fd) == -1) {
       log_errno("Error closing socket");
