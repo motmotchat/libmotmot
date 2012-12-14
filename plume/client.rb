@@ -20,8 +20,8 @@ USAGE = "\nUsage:\n" + <<-eos
 eos
 
 @server = ARGV[0] || 'localhost'
-@key_file = 'pem/client.key'
-@crt_file = 'pem/client.crt'
+@key_file = 'client.key'
+@crt_file = 'client.crt'
 
 def prompt(conn, msg=nil)
   puts msg unless msg.nil?
