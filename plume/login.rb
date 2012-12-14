@@ -44,9 +44,9 @@ class PlumeLogin < PlumeConn
   end
 end
 
-hostname = ENV['PLUME_HOSTNAME'] || ''
-key_file = ENV['PLUME_LOGIN_KEY'] || "~/.plume/#{hostname}/login.key"
-crt_file = ENV['PLUME_LOGIN_CRT'] || "~/.plume/#{hostname}/login.crt"
+plume_dir = File.expand_path "~/.plume/#{ENV['PLUME_HOSTNAME'].to_s}"
+key_file = ENV['PLUME_LOGIN_KEY'] || plume_dir + '/login.key'
+crt_file = ENV['PLUME_LOGIN_CRT'] || plume_dir + '/login.crt'
 
 port = ARGV[0] || '42001'
 

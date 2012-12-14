@@ -66,9 +66,9 @@ end
 
 conns = {}
 
-hostname = ENV['PLUME_HOSTNAME'] || ''
-key_file = ENV['PLUME_KEY'] || "~/.plume/#{hostname}/plume.key"
-crt_file = ENV['PLUME_CRT'] || "~/.plume/#{hostname}/plume.crt"
+plume_dir = File.expand_path "~/.plume/#{ENV['PLUME_HOSTNAME'].to_s}"
+key_file = ENV['PLUME_KEY'] || plume_dir + '/plume.key'
+crt_file = ENV['PLUME_CRT'] || plume_dir + '/plume.key'
 
 port = ARGV[0] || '42000'
 
