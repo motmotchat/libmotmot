@@ -109,7 +109,7 @@ class ClientPlumeConn < PlumeConn
 
     @timers[cookie] = EM::PeriodicTimer.new(0.5) do
       domain = parse_email(cert_cn(cert)).domain
-      addr, port = dns_get_srv("_plume-upd._udp.#{domain}")
+      addr, port = dns_get_srv("_plume-udp._udp.#{domain}")
 
       send_datagram cookie.to_msgpack, addr, port
     end
