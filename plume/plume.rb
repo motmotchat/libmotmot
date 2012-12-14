@@ -41,7 +41,7 @@ class PlumeServer < PlumeConn
   #
   # Route a message to a peer, via another Plume server or direct connection.
   #
-  def route(cert, peer, op, payload)
+  def route(cert, peer, op, payload=nil)
     # Validate the peer name.
     email = parse_email(peer)
     return close_connection if email.nil?
