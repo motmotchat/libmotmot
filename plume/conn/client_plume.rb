@@ -80,13 +80,21 @@ class ClientPlumeConn < PlumeConn
   #
   def recv_connect(peer_cert, peer_id_enc)
     peer_cert = OpenSSL::X509::Certificate.new peer_cert
-    p7 = OpenSSL::PKCS7.new(key.private_decrypt_block(peer_id_enc))
+    peer = cert_cn(peer_cert)
 
+    p7 = OpenSSL::PKCS7.new(key.private_decrypt_block(peer_id_enc))
     ca_store = OpenSSL::X509::Store.new
     verify = p7.verify([peer_cert], ca_store, nil, OpenSSL::PKCS7::NOVERIFY)
+
     return close_connection unless verify
 
-    puts p7.data
+    # Connect to the peer if we haven't already.
+    # TODO: Maybe see if the user actually wants to connect.
+    if not @peers[peer]
+      @peers[peer] = PlumeID.new(peer_cert)
+      connect peer
+    end
+    @peers[peer].ip, @peers[peer].port = p7.data.split(':')
   end
 
   #
