@@ -128,8 +128,8 @@ which appears to be a standard way to do this.
 %   keys has very small surface area. chroot more!
 
 Our implementation of \Trill has two major components: a client library for
-connecting to peers, and a set of server implementations which handle the
-secure, federated message routing.
+connecting to peers, and a set of server implementations (the \Plume servers)
+which handle the secure, federated message routing.
 
 \subsection{Plume servers}
 
@@ -141,28 +141,76 @@ endorse any given client's claimed identity.  This behavior is unspecified by
 \Trill; the login server can only endorse identities in its domain, but can
 endorse them however it sees fit.
 
-The actual process of ``logging in'' requires a client to send the login server
-a X.509 certificate signing request (CSR).  The login server, if it so chooses,
-can then endorse the client's identity by signing a cert and returning it to
-the user.  The client uses cert whenever it connects to \Plume protocol servers
-or to peers in order to assert its identity.  These servers and parties can
-then walk their way up the chain of trust to verify the user's identity and the
-authority of the login server that endorsed it.
+The actual process of ``logging in'' requires a client to connect to the login
+server---over TLS-secured TCP using the login server's X.509 cert---send the
+login server a certificate signing request (CSR).  The login server, if it so
+chooses, can endorse the client's identity by signing a cert and returning it
+to the client.  The client then uses cert whenever it connects to \Plume
+protocol servers or to peers in order to assert its identity.  These servers
+and parties can then walk their way up the chain of trust to verify the
+client's identity and the authority of the login server that endorsed it.
 
 With this cert, the client is then able to connect to the \Plume protocol
-servers.  These servers will only talk over TLS to clients with valid
-identities (connections to the login servers are also secured by TLS, but only
-the login server's cert is used).  These \Plume servers server two major
-purposes:
+servers (or simply, \Plume servers).  These servers will only talk over TLS to
+clients with valid identities.  These \Plume servers server two major purposes:
 
 \begin{enumerate}
-  \item Message routing.  Clients can ask their \Plume servers to pass messages
-    to peers.  If they are on the same domain and are connected to the server,
-    the message is routed directly; otherwise, the message is forwarded first
-    to the proper server
+  \item \textbf{Message routing.}  Clients can ask their \Plume servers to pass
+    messages to peers.  If they are on the same domain and are connected to the
+    server, the message is routed directly; otherwise, the message is forwarded
+    first to the proper server.  Messages generally take the format of an
+    opstring, the peer's handle, the sender's cert, and a payload.
+
+  \item \textbf{UDP reflection.}  Before connecting to a peer, a client can
+    open up an ephemeral UDP port for listening and ask its \Plume server to
+    identify its IP and port, since firewalls may prevent the client from
+    finding out on its own.  In this protocol, the client first sends the
+    server a random 64-bit number alongside a reflection request.  The server
+    hashes this number with the client's handle and sends the client an ack.
+
+    At this point, the client begins regularly pinging the server with UDP
+    datagrams containing the random number.  When the server receives a UDP
+    packet that matches a client who has requested UDP reflection, it
+    determines the IP and port the client was sending on and returns it, over
+    TCP, back to the client, who saves it and halts UDP transmission.
 \end{enumerate}
 
-Discovery of server addresses and ports
+There are two major types of \Trill messages, corresponding to requests a
+client makes of its peer, that \Plume servers are responsible for routing:
+
+\begin{enumerate}
+  \item \textbf{Connect.}  To connect to a peer, a client first prepares a
+    payload used to identify itself---we colloquially refer to this as a
+    ``calling card.''  This calling card consists of the IP and port of the
+    client's UDP listener, signed by the client's identity certificate, and
+    then encrypted by the peer's public key.  Signing the cert enables the peer
+    to confirm the association between the client and the given IP and port.
+    Encryption lets the client keep its IP and port secret from other domains'
+    \Plume servers, which it may not trust.  (As clients, we necessarily have
+    to trust other domains to make correct endorsements of identity, but we can
+    also verify these endorsements out-of-band with our peers).
+
+    Encryption also prevents replay attacks in the event that someone who isn't
+    our peer obtains our calling card.  Passing just the signed IP and port
+    would allow an adversary to forge connection requests in our name, which
+    could flood us with connection responses.  Encryption makes it so that only
+    our peer can do so.
+
+  \item \textbf{Identify.}  If a client wishes to connect to a peer, it needs
+    to obtain the peer's public key in order to encrypt a calling card.  In
+    addition to connection requests, client's can also make identification
+    requests of their peers.  Willing peers can simply pass their cert back to
+    the requesting client, who can then initiate connection.
+\end{enumerate}
+
+Discovery of server addresses and ports is done via DNS queries for SRV
+records; we specify the use of \verb`_plume` and \verb`_plume-login`, both over
+TCP, for the \Plume and login servers, respectively, and \verb`_plume-udp` for
+the UDP reflection service.  All messages sent over the wire are marshalled
+using \textsc{MessagePack}.
+
+Once two peers have exchanged calling cards, they can then use the \Trill
+library to establish a secured UDP connection.
 
 \subsection{Trill client library}
 The \Trill client library is fairly straightforward. Its job is simply to open a
