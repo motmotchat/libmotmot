@@ -1,0 +1,70 @@
+\documentclass[12pt]{article}
+
+\usepackage{fancyhdr, geometry, hyperref, xspace}
+\usepackage[parfill]{parskip}
+
+\geometry{letterpaper,text={7in,9in},centering}
+\pagestyle{fancy}
+
+\fancyhead[RO]{Carl Jackson and Max Wang}
+\fancyhead[LO]{\url{http://github.com/motmotchat/trill}}
+
+\newcommand{\Trill}{\textsc{Trill}\xspace}
+
+\title{\Trill: Secure firewall-traversing networking}
+\author{Carl Jackson and Max Wang}
+\date{December 14, 2012}
+
+\makeatletter
+\renewcommand{\maketitle}{%
+  \thispagestyle{plain}%
+  \begin{center}%
+    {\LARGE \@title \par}%
+    {\large \@author \par}%
+    {\large \@date \par}%
+  \end{center}%
+}
+\makeatother
+
+\begin{document}
+
+\maketitle
+
+\section*{Overview}
+We implemented \Trill, a networking abstraction that provides secure
+communication between federated identities, either of which could be behind a
+firewall.
+
+\section*{Security}
+The security of our system is based on standard cryptographic infrastructure and
+libraries. By ``identities,'' we mean public key pairs, the private half of
+which is uniquely known by an individual. This identity can be given one or more
+names by means of X.509 certificates, and standard mechanisms like TLS allow
+owners of names to securely establish a communication channel and mutually
+verify the other's identity. Due to implementation restrictions in our target
+environment, we used DTLS, a younger protocol that uses UDP as its transport
+layer; specifically, we used the implementation of DTLS provided by the open
+source GnuTLS library.
+
+\section*{Federated Identity}
+As with other federated protocols like XMPP and email, \Trill identities are
+based on DNS.  Every domain name with a SRV record can act as a \Trill identity
+realm, supporting email address-like identities (an \verb!addr-spec!  as defined
+in RFC 2822).
+
+Each \Trill domain hosts a federation server, which is able to delegate
+authority for identities to various clients.  Any client may present the server
+with an identity and a password for that identity.  If the client's
+authentication succeeds, the server signs the client's key and returns the
+resultant certificate.  Using these certificates, clients can then authenticate
+securely to one another without further use of the server.
+
+\section*{Firewall Traversal}
+Due to restrictions on many firewalls and NATs in place on the Internet, it is
+impossible for arbitrary clients on the internet to establish peer-to-peer
+communication. There are techniques for firewall/NAT traversal which involve
+``tricking'' the networking layer into establishing a connection. We implemented
+something similar to \texttt{chownat} (\url{http://samy.pl/chownat/}) in \Trill,
+which appears to be a standard way to do this.
+
+\end{document}
