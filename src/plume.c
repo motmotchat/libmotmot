@@ -73,6 +73,13 @@ main(int argc, char *argv[])
 {
   g_type_init();
 
+  // Abort if Glib doesn't have a real TLS backend.
+  if (!g_tls_backend_supports_tls(g_tls_backend_get_default())) {
+    log_error("No TLS support found; try installing the "
+              "glib-networking package.");
+    return 1;
+  }
+
   // Look up the Plume server.
   g_resolver_lookup_service_async(g_resolver_get_default(), "plume", "tcp",
       "mxawng.com", NULL, plume_connect_server, NULL);
