@@ -11,7 +11,9 @@ while getopts 'o:' OPTION
 do
   case $OPTION in
     o) OUT=$OPTARG ;;
+    *) continue ;;
   esac
+  shift $((OPTIND-1))
 done
 
 openssl req \

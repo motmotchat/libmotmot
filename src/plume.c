@@ -13,8 +13,6 @@ int
 plume_tls_verify_cert(GTlsConnection *conn, GTlsCertificate *cert,
     GTlsCertificateFlags errors, void *data)
 {
-  log_warn("plume_tls_verify_cert");
-
   return 1;
 }
 
@@ -25,7 +23,9 @@ plume_tls_setup(GSocketClient *client, GSocketClientEvent event,
   GTlsCertificate *cert;
   GTlsClientConnection *tls_conn;
 
-  log_warn("plume_tls_setup: %d", event);
+  if (event == G_SOCKET_CLIENT_TLS_HANDSHAKED) {
+    log_warn("TLS handshake completed");
+  }
 
   if (event != G_SOCKET_CLIENT_TLS_HANDSHAKING) {
     return;
@@ -33,8 +33,11 @@ plume_tls_setup(GSocketClient *client, GSocketClientEvent event,
 
   tls_conn = (GTlsClientConnection *)conn;
 
-  cert = g_tls_certificate_new_from_file("client.crt", NULL);
+  // Bind our certificate to the connection.
+  cert = g_tls_certificate_new_from_files("client.crt", "client.key", NULL);
   g_tls_connection_set_certificate((GTlsConnection *)tls_conn, cert);
+
+  // Validate ALL the server certs!
   g_tls_client_connection_set_validation_flags(tls_conn, 0);
 
   g_signal_connect(tls_conn, "accept-certificate",
@@ -54,6 +57,7 @@ plume_connect_server(GObject *obj, GAsyncResult *res, void *data)
   resolver = (GResolver *)obj;
   srv = g_resolver_lookup_service_finish(resolver, res, NULL)->data;
 
+  // Construct a client socket for the service.
   client = g_socket_client_new();
   g_socket_client_set_tls(client, TRUE);
   addr = g_network_address_new(g_srv_target_get_hostname(srv),
@@ -69,6 +73,7 @@ main(int argc, char *argv[])
 {
   g_type_init();
 
+  // Look up the Plume server.
   g_resolver_lookup_service_async(g_resolver_get_default(), "plume", "tcp",
       "mxawng.com", NULL, plume_connect_server, NULL);
 

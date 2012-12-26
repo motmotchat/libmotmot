@@ -213,6 +213,7 @@ Once two peers have exchanged calling cards, they can then use the \Trill
 library to establish a secured UDP connection.
 
 \subsection{Trill client library}
+
 The \Trill client library is fairly straightforward. Its job is simply to open a
 UDP socket, perform a \verb`chownat`-like discovery protocol (which we call
 ``probing''), and then perform a DTLS handshake. The probing protocol is the
