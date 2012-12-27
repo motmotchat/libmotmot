@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -16,9 +18,8 @@ const char *colors[4] = {
 };
 
 void
-log_level(enum log_level level, const char *fmt, ...)
+vlog_level(enum log_level level, const char *fmt, va_list va)
 {
-  va_list va;
   time_t now;
   struct tm *local;
   char buf[25];
@@ -30,7 +31,6 @@ log_level(enum log_level level, const char *fmt, ...)
 
   strftime(buf, sizeof(buf), "%Y:%m:%d %H:%H:%S", local);
 
-  va_start(va, fmt);
   if (isatty(2)) {
     fprintf(stderr, "%s[%s] ", colors[level], buf);
     vfprintf(stderr, fmt, va);
@@ -40,6 +40,15 @@ log_level(enum log_level level, const char *fmt, ...)
     vfprintf(stderr, fmt, va);
     fprintf(stderr, "\n");
   }
+}
+
+void
+log_level(enum log_level level, const char *fmt, ...)
+{
+  va_list va;
+
+  va_start(va, fmt);
+  vlog_level(level, fmt, va);
   va_end(va);
 }
 
@@ -47,4 +56,18 @@ void
 log_errno(const char *msg)
 {
   log_error("%s: %s", msg, strerror(errno));
+}
+
+void
+log_assert(bool cond, const char *fmt, ...)
+{
+  va_list va;
+
+  if (cond) { return; }
+
+  va_start(va, fmt);
+  vlog_level(LOG_ERROR, fmt, va);
+  va_end(va);
+
+  exit(1);
 }

@@ -1,6 +1,8 @@
 #ifndef __TRILL_LOG_H__
 #define __TRILL_LOG_H__
 
+#include <stdbool.h>
+
 #define PRINTFLIKE(fmt, arg) __attribute__((format(printf, fmt, arg)))
 
 enum log_level {
@@ -18,5 +20,6 @@ void log_level(enum log_level level, const char *fmt, ...) PRINTFLIKE(2, 3);
 #define log_fatal(...) log_level(LOG_FATAL, __VA_ARGS__)
 
 void log_errno(const char *msg);
+void log_assert(bool cond, const char *fmt, ...) PRINTFLIKE(2, 3);
 
 #endif // __TRILL_LOG_H__
