@@ -23,7 +23,16 @@ GMainLoop *gmain;
 void
 plume_connect_peer(GObject *obj, GAsyncResult *res, void *data)
 {
+  int fd;
   char *peer_handle, *peer_domain;
+  GSocketConnection *conn;
+  GIOChannel *channel;
+
+  conn = g_socket_client_connect_finish((GSocketClient *)obj, res, NULL);
+  log_assert(conn, "Could not connect to Plume server for %s", (char *)data);
+
+  fd = g_socket_get_fd(g_socket_connection_get_socket(conn));
+  channel = g_io_channel_unix_new(fd);
 
   assert(peer_handle = malloc(512));
 
@@ -121,7 +130,7 @@ plume_connect_server(GObject *obj, GAsyncResult *res, void *data)
   // callback so that we can die if TLS fails.
   assert(tls_flag = malloc(sizeof(*tls_flag)));
   g_signal_connect(client, "event", (GCallback)plume_tls_setup, tls_flag);
-  g_socket_client_connect_async(client, addr, NULL, plume_connect_peer, NULL);
+  g_socket_client_connect_async(client, addr, NULL, plume_connect_peer, data);
 }
 
 /**
