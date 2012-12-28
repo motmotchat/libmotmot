@@ -2,13 +2,15 @@
 # Trill test binary Makefile.
 #
 
+MOTMOT_ROOT = ../..
+
 all: trill plume
 
 trill:
-	$(MAKE) -C ../.. trill
+	$(MAKE) -C $(MOTMOT_ROOT) trill
 
 plume:
-	$(MAKE) -C ../.. plume
+	$(MAKE) -C $(MOTMOT_ROOT) plume
 
 clean:
-	$(MAKE) -C ../.. clean-trill
+	$(MAKE) -C $(MOTMOT_ROOT) clean-trill

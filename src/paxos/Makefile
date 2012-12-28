@@ -2,14 +2,16 @@
 # Paxos test binary Makefile.
 #
 
+MOTMOT_ROOT = ../..
+
 all: motmot
 	@mkdir -p sock
 
 motmot:
-	$(MAKE) -C ../.. motmot
+	$(MAKE) -C $(MOTMOT_ROOT) motmot
 
 clean: unsock
-	$(MAKE) -C ../.. clean-paxos
+	$(MAKE) -C $(MOTMOT_ROOT) clean-paxos
 
 unsock:
 	-rm -rf sock/*
