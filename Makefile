@@ -9,7 +9,7 @@
 CC = gcc
 CFLAGS = -ggdb3 -Wall -Werror -O2 -DTRILL_USE_GNUTLS=1
 CFLAGS += `pkg-config --cflags glib-2.0 gio-2.0 gnutls`
-CFLAGS += -I./include -I./src -I./src/paxos -I./src/trill -I./ext
+CFLAGS += -I./include -I./src -I./src/common -I./src/paxos -I./src/trill -I./ext
 
 ifdef DEBUG
 	CFLAGS += -DDEBUG
@@ -31,7 +31,9 @@ DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 
 # Temporary object sets for test binary dev.
 PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
-TRILL_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
+TRILL_OBJS = \
+	$(filter $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS)) \
+	$(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS))
 
 all: $(OBJS) motmot trill plume tags
 
