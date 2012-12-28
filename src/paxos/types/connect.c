@@ -5,7 +5,8 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <murmurhash3.h>
+
+#include <murmurhash/murmurhash3.h>
 
 #include "containers/hashtable_factory.h"
 #include "types/connect.h"
