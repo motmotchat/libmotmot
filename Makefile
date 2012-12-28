@@ -38,7 +38,7 @@ TRILL_OBJS = \
 all: $(OBJS) motmot trill plume tags
 
 define mkbin
-$(CC) $(LDFLAGS) $^ -o $(<D)/$@
+$(CC) $(LDFLAGS) $^ -o $(subst $(OBJDIR)/,,$(<D))/$@
 endef
 
 motmot: $(OBJDIR)/$(SRCDIR)/paxos/main.o $(PAXOS_OBJS); $(mkbin)
