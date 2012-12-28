@@ -41,9 +41,9 @@ define mkbin
 $(CC) $(LDFLAGS) $^ -o $(<D)/$@
 endef
 
-motmot: $(SRCDIR)/paxos/main.o $(PAXOS_OBJS); $(mkbin)
-trill: $(SRCDIR)/trill/main.o $(TRILL_OBJS); $(mkbin)
-plume: $(SRCDIR)/trill/plume.o $(TRILL_OBJS); $(mkbin)
+motmot: $(OBJDIR)/$(SRCDIR)/paxos/main.o $(PAXOS_OBJS); $(mkbin)
+trill: $(OBJDIR)/$(SRCDIR)/trill/main.o $(TRILL_OBJS); $(mkbin)
+plume: $(OBJDIR)/$(SRCDIR)/trill/plume.o $(TRILL_OBJS); $(mkbin)
 
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
