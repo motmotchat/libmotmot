@@ -135,30 +135,6 @@ plume_connect_server(GObject *obj, GAsyncResult *res, void *data)
   g_socket_client_connect_async(client, addr, NULL, plume_connect_peer, data);
 }
 
-/**
- * motmot_home_dir - Returns a constant string giving the path of the Motmot
- * home directory.
- */
-const char *
-motmot_home_dir()
-{
-  static char *motmot_path = NULL;
-
-  char *env_home;
-
-  if (motmot_path == NULL) {
-    motmot_path = malloc(PATH_MAX);
-
-    env_home = getenv("HOME");
-    log_assert(env_home, "No $HOME set");
-
-    strncpy(motmot_path, env_home, PATH_MAX);
-    strncat(motmot_path, "/.motmot", 8);
-  }
-
-  return motmot_path;
-}
-
 int
 main(int argc, char *argv[])
 {

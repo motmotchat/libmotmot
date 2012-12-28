@@ -33,7 +33,8 @@ DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
 TRILL_OBJS = \
 	$(filter $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS)) \
-	$(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS))
+	$(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS)) \
+	$(OBJDIR)/$(SRCDIR)/config.o
 
 all: $(OBJS) motmot trill plume tags
 
