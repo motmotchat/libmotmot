@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -13,7 +15,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 ///////////////////////////////////////////////////////////////////////////
@@ -103,13 +104,13 @@ int
 paxos_broadcast_instance(struct paxos_instance *inst)
 {
   int r;
-  struct paxos_yak py;
+  struct yakyak yy;
 
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &(inst->pi_hdr));
-  paxos_value_pack(&py, &(inst->pi_val));
-  r = paxos_broadcast(&py);
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, &(inst->pi_hdr));
+  paxos_value_pack(&yy, &(inst->pi_val));
+  r = paxos_broadcast(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -150,30 +151,29 @@ proposer_decree_part(struct paxos_acceptor *acc, int force)
  * Send a message to any acceptor.
  */
 int
-paxos_send(struct paxos_acceptor *acc, struct paxos_yak *py)
+paxos_send(struct paxos_acceptor *acc, struct yakyak *yy)
 {
-  return paxos_peer_send(acc->pa_peer, paxos_payload_data(py),
-      paxos_payload_size(py));
+  return paxos_peer_send(acc->pa_peer, yakyak_data(yy), yakyak_size(yy));
 }
 
 /**
  * Send a message to the proposer.
  */
 int
-paxos_send_to_proposer(struct paxos_yak *py)
+paxos_send_to_proposer(struct yakyak *yy)
 {
   if (pax->proposer == NULL) {
     return 1;
   }
 
-  return paxos_send(pax->proposer, py);
+  return paxos_send(pax->proposer, yy);
 }
 
 /**
  * Broadcast a message to all acceptors.
  */
 int
-paxos_broadcast(struct paxos_yak *py)
+paxos_broadcast(struct yakyak *yy)
 {
   int r = 0;
   struct paxos_acceptor *acc;
@@ -183,7 +183,7 @@ paxos_broadcast(struct paxos_yak *py)
       continue;
     }
 
-    ERR_ACCUM(r, paxos_send(acc, py));
+    ERR_ACCUM(r, paxos_send(acc, yy));
   }
 
   return r;

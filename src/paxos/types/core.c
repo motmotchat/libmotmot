@@ -2,9 +2,10 @@
  * core.c - Utilities for Paxos core types.
  */
 
+#include "common/yakyak.h"
+
 #include "paxos_state.h"
 #include "types/core.h"
-#include "util/paxos_msgpack.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -50,14 +51,14 @@ reqid_compare(reqid_t x, reqid_t y)
 //
 
 void
-paxos_header_pack(struct paxos_yak *py, struct paxos_header *hdr)
+paxos_header_pack(struct yakyak *yy, struct paxos_header *hdr)
 {
-  msgpack_pack_array(py->pk, 5);
-  paxos_uuid_pack(py, &hdr->ph_session);
-  msgpack_pack_paxid(py->pk, hdr->ph_ballot.id);
-  msgpack_pack_paxid(py->pk, hdr->ph_ballot.gen);
-  msgpack_pack_int(py->pk, hdr->ph_opcode);
-  msgpack_pack_paxid(py->pk, hdr->ph_inum);
+  msgpack_pack_array(yy->pk, 5);
+  paxos_uuid_pack(yy, &hdr->ph_session);
+  msgpack_pack_paxid(yy->pk, hdr->ph_ballot.id);
+  msgpack_pack_paxid(yy->pk, hdr->ph_ballot.gen);
+  msgpack_pack_int(yy->pk, hdr->ph_opcode);
+  msgpack_pack_paxid(yy->pk, hdr->ph_inum);
 }
 
 void
@@ -82,13 +83,13 @@ paxos_header_unpack(struct paxos_header *hdr, msgpack_object *o)
 }
 
 void
-paxos_value_pack(struct paxos_yak *py, struct paxos_value *val)
+paxos_value_pack(struct yakyak *yy, struct paxos_value *val)
 {
-  msgpack_pack_array(py->pk, 4);
-  msgpack_pack_int(py->pk, val->pv_dkind);
-  msgpack_pack_paxid(py->pk, val->pv_reqid.id);
-  msgpack_pack_paxid(py->pk, val->pv_reqid.gen);
-  msgpack_pack_paxid(py->pk, val->pv_extra);
+  msgpack_pack_array(yy->pk, 4);
+  msgpack_pack_int(yy->pk, val->pv_dkind);
+  msgpack_pack_paxid(yy->pk, val->pv_reqid.id);
+  msgpack_pack_paxid(yy->pk, val->pv_reqid.gen);
+  msgpack_pack_paxid(yy->pk, val->pv_extra);
 }
 
 void

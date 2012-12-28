@@ -4,9 +4,10 @@
 #ifndef __PAXOS_TYPES_ACCEPTOR_H__
 #define __PAXOS_TYPES_ACCEPTOR_H__
 
+#include "common/yakyak.h"
+
 #include "containers/list_factory.h"
 #include "types/primitives.h"
-#include "util/paxos_msgpack.h"
 
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
@@ -23,7 +24,7 @@ LIST_DECLARE(acceptor, paxid_t);
 void acceptor_destroy(struct paxos_acceptor *);
 
 /* Msgpack helpers. */
-void paxos_acceptor_pack(struct paxos_yak *, struct paxos_acceptor *);
+void paxos_acceptor_pack(struct yakyak *, struct paxos_acceptor *);
 void paxos_acceptor_unpack(struct paxos_acceptor *, msgpack_object *);
 
 #endif /* __PAXOS_TYPES_ACCEPTOR_H__ */

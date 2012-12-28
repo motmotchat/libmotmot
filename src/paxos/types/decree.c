@@ -56,12 +56,12 @@ request_destroy(struct paxos_request *req)
 //
 
 void
-paxos_instance_pack(struct paxos_yak *py, struct paxos_instance *inst)
+paxos_instance_pack(struct yakyak *yy, struct paxos_instance *inst)
 {
-  msgpack_pack_array(py->pk, 3);
-  paxos_header_pack(py, &inst->pi_hdr);
-  inst->pi_committed ? msgpack_pack_true(py->pk) : msgpack_pack_false(py->pk);
-  paxos_value_pack(py, &inst->pi_val);
+  msgpack_pack_array(yy->pk, 3);
+  paxos_header_pack(yy, &inst->pi_hdr);
+  inst->pi_committed ? msgpack_pack_true(yy->pk) : msgpack_pack_false(yy->pk);
+  paxos_value_pack(yy, &inst->pi_val);
 }
 
 void
@@ -89,12 +89,12 @@ paxos_instance_unpack(struct paxos_instance *inst, msgpack_object *o)
 }
 
 void
-paxos_request_pack(struct paxos_yak *py, struct paxos_request *req)
+paxos_request_pack(struct yakyak *yy, struct paxos_request *req)
 {
-  msgpack_pack_array(py->pk, 2);
-  paxos_value_pack(py, &req->pr_val);
-  msgpack_pack_raw(py->pk, req->pr_size);
-  msgpack_pack_raw_body(py->pk, req->pr_data, req->pr_size);
+  msgpack_pack_array(yy->pk, 2);
+  paxos_value_pack(yy, &req->pr_val);
+  msgpack_pack_raw(yy->pk, req->pr_size);
+  msgpack_pack_raw_body(yy->pk, req->pr_data, req->pr_size);
 }
 
 void

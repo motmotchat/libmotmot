@@ -28,12 +28,12 @@ acceptor_destroy(struct paxos_acceptor *acc)
 //
 
 void
-paxos_acceptor_pack(struct paxos_yak *py, struct paxos_acceptor *acc)
+paxos_acceptor_pack(struct yakyak *yy, struct paxos_acceptor *acc)
 {
-  msgpack_pack_array(py->pk, 2);
-  msgpack_pack_paxid(py->pk, acc->pa_paxid);
-  msgpack_pack_raw(py->pk, acc->pa_size);
-  msgpack_pack_raw_body(py->pk, acc->pa_desc, acc->pa_size);
+  msgpack_pack_array(yy->pk, 2);
+  msgpack_pack_paxid(yy->pk, acc->pa_paxid);
+  msgpack_pack_raw(yy->pk, acc->pa_size);
+  msgpack_pack_raw_body(yy->pk, acc->pa_desc, acc->pa_size);
 }
 
 void

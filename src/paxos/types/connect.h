@@ -28,7 +28,7 @@ unsigned connect_key_hash(const void *);
 int connect_key_equals(const void *, const void *);
 
 /* Msgpack helpers. */
-void paxos_connect_pack(struct paxos_yak *, struct paxos_connect *);
+void paxos_connect_pack(struct yakyak *, struct paxos_connect *);
 void paxos_connect_unpack(struct paxos_connect *, msgpack_object *);
 
 #endif /* __PAXOS_TYPES_CONNECT_H__ */

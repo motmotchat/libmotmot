@@ -89,11 +89,11 @@ connect_key_equals(const void *x, const void *y)
 //
 
 void
-paxos_connect_pack(struct paxos_yak *py, struct paxos_connect *conn)
+paxos_connect_pack(struct yakyak *yy, struct paxos_connect *conn)
 {
-  msgpack_pack_array(py->pk, 1);
-  msgpack_pack_raw(py->pk, conn->pc_alias.size);
-  msgpack_pack_raw_body(py->pk, conn->pc_alias.data, conn->pc_alias.size);
+  msgpack_pack_array(yy->pk, 1);
+  msgpack_pack_raw(yy->pk, conn->pc_alias.size);
+  msgpack_pack_raw_body(yy->pk, conn->pc_alias.data, conn->pc_alias.size);
 }
 
 void

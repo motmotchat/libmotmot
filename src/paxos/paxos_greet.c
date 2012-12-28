@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -12,7 +14,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 /**
@@ -64,7 +65,7 @@ do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
   struct paxos_header hdr;
   struct paxos_acceptor *acc_it;
   struct paxos_instance *inst_it;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   acc->pa_peer = paxos_peer_init(chan);
   if (acc->pa_peer != NULL) {
@@ -78,31 +79,31 @@ do_continue_welcome(GIOChannel *chan, struct paxos_acceptor *acc,
   header_init(&hdr, OP_WELCOME, acc->pa_paxid);
 
   // Pack the header into a new payload.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &hdr);
-  paxos_payload_begin_array(&py, 3);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, &hdr);
+  yakyak_begin_array(&yy, 3);
 
   // Start off the info payload with the session ID and ibase.
-  paxos_payload_begin_array(&py, 2);
-  paxos_uuid_pack(&py, pax->session_id);
-  paxos_paxid_pack(&py, pax->ibase);
+  yakyak_begin_array(&yy, 2);
+  paxos_uuid_pack(&yy, pax->session_id);
+  paxos_paxid_pack(&yy, pax->ibase);
 
   // Pack the entire alist.  Hopefully we don't have too many un-parted
   // dropped acceptors (we shouldn't).
-  paxos_payload_begin_array(&py, LIST_COUNT(&pax->alist));
+  yakyak_begin_array(&yy, LIST_COUNT(&pax->alist));
   LIST_FOREACH(acc_it, &pax->alist, pa_le) {
-    paxos_acceptor_pack(&py, acc_it);
+    paxos_acceptor_pack(&yy, acc_it);
   }
 
   // Pack the entire ilist.
-  paxos_payload_begin_array(&py, LIST_COUNT(&pax->ilist));
+  yakyak_begin_array(&yy, LIST_COUNT(&pax->ilist));
   LIST_FOREACH(inst_it, &pax->ilist, pi_le) {
-    paxos_instance_pack(&py, inst_it);
+    paxos_instance_pack(&yy, inst_it);
   }
 
   // Send the welcome.
-  r = paxos_send(acc, &py);
-  paxos_payload_destroy(&py);
+  r = paxos_send(acc, &yy);
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -258,16 +259,16 @@ paxos_hello(struct paxos_acceptor *acc)
 {
   int r;
   struct paxos_header hdr;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Initialize the header.  We pass our own acceptor ID in ph_inum.
   header_init(&hdr, OP_HELLO, pax->self_id);
 
   // Pack and send the hello.
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, &hdr);
-  r = paxos_send(acc, &py);
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 1);
+  paxos_header_pack(&yy, &hdr);
+  r = paxos_send(acc, &yy);
+  yakyak_destroy(&yy);
 
   return r;
 }

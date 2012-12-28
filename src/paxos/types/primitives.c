@@ -9,8 +9,9 @@
 
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "types/primitives.h"
-#include "util/paxos_msgpack.h"
 
 ///////////////////////////////////////////////////////////////////////////
 //
@@ -151,9 +152,9 @@ msgpack_pack_pax_uuid(msgpack_packer *pk, pax_uuid_t uuid)
 //
 
 void
-paxos_paxid_pack(struct paxos_yak *py, paxid_t paxid)
+paxos_paxid_pack(struct yakyak *yy, paxid_t paxid)
 {
-  msgpack_pack_paxid(py->pk, paxid);
+  msgpack_pack_paxid(yy->pk, paxid);
 }
 
 void
@@ -164,9 +165,9 @@ paxos_paxid_unpack(paxid_t *paxid, msgpack_object *o)
 }
 
 void
-paxos_uuid_pack(struct paxos_yak *py, pax_uuid_t *uuid)
+paxos_uuid_pack(struct yakyak *yy, pax_uuid_t *uuid)
 {
-  msgpack_pack_pax_uuid(py->pk, *uuid);
+  msgpack_pack_pax_uuid(yy->pk, *uuid);
 }
 
 void

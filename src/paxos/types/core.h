@@ -6,8 +6,9 @@
 
 #include <assert.h>
 
+#include "common/yakyak.h"
+
 #include "types/primitives.h"
-#include "util/paxos_msgpack.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -99,7 +100,7 @@ struct paxos_header {
 int ballot_compare(ballot_t, ballot_t);
 void header_init(struct paxos_header *, paxop_t, paxid_t);
 
-void paxos_header_pack(struct paxos_yak *, struct paxos_header *);
+void paxos_header_pack(struct yakyak *, struct paxos_header *);
 void paxos_header_unpack(struct paxos_header *, msgpack_object *);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -137,7 +138,7 @@ struct paxos_value {
 
 int reqid_compare(reqid_t, reqid_t);
 
-void paxos_value_pack(struct paxos_yak *, struct paxos_value *);
+void paxos_value_pack(struct yakyak *, struct paxos_value *);
 void paxos_value_unpack(struct paxos_value *, msgpack_object *);
 
 #endif /* __PAXOS_TYPES_CORE_H__ */

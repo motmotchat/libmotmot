@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -13,7 +15,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 #define DEATH_ADJUSTED(n) ((n) + (LIST_COUNT(&pax->alist) - pax->live_count))
@@ -27,7 +28,7 @@ acceptor_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
 {
   int r;
   struct paxos_header hdr;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Initialize a header.  Our recipients should use ph_inum rather than the
   // ballot ID as the ID of the proposer we are suggesting, since, it may be
@@ -37,13 +38,13 @@ acceptor_redirect(struct paxos_peer *source, struct paxos_header *orig_hdr)
 
   // Pack a payload, which includes the header we were sent which we believe
   // to be incorrect.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &hdr);
-  paxos_header_pack(&py, orig_hdr);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, &hdr);
+  paxos_header_pack(&yy, orig_hdr);
 
   // Send the payload.
-  r = paxos_peer_send(source, paxos_payload_data(&py), paxos_payload_size(&py));
-  paxos_payload_destroy(&py);
+  r = paxos_peer_send(source, yakyak_data(&yy), yakyak_size(&yy));
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -196,7 +197,7 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
 {
   int r;
   struct paxos_header hdr;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Initialize a header.  Our recipients should use ph_inum rather than the
   // ballot ID as the ID of the proposer we are suggesting, since, it may be
@@ -206,15 +207,15 @@ acceptor_refuse(struct paxos_peer *source, struct paxos_header *orig_hdr,
 
   // Pack a payload, which includes the header we were sent which we believe
   // to be incorrect and the request ID of the refused request.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &hdr);
-  paxos_payload_begin_array(&py, 2);
-  paxos_header_pack(&py, orig_hdr);
-  paxos_value_pack(&py, &req->pr_val);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, &hdr);
+  yakyak_begin_array(&yy, 2);
+  paxos_header_pack(&yy, orig_hdr);
+  paxos_value_pack(&yy, &req->pr_val);
 
   // Send the payload.
-  r = paxos_peer_send(source, paxos_payload_data(&py), paxos_payload_size(&py));
-  paxos_payload_destroy(&py);
+  r = paxos_peer_send(source, yakyak_data(&yy), yakyak_size(&yy));
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -280,7 +281,7 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
   int r = 0;
   struct paxos_header hdr;
   struct paxos_request *req;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // If we are the proposer and have finished preparing, anyone higher-ranked
   // than we are is dead to us.  However, their parts may not yet have gone
@@ -323,12 +324,12 @@ do_continue_ack_refuse(GIOChannel *chan, struct paxos_acceptor *acc,
         req = &k->pk_data.req;
       }
 
-      paxos_payload_init(&py, 2);
-      paxos_header_pack(&py, &hdr);
-      paxos_request_pack(&py, req);
+      yakyak_init(&yy, 2);
+      paxos_header_pack(&yy, &hdr);
+      paxos_request_pack(&yy, req);
 
-      ERR_ACCUM(r, paxos_send_to_proposer(&py));
-      paxos_payload_destroy(&py);
+      ERR_ACCUM(r, paxos_send_to_proposer(&yy));
+      yakyak_destroy(&yy);
     }
   }
 
@@ -343,16 +344,16 @@ int
 acceptor_reject(struct paxos_header *hdr)
 {
   int r;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Pack a header.
   hdr->ph_opcode = OP_REJECT;
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, hdr);
+  yakyak_init(&yy, 1);
+  paxos_header_pack(&yy, hdr);
 
   // Send the payload.
-  r = paxos_send_to_proposer(&py);
-  paxos_payload_destroy(&py);
+  r = paxos_send_to_proposer(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }

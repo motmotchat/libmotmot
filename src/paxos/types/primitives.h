@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "util/paxos_msgpack.h"
+#include "common/yakyak.h"
 
 /* Paxos ID and UUID types. */
 typedef uint32_t  paxid_t;
@@ -46,9 +46,9 @@ void msgpack_pack_paxid(msgpack_packer *, paxid_t);
 void msgpack_pack_pax_uuid(msgpack_packer *, pax_uuid_t);
 
 /* Msgpack helpers. */
-void paxos_paxid_pack(struct paxos_yak *, paxid_t);
+void paxos_paxid_pack(struct yakyak *, paxid_t);
 void paxos_paxid_unpack(paxid_t *, msgpack_object *);
-void paxos_uuid_pack(struct paxos_yak *, pax_uuid_t *);
+void paxos_uuid_pack(struct yakyak *, pax_uuid_t *);
 void paxos_uuid_unpack(pax_uuid_t *, msgpack_object *);
 
 #endif /* __PAXOS_TYPES_PRIMITIVES_H__ */

@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -12,7 +14,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 /**
@@ -54,7 +55,7 @@ paxos_request(struct paxos_session *session, dkind_t dkind, const void *msg,
   int r, needs_cached;
   struct paxos_header hdr;
   struct paxos_request *req;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Set the session.  The client should pass us a pointer to the correct
   // session object which we returned when the session was created.
@@ -90,18 +91,18 @@ paxos_request(struct paxos_session *session, dkind_t dkind, const void *msg,
   if (!is_proposer() || needs_cached) {
     // We need to send iff either we are not the proposer or the request
     // has nontrivial data.
-    paxos_payload_init(&py, 2);
-    paxos_header_pack(&py, &hdr);
-    paxos_request_pack(&py, req);
+    yakyak_init(&yy, 2);
+    paxos_header_pack(&yy, &hdr);
+    paxos_request_pack(&yy, req);
 
     // Broadcast only if it needs caching.
     if (!needs_cached) {
-      r = paxos_send_to_proposer(&py);
+      r = paxos_send_to_proposer(&yy);
     } else {
-      r = paxos_broadcast(&py);
+      r = paxos_broadcast(&yy);
     }
 
-    paxos_payload_destroy(&py);
+    yakyak_destroy(&yy);
     if (r) {
       return r;
     }
@@ -192,28 +193,28 @@ paxos_retrieve(struct paxos_instance *inst)
   int r;
   struct paxos_header hdr;
   struct paxos_acceptor *acc;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Initialize a header.  We set ph_inum to the instance number of the
   // request.
   header_init(&hdr, OP_RETRIEVE, inst->pi_hdr.ph_inum);
 
   // Pack the retrieve.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, &hdr);
-  paxos_payload_begin_array(&py, 2);
-  paxos_paxid_pack(&py, pax->self_id);
-  paxos_value_pack(&py, &inst->pi_val);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, &hdr);
+  yakyak_begin_array(&yy, 2);
+  paxos_paxid_pack(&yy, pax->self_id);
+  paxos_value_pack(&yy, &inst->pi_val);
 
   // Determine the request originator and send.  If we are no longer connected
   // to the request originator, broadcast the retrieve instead.
   acc = acceptor_find(&pax->alist, inst->pi_val.pv_reqid.id);
   if (acc == NULL || acc->pa_peer == NULL) {
-    r = paxos_broadcast(&py);
+    r = paxos_broadcast(&yy);
   } else {
-    r = paxos_send(acc, &py);
+    r = paxos_send(acc, &yy);
   }
-  paxos_payload_destroy(&py);
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -262,17 +263,17 @@ paxos_resend(struct paxos_acceptor *acc, struct paxos_header *hdr,
     struct paxos_request *req)
 {
   int r;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Modify the header.
   hdr->ph_opcode = OP_RESEND;
 
   // Just pack and send the resend.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, hdr);
-  paxos_request_pack(&py, req);
-  r = paxos_send(acc, &py);
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, hdr);
+  paxos_request_pack(&yy, req);
+  r = paxos_send(acc, &yy);
+  yakyak_destroy(&yy);
 
   return r;
 }

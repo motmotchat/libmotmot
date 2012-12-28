@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -12,7 +14,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 #define SYNC_SKIP_THRESH  30
@@ -48,7 +49,7 @@ proposer_sync()
 {
   int r;
   struct paxos_header hdr;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // If we haven't finished preparing as the proposer, don't sync.
   if (pax->prep != NULL) {
@@ -87,10 +88,10 @@ proposer_sync()
   header_init(&hdr, OP_SYNC, ++pax->sync_id);
 
   // Pack and broadcast the sync.
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, &hdr);
-  r = paxos_broadcast(&py);
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 1);
+  paxos_header_pack(&yy, &hdr);
+  r = paxos_broadcast(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -119,17 +120,17 @@ acceptor_ack_sync(struct paxos_header *hdr)
 int acceptor_last(struct paxos_header *hdr)
 {
   int r;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Modify the header opcode.
   hdr->ph_opcode = OP_LAST;
 
   // Pack and send the response.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, hdr);
-  paxos_paxid_pack(&py, pax->ihole - 1);
-  r = paxos_send_to_proposer(&py);
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, hdr);
+  paxos_paxid_pack(&yy, pax->ihole - 1);
+  r = paxos_send_to_proposer(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -198,7 +199,7 @@ int
 proposer_truncate(struct paxos_header *hdr)
 {
   int r;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Obtain our own last contiguous learn.
   if (pax->ihole - 1 < pax->sync->ps_last) {
@@ -217,13 +218,13 @@ proposer_truncate(struct paxos_header *hdr)
   hdr->ph_opcode = OP_TRUNCATE;
 
   // Pack a truncate.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, hdr);
-  paxos_paxid_pack(&py, pax->ibase);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, hdr);
+  paxos_paxid_pack(&yy, pax->ibase);
 
   // Broadcast it.
-  r = paxos_broadcast(&py);
-  paxos_payload_destroy(&py);
+  r = paxos_broadcast(&yy);
+  yakyak_destroy(&yy);
   if (r) {
     return r;
   }

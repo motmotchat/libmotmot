@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -12,7 +14,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 static inline void
@@ -62,7 +63,7 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
 {
   int r = 0;
   struct paxos_header hdr;
-  struct paxos_yak py;
+  struct yakyak yy;
   struct paxos_acceptor *acc;
 
   // We always free the prepare before we would have an opportunity to
@@ -124,10 +125,10 @@ proposer_prepare(struct paxos_acceptor *old_proposer)
   hdr.ph_inum = pax->ihole;
 
   // Pack and broadcast the prepare.
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, &hdr);
-  ERR_ACCUM(r, paxos_broadcast(&py));
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 1);
+  paxos_header_pack(&yy, &hdr);
+  ERR_ACCUM(r, paxos_broadcast(&yy));
+  yakyak_destroy(&yy);
 
   return r;
 }

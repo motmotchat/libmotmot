@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -12,7 +14,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 /**
@@ -23,16 +24,16 @@ acceptor_retry(paxid_t hole)
 {
   int r;
   struct paxos_header hdr;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Initialize a header.
   header_init(&hdr, OP_RETRY, hole);
 
   // Pack and send the payload.
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, &hdr);
-  r = paxos_send_to_proposer(&py);
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 1);
+  paxos_header_pack(&yy, &hdr);
+  r = paxos_send_to_proposer(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -65,17 +66,17 @@ int
 proposer_recommit(struct paxos_header *hdr, struct paxos_instance *inst)
 {
   int r;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Modify the header.
   hdr->ph_opcode = OP_RECOMMIT;
 
   // Pack and send the recommit.
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, hdr);
-  paxos_value_pack(&py, &(inst->pi_val));
-  r = paxos_broadcast(&py);
-  paxos_payload_destroy(&py);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, hdr);
+  paxos_value_pack(&yy, &(inst->pi_val));
+  r = paxos_broadcast(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }

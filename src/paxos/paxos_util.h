@@ -4,8 +4,9 @@
 #ifndef __PAXOS_UTIL_H__
 #define __PAXOS_UTIL_H__
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
-#include "util/paxos_msgpack.h"
 
 /* Error handling. */
 #define ERR_RET(r, cmd)   \
@@ -28,8 +29,8 @@ int paxos_broadcast_instance(struct paxos_instance *);
 int proposer_decree_part(struct paxos_acceptor *, int force);
 
 /* Message delivery I/O wrappers. */
-int paxos_send(struct paxos_acceptor *, struct paxos_yak *);
-int paxos_send_to_proposer(struct paxos_yak *);
-int paxos_broadcast(struct paxos_yak *);
+int paxos_send(struct paxos_acceptor *, struct yakyak *);
+int paxos_send_to_proposer(struct yakyak *);
+int paxos_broadcast(struct yakyak *);
 
 #endif /* __PAXOS_UTIL_H__ */

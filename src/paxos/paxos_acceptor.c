@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <glib.h>
 
+#include "common/yakyak.h"
+
 #include "paxos.h"
 #include "paxos_connect.h"
 #include "paxos_protocol.h"
@@ -12,7 +14,6 @@
 #include "paxos_util.h"
 #include "containers/list.h"
 #include "util/paxos_io.h"
-#include "util/paxos_msgpack.h"
 #include "util/paxos_print.h"
 
 /**
@@ -50,7 +51,7 @@ acceptor_promise(struct paxos_header *hdr)
   int r;
   size_t count;
   struct paxos_instance *it;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Set our ballot to the one given in the prepare.
   pax->ballot.id = hdr->ph_ballot.id;
@@ -59,8 +60,8 @@ acceptor_promise(struct paxos_header *hdr)
 
   // Start off the payload with the header.
   hdr->ph_opcode = OP_PROMISE;
-  paxos_payload_init(&py, 2);
-  paxos_header_pack(&py, hdr);
+  yakyak_init(&yy, 2);
+  paxos_header_pack(&yy, hdr);
 
   count = 0;
 
@@ -73,16 +74,16 @@ acceptor_promise(struct paxos_header *hdr)
   }
 
   // Start the payload of promises.
-  paxos_payload_begin_array(&py, count);
+  yakyak_begin_array(&yy, count);
 
   // Pack all the instances starting at the lowest-numbered instance requested.
   for (; it != (void *)&pax->ilist; it = LIST_NEXT(it, pi_le)) {
-    paxos_instance_pack(&py, it);
+    paxos_instance_pack(&yy, it);
   }
 
   // Send off our payload.
-  r = paxos_send_to_proposer(&py);
-  paxos_payload_destroy(&py);
+  r = paxos_send_to_proposer(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }
@@ -172,16 +173,16 @@ int
 acceptor_accept(struct paxos_header *hdr)
 {
   int r;
-  struct paxos_yak py;
+  struct yakyak yy;
 
   // Pack a header.
   hdr->ph_opcode = OP_ACCEPT;
-  paxos_payload_init(&py, 1);
-  paxos_header_pack(&py, hdr);
+  yakyak_init(&yy, 1);
+  paxos_header_pack(&yy, hdr);
 
   // Send the payload.
-  r = paxos_send_to_proposer(&py);
-  paxos_payload_destroy(&py);
+  r = paxos_send_to_proposer(&yy);
+  yakyak_destroy(&yy);
 
   return r;
 }

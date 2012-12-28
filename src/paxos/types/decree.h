@@ -4,10 +4,11 @@
 #ifndef __PAXOS_TYPES_DECREE_H__
 #define __PAXOS_TYPES_DECREE_H__
 
+#include "common/yakyak.h"
+
 #include "containers/list_factory.h"
 #include "types/primitives.h"
 #include "types/core.h"
-#include "util/paxos_msgpack.h"
 
 /* An instance of the "synod" algorithm. */
 struct paxos_instance {
@@ -37,9 +38,9 @@ LIST_DECLARE(request, reqid_t);
 void request_destroy(struct paxos_request *);
 
 /* Msgpack helpers. */
-void paxos_instance_pack(struct paxos_yak *, struct paxos_instance *);
+void paxos_instance_pack(struct yakyak *, struct paxos_instance *);
 void paxos_instance_unpack(struct paxos_instance *, msgpack_object *);
-void paxos_request_pack(struct paxos_yak *, struct paxos_request *);
+void paxos_request_pack(struct yakyak *, struct paxos_request *);
 void paxos_request_unpack(struct paxos_request *, msgpack_object *);
 
 #endif /* __PAXOS_TYPES_DECREE_H__ */
