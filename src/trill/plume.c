@@ -16,6 +16,7 @@
 #include "common/log.h"
 
 #include "trill/client/request.h"
+#include "trill/client/x509.h"
 
 GMainLoop *gmain;
 
@@ -81,7 +82,8 @@ plume_tls_setup(GSocketClient *client, GSocketClientEvent event,
       tls_conn = (GTlsClientConnection *)conn;
 
       // Bind our certificate to the connection.
-      cert = g_tls_certificate_new_from_files("client.crt", "client.key", NULL);
+      cert = g_tls_certificate_new_from_files(self_cert_path(),
+          self_key_path(), NULL);
       g_tls_connection_set_certificate((GTlsConnection *)tls_conn, cert);
 
       // Validate ALL the server certs!
@@ -156,6 +158,8 @@ main(int argc, char *argv[])
   // Look up the Plume server asynchronously.
   g_resolver_lookup_service_async(g_resolver_get_default(), "plume", "tcp",
       domain, NULL, plume_connect_server, (void *)handle);
+
+  log_warn("%s", self_cert());
 
   // Launch the main event loop.
   gmain = g_main_loop_new(g_main_context_default(), 0);
