@@ -4,11 +4,10 @@
 #ifndef __PAXOS_TYPES_DECREE_H__
 #define __PAXOS_TYPES_DECREE_H__
 
-#include "paxos_msgpack.h"
-
 #include "containers/list_factory.h"
 #include "types/primitives.h"
 #include "types/core.h"
+#include "util/paxos_msgpack.h"
 
 /* An instance of the "synod" algorithm. */
 struct paxos_instance {

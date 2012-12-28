@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "paxos_msgpack.h"
+#include "util/paxos_msgpack.h"
 
 /* Paxos ID and UUID types. */
 typedef uint32_t  paxid_t;

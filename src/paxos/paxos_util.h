@@ -5,7 +5,7 @@
 #define __PAXOS_UTIL_H__
 
 #include "paxos.h"
-#include "paxos_msgpack.h"
+#include "util/paxos_msgpack.h"
 
 /* Error handling. */
 #define ERR_RET(r, cmd)   \

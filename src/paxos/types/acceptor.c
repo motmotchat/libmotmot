@@ -5,10 +5,9 @@
 #include <assert.h>
 #include <glib.h>
 
-#include "paxos_io.h"
-
 #include "containers/list_factory.h"
 #include "types/acceptor.h"
+#include "util/paxos_io.h"
 
 LIST_IMPLEMENT(acceptor, paxid_t, pa_le, pa_paxid, paxid_compare,
     acceptor_destroy, _FWD, _REV);

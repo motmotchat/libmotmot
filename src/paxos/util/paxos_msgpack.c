@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <msgpack.h>
 
-#include "paxos_msgpack.h"
+#include "util/paxos_msgpack.h"
 
 void
 paxos_payload_init(struct paxos_yak *py, size_t n)

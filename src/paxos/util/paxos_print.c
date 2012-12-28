@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #include "paxos.h"
-#include "paxos_print.h"
+#include "util/paxos_print.h"
 
 void
 paxid_print(paxid_t paxid, const char *lead, const char *trail)

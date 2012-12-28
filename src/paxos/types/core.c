@@ -2,9 +2,9 @@
  * core.c - Utilities for Paxos core types.
  */
 
-#include "paxos_msgpack.h"
 #include "paxos_state.h"
 #include "types/core.h"
+#include "util/paxos_msgpack.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 //

@@ -5,9 +5,9 @@
 #include <glib.h>
 
 #include "paxos.h"
-#include "paxos_io.h"
 #include "paxos_protocol.h"
 #include "paxos_state.h"
+#include "util/paxos_io.h"
 
 #define PIO_BUFSIZE 4096
 

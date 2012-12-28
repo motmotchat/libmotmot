@@ -9,8 +9,8 @@
 
 #include <glib.h>
 
-#include "paxos_msgpack.h"
 #include "types/primitives.h"
+#include "util/paxos_msgpack.h"
 
 ///////////////////////////////////////////////////////////////////////////
 //

@@ -5,14 +5,13 @@
 #ifndef __PAXOS_TYPES_SESSION_H__
 #define __PAXOS_TYPES_SESSION_H__
 
-#include "paxos_msgpack.h"
-
 #include "containers/list_factory.h"
 #include "types/primitives.h"
 #include "types/core.h"
 #include "types/decree.h"
 #include "types/acceptor.h"
 #include "types/continuation.h"
+#include "util/paxos_msgpack.h"
 
 /* Preparation state used by new proposers. */
 struct paxos_prep {

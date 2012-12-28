@@ -4,11 +4,10 @@
 #ifndef __PAXOS_TYPES_CONNECT_H__
 #define __PAXOS_TYPES_CONNECT_H__
 
-#include "paxos_io.h"
-
 #include "containers/hashtable_factory.h"
 #include "types/primitives.h"
 #include "types/core.h"
+#include "util/paxos_io.h"
 
 /* Connection to another client; shared among sessions. */
 struct paxos_connect {

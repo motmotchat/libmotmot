@@ -4,10 +4,9 @@
 #ifndef __PAXOS_TYPES_ACCEPTOR_H__
 #define __PAXOS_TYPES_ACCEPTOR_H__
 
-#include "paxos_msgpack.h"
-
 #include "containers/list_factory.h"
 #include "types/primitives.h"
+#include "util/paxos_msgpack.h"
 
 /* A Paxos protocol participant. */
 struct paxos_acceptor {
