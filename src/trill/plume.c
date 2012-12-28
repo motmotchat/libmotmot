@@ -13,7 +13,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 
-#include "log.h"
+#include "common/log.h"
 
 GMainLoop *gmain;
 

@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "common.h"
-#include "crypto.h"
-#include "gnutls.h"
-#include "log.h"
+#include "common/log.h"
+#include "trill/common.h"
+#include "trill/crypto.h"
+#include "trill/crypto/gnutls.h"
 
 // Our priorities set. Any 256-bit, secure cipher that is compatible with
 // DTLS1.0 is fine, and should be secure for the foreseable future.

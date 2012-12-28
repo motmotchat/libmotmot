@@ -5,8 +5,8 @@
 
 #include <glib.h>
 
-#include "trill.h"
-#include "log.h"
+#include "common/log.h"
+#include "trill/trill.h"
 
 GMainLoop *gmain;
 

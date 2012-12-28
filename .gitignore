@@ -1,3 +1,6 @@
 tags
 obj/
 .deps/
+
+*.key
+*.crt

@@ -11,10 +11,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "common.h"
-#include "crypto.h"
-#include "log.h"
-#include "network.h"
+#include "common/log.h"
+#include "trill/common.h"
+#include "trill/crypto.h"
+#include "trill/network.h"
 
 struct trill_connection *
 trill_connection_new()
