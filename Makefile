@@ -22,16 +22,15 @@ OBJDIR = obj
 EXTDIR = ext
 DEPDIR = .deps
 
-SOURCES := $(shell find $(SRCDIR) -name '*.c')
-HEADERS := $(shell find $(SRCDIR) -name '*.h')
+SOURCES := $(shell find $(SRCDIR) $(EXTDIR) -name '*.c')
+HEADERS := $(shell find $(SRCDIR) $(EXTDIR) -name '*.h')
 
 MAINS = $(SRCDIR)/paxos/main.c $(SRCDIR)/trill/main.c $(SRCDIR)/trill/plume.c
 OBJS = $(addprefix $(OBJDIR)/,$(patsubst %.c,%.o,$(filter-out $(MAINS),$(SOURCES))))
 DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 
 # Temporary object sets for test binary dev.
-MOTMOT_O = $(OBJDIR)/$(SRCDIR)/motmot.o
-PAXOS_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/paxos/%,$(OBJS)) $(MOTMOT_O)
+PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
 TRILL_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
 
 all: $(OBJS) tags
