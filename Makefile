@@ -30,9 +30,8 @@ OBJS = $(addprefix $(OBJDIR)/,$(patsubst %.c,%.o,$(filter-out $(MAINS),$(SOURCES
 DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 
 # Temporary object sets for test binary dev.
-MOTMOT_O = $(OBJDIR)/$(SRCDIR)/motmot.o
-PAXOS_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/paxos/%,$(OBJS)) $(MOTMOT_O)
-TRILL_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
+PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
+TRILL_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/paxos/%,$(OBJS))
 
 all: $(OBJS) tags
 
