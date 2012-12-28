@@ -15,6 +15,8 @@
 
 #include "common/log.h"
 
+#include "trill/client/request.h"
+
 GMainLoop *gmain;
 
 /**
