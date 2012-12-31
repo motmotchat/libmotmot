@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-#include "trill/trill.h"
+#include "network/trill/trill.h"
 
 #if defined(TRILL_USE_GNUTLS)
-#include "trill/crypto/gnutls.h"
+#include "network/trill/gnutls.h"
 #elif defined(TRILL_USE_OPENSSL)
 #error "OpenSSL not implemented yet!"
 #elif defined(TRILL_USE_NSS)

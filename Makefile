@@ -25,16 +25,24 @@ DEPDIR = .deps
 SOURCES := $(shell find $(SRCDIR) $(EXTDIR) -name '*.c')
 HEADERS := $(shell find $(SRCDIR) $(EXTDIR) -name '*.h')
 
-MAINS = $(SRCDIR)/paxos/main.c $(SRCDIR)/trill/main.c $(SRCDIR)/trill/plume.c
+MAINS = \
+	$(SRCDIR)/paxos/main.c \
+	$(SRCDIR)/network/trill/main.c \
+	$(SRCDIR)/network/plume/main.c
+
 OBJS = $(addprefix $(OBJDIR)/,$(patsubst %.c,%.o,$(filter-out $(MAINS),$(SOURCES))))
 DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 
 # Temporary object sets for test binary dev.
+COMMON_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS))
 PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
 TRILL_OBJS = \
-	$(filter $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS)) \
-	$(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS)) \
-	$(OBJDIR)/$(SRCDIR)/config.o
+	$(COMMON_OBJS) \
+	$(filter $(OBJDIR)/$(SRCDIR)/network/trill/%,$(OBJS))
+PLUME_OBJS = \
+	$(COMMON_OBJS) \
+	$(OBJDIR)/$(SRCDIR)/config.o \
+	$(filter $(OBJDIR)/$(SRCDIR)/network/plume/%,$(OBJS))
 
 all: $(OBJS) motmot trill plume tags
 
@@ -43,8 +51,8 @@ $(CC) $(LDFLAGS) $^ -o $(subst $(OBJDIR)/,,$(<D))/$@
 endef
 
 motmot: $(OBJDIR)/$(SRCDIR)/paxos/main.o $(PAXOS_OBJS); $(mkbin)
-trill: $(OBJDIR)/$(SRCDIR)/trill/main.o $(TRILL_OBJS); $(mkbin)
-plume: $(OBJDIR)/$(SRCDIR)/trill/plume.o $(TRILL_OBJS); $(mkbin)
+trill: $(OBJDIR)/$(SRCDIR)/network/trill/main.o $(TRILL_OBJS); $(mkbin)
+plume: $(OBJDIR)/$(SRCDIR)/network/plume/main.o $(PLUME_OBJS); $(mkbin)
 
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
@@ -61,6 +69,9 @@ clean-paxos:
 	-rm -rf $(PAXOS_OBJS) $(SRCDIR)/paxos/motmot
 
 clean-trill:
-	-rm -rf $(TRILL_OBJS) $(SRCDIR)/trill/trill $(SRCDIR)/trill/plume
+	-rm -rf $(TRILL_OBJS) $(SRCDIR)/network/trill/trill
+
+clean-plume:
+	-rm -rf $(PLUME_OBJS) $(SRCDIR)/network/plume/plume
 
 -include $(addprefix $(DEPDIR),$(SOURCES:.c=.d))

@@ -12,9 +12,9 @@
 #include <unistd.h>
 
 #include "common/log.h"
-#include "trill/common.h"
-#include "trill/crypto.h"
-#include "trill/network.h"
+#include "network/trill/common.h"
+#include "network/trill/crypto.h"
+#include "network/trill/network.h"
 
 struct trill_connection *
 trill_connection_new()

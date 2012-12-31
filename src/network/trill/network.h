@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <netinet/in.h>
 
-#include "trill/common.h"
+#include "network/trill/common.h"
 
 /**
  * These were chosen to be non-colliding with TLS ContentTypes

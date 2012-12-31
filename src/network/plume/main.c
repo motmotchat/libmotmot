@@ -15,8 +15,8 @@
 
 #include "common/log.h"
 
-#include "trill/client/request.h"
-#include "trill/client/x509.h"
+#include "network/plume/request.h"
+#include "network/plume/x509.h"
 
 GMainLoop *gmain;
 

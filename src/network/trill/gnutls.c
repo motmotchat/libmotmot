@@ -5,9 +5,9 @@
 #include <string.h>
 
 #include "common/log.h"
-#include "trill/common.h"
-#include "trill/crypto.h"
-#include "trill/crypto/gnutls.h"
+#include "network/trill/common.h"
+#include "network/trill/crypto.h"
+#include "network/trill/gnutls.h"
 
 // Our priorities set. Any 256-bit, secure cipher that is compatible with
 // DTLS1.0 is fine, and should be secure for the foreseable future.
