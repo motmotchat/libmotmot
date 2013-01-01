@@ -1,8 +1,8 @@
 #include <errno.h>
 
-#include "network/trill/common.h"
-#include "network/trill/crypto.h"
-#include "network/trill/trill.h"
+#include "trill/common.h"
+#include "trill/crypto.h"
+#include "trill/trill.h"
 
 trill_want_write_callback_t trill_want_write_callback;
 trill_want_timeout_callback_t trill_want_timeout_callback;

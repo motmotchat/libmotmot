@@ -11,8 +11,8 @@
 #include <ares.h>
 
 #include "common/log.h"
-#include "network/plume.h"
-#include "network/plume/common.h"
+#include "plume/plume.h"
+#include "plume/common.h"
 
 /**
  * plume_client_new - Instantiate a new Plume client object.

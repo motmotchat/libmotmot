@@ -10,7 +10,7 @@
 #include "common/msgpack_io.h"
 #include "common/yakyak.h"
 
-#include "network/plume/x509.h"
+#include "plume/x509.h"
 
 void
 msgpack_pack_string(msgpack_packer *pk, char *s)

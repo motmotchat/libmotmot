@@ -14,9 +14,8 @@
 #include <gio/gio.h>
 
 #include "common/log.h"
-
-#include "network/plume/request.h"
-#include "network/plume/x509.h"
+#include "plume/request.h"
+#include "plume/x509.h"
 
 GMainLoop *gmain;
 

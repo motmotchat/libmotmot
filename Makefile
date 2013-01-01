@@ -9,7 +9,7 @@
 CC = gcc
 CFLAGS = -ggdb3 -Wall -Werror -O2 -DTRILL_USE_GNUTLS=1
 CFLAGS += `pkg-config --cflags glib-2.0 gio-2.0 gnutls`
-CFLAGS += -I./include -I./src -I./src/paxos -I./ext
+CFLAGS += -I./include -I./ext -I./src -I./src/paxos -I./src/network
 
 ifdef DEBUG
 	CFLAGS += -DDEBUG

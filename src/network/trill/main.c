@@ -6,7 +6,7 @@
 #include <glib.h>
 
 #include "common/log.h"
-#include "network/trill/trill.h"
+#include "trill/trill.h"
 
 GMainLoop *gmain;
 
