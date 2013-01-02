@@ -7,7 +7,7 @@
 #
 
 CC = gcc
-CFLAGS = -ggdb3 -Wall -Werror -O2 -DTRILL_USE_GNUTLS=1
+CFLAGS = -ggdb3 -Wall -Werror -O2 -DUSE_GNUTLS=1
 CFLAGS += `pkg-config --cflags glib-2.0 gio-2.0 gnutls`
 CFLAGS += -I./include -I./ext -I./src -I./src/paxos -I./src/network
 
@@ -35,13 +35,11 @@ DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 
 # Temporary object sets for test binary dev.
 COMMON_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS))
-PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/trill/%,$(OBJS))
-TRILL_OBJS = \
-	$(COMMON_OBJS) \
+PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/network/%,$(OBJS))
+CRYPTO_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/network/crypto/%,$(OBJS))
+TRILL_OBJS = $(COMMON_OBJS) $(CRYPTO_OBJS) \
 	$(filter $(OBJDIR)/$(SRCDIR)/network/trill/%,$(OBJS))
-PLUME_OBJS = \
-	$(COMMON_OBJS) \
-	$(OBJDIR)/$(SRCDIR)/config.o \
+PLUME_OBJS = $(COMMON_OBJS) $(CRYPTO_OBJS) $(OBJDIR)/$(SRCDIR)/config.o \
 	$(filter $(OBJDIR)/$(SRCDIR)/network/plume/%,$(OBJS))
 
 all: $(OBJS) motmot trill plume tags
@@ -69,9 +67,9 @@ clean-paxos:
 	-rm -rf $(PAXOS_OBJS) $(SRCDIR)/paxos/motmot
 
 clean-trill:
-	-rm -rf $(TRILL_OBJS) $(SRCDIR)/network/trill/trill
+	-rm -rf $(TRILL_OBJS) $(CRYPTO_OBJS) $(SRCDIR)/network/trill/trill
 
 clean-plume:
-	-rm -rf $(PLUME_OBJS) $(SRCDIR)/network/plume/plume
+	-rm -rf $(PLUME_OBJS) $(CRYPTO_OBJS) $(SRCDIR)/network/plume/plume
 
 -include $(addprefix $(DEPDIR),$(SOURCES:.c=.d))

@@ -4,16 +4,7 @@
 #include <stdint.h>
 
 #include "trill/trill.h"
-
-#if defined(TRILL_USE_GNUTLS)
-#include "trill/gnutls.h"
-#elif defined(TRILL_USE_OPENSSL)
-#error "OpenSSL not implemented yet!"
-#elif defined(TRILL_USE_NSS)
-#error "NSS not implemented yet!"
-#else
-#error "Unknown cryptographic library"
-#endif
+#include "crypto/crypto.h"
 
 /**
  * Connection state diagram:
@@ -55,7 +46,7 @@ struct trill_connection {
   trill_connected_callback_t tc_connected_cb;
   trill_recv_callback_t tc_recv_cb;
 
-  struct trill_tls tc_tls;
+  struct motmot_net_tls tc_tls;
 };
 
 trill_want_write_callback_t trill_want_write_callback;
