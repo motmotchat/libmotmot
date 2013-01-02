@@ -190,15 +190,14 @@ void trill_set_recv_callback(struct trill_connection *conn,
  * credentials.
  *
  * @param conn      The connection to set credentials for.
- * @param key_pem   A null-terminated private key in PEM format.
- * @param key_len   The length of the key in bytes.
- * @param cert_pem  A null-terminated certificate or certificate chain in PEM
+ * @param key_path  A null-terminated file path containing a private key in PEM
  *                  format.
- * @param cert_len  The length of the certificate in bytes.
+ * @param cert_path A null-terminated file path containing a certificate or
+ *                  certificate chain in PEM format.
  * @return          0 on success, nonzero on error.
  */
-int trill_set_key(struct trill_connection *conn, const char *key_pem,
-    size_t key_len, const char *cert_pem, size_t cert_len);
+int trill_set_key(struct trill_connection *conn, const char *key_path,
+    const char *cert_path);
 
 /**
  * trill_set_ca - Set trust root(s) for connection.
@@ -207,13 +206,11 @@ int trill_set_key(struct trill_connection *conn, const char *key_pem,
  * certificates.
  *
  * @param conn      The connection to set credentials for.
- * @param ca_pem    A null-terminated certificate or list of certificates in PEM
- *                  format.
- * @param ca_len    The length of the certificate in bytes.
+ * @param ca_path   A null-terminated file path containing a certificate or
+ *                  list of certificates in PEM format.
  * @return          0 on success, nonzero on error.
  */
-int trill_set_ca(struct trill_connection *conn, const char *ca_pem,
-    size_t ca_len);
+int trill_set_ca(struct trill_connection *conn, const char *ca_path);
 
 /**
  * trill_can_read - Notify Trill that the connection is available for reading.

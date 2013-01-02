@@ -74,38 +74,24 @@ trill_tls_free(struct trill_connection *conn)
 }
 
 int
-trill_set_key(struct trill_connection *conn, const char *key_pem,
-    size_t key_len, const char *cert_pem, size_t cert_len)
+trill_set_key(struct trill_connection *conn, const char *key_path,
+    const char *cert_path)
 {
-  gnutls_datum_t key, cert;
-
   assert(conn != NULL);
-  assert(key_pem != NULL && key_len > 0);
-  assert(cert_pem != NULL && cert_len > 0);
+  assert(key_path != NULL);
+  assert(cert_path != NULL);
 
-  // This is safe, since gnutls_certificate_set_x509_key_mem doesn't modify its
-  // parameters
-  key.data = (unsigned char *) key_pem;
-  key.size = key_len;
-  cert.data = (unsigned char *) cert_pem;
-  cert.size = cert_len;
-
-  return gnutls_certificate_set_x509_key_mem(conn->tc_tls.mt_creds, &cert, &key,
-      GNUTLS_X509_FMT_PEM);
+  return gnutls_certificate_set_x509_key_file(conn->tc_tls.mt_creds, cert_path,
+      key_path, GNUTLS_X509_FMT_PEM);
 }
 
 int
-trill_set_ca(struct trill_connection *conn, const char *ca_pem, size_t ca_len)
+trill_set_ca(struct trill_connection *conn, const char *ca_path)
 {
-  gnutls_datum_t ca;
-
   assert(conn != NULL);
-  assert(ca_pem != NULL && ca_len > 0);
+  assert(ca_path != NULL);
 
-  ca.data = (unsigned char *) ca_pem;
-  ca.size = ca_len;
-
-  return gnutls_certificate_set_x509_trust_mem(conn->tc_tls.mt_creds, &ca,
+  return gnutls_certificate_set_x509_trust_file(conn->tc_tls.mt_creds, ca_path,
       GNUTLS_X509_FMT_PEM);
 }
 

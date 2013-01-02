@@ -80,10 +80,6 @@ main(int argc, char *argv[])
   char buf[25];
   char *buf_ptr;
 
-  FILE *cert_file;
-  char cert[4096];
-  size_t cert_len;
-
   struct trill_callback_vtable cbs = {want_write, want_timeout};
 
   srandomdev();
@@ -95,11 +91,8 @@ main(int argc, char *argv[])
   conn = trill_connection_new();
   log_info("Listening on port %d", trill_get_port(conn));
 
-  cert_file = fopen("mycert.pem", "r");
-  cert_len = fread(cert, 1, 4096, cert_file);
-  cert[cert_len] = '\0';
-  trill_set_key(conn, cert, cert_len, cert, cert_len);
-  trill_set_ca(conn, cert, cert_len);
+  trill_set_key(conn, "mycert.pem", "mycert.pem");
+  trill_set_ca(conn, "mycert.pem");
 
   myconn = malloc(sizeof(*myconn));
   myconn->chan = g_io_channel_unix_new(trill_get_fd(conn));
