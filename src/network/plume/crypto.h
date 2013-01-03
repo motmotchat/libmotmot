@@ -1,5 +1,7 @@
 /**
- * tls.h - Plume TLS utilities.
+ * tls.h - Plume TLS interface.
+ *
+ * Adding support for a new crypto library requires implementing this interface.
  */
 #ifndef __PLUME_TLS_H__
 #define __PLUME_TLS_H__
@@ -10,6 +12,6 @@ int plume_crypto_init(void);
 int plume_crypto_deinit(void);
 
 int plume_tls_init(struct plume_client *);
-int plume_tls_clear(struct plume_client *);
+int plume_tls_deinit(struct plume_client *);
 
 #endif /* __PLUME_TLS_H__ */

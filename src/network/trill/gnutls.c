@@ -1,5 +1,5 @@
 /**
- * gnutls.c - TLS backend for Trill using GNUTLS.
+ * gnutls.c - TLS backend for Trill using GnuTLS.
  */
 #ifdef USE_GNUTLS
 

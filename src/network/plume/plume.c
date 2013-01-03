@@ -13,6 +13,16 @@
 #include "common/log.h"
 #include "plume/plume.h"
 #include "plume/common.h"
+#include "plume/crypto.h"
+
+/**
+ * plume_init - Initialize the Plume client service.
+ */
+int
+plume_init()
+{
+  return plume_crypto_init();
+}
 
 /**
  * plume_client_new - Instantiate a new Plume client object.
@@ -24,6 +34,11 @@ plume_client_new()
 
   client = calloc(1, sizeof(*client));
   if (client == NULL) {
+    return NULL;
+  }
+
+  if (plume_tls_init(client)) {
+    free(client);
     return NULL;
   }
 
@@ -73,6 +88,12 @@ plume_connect_server(struct plume_client *client, const char *cert_path)
 //
 //  Utility routines.
 //
+
+int
+plume_client_get_fd(const struct plume_client *client)
+{
+  return client->pc_sock_fd;
+}
 
 void
 plume_client_set_data(struct plume_client *client, void *data)

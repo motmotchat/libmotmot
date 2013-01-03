@@ -20,6 +20,12 @@ enum plume_status {
   PLUME_SUCCESS,
 };
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Callback types.
+//
+
 /**
  * plume_callback_t - Callback type for most Plume client callbacks.  Primarily
  * used for notifying the user of some completed action.
@@ -45,6 +51,20 @@ typedef void (*plume_callback_t)(struct plume_client *client,
 typedef void (*plume_recv_callback_t)(struct plume_client *client,
     void *buf, size_t len, void *data);
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Callback types.
+//
+
+/**
+ * trill_init - Initialize the Plume client service.  May be called more than
+ * once, but only the first call will be functional.
+ *
+ * @return          0 on success, nonzero on failure.
+ */
+int plume_init(void);
+
 /**
  * plume_client_new - Instantiate a new Plume client object.
  *
@@ -60,6 +80,33 @@ struct plume_client *plume_client_new(void);
  * @return          0 on success, nonzero on failure.
  */
 int plume_client_destroy(struct plume_client *client);
+
+/**
+ * plume_connect_server - Connect to a Plume server.
+ *
+ * When success or failure of the connection process is known, the pc_connect
+ * callback set on `client' will be called to notify the caller.
+ *
+ * @param client    The Plume client object to use for the connection.
+ * @param cert_path The path to the cert representing the client's identity.
+ *                  Should be a null-terminated string.
+ */
+void plume_connect_server(struct plume_client *client, const char *cert_path);
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Utility routines.
+//
+
+/**
+ * plume_client_get_fd - Get the socket file description supporting the server
+ * connection.
+ *
+ * @param client    The client object for which to fetch the fd.
+ * @return          The socket fd.
+ */
+int plume_client_get_fd(const struct plume_client *client);
 
 /**
  * plume_client_set_data - Set associated user data.
@@ -89,15 +136,32 @@ void plume_client_set_recv_cb(struct plume_client *client,
     plume_recv_callback_t recv);
 
 /**
- * plume_connect_server - Connect to a Plume server.
+ * plume_client_set_key - Set cryptographic credentials for this connection.
  *
- * When success or failure of the connection process is known, the pc_connect
- * callback set on `client' will be called to notify the caller.
+ * It is possible to call this function multiple times with multiple sets of
+ * credentials.
  *
- * @param client    The Plume client object to use for the connection.
- * @param cert_path The path to the cert representing the client's identity.
- *                  Should be a null-terminated string.
+ * @param client    The client to set credentials for.
+ * @param key_path  A null-terminated file path containing a private key in PEM
+ *                  format.
+ * @param cert_path A null-terminated file path containing a certificate or
+ *                  certificate chain in PEM format.
+ * @return          0 on success, nonzero on error.
  */
-void plume_connect_server(struct plume_client *client, const char *cert_path);
+int plume_client_set_key(struct plume_client *client, const char *key_path,
+    const char *cert_path);
+
+/**
+ * plume_client_set_ca - Set trust root(s) for connection.
+ *
+ * It is possible to call this function multiple times with multiple trusted
+ * certificates.
+ *
+ * @param client    The client to set credentials for.
+ * @param ca_path   A null-terminated file path containing a certificate or
+ *                  list of certificates in PEM format.
+ * @return          0 on success, nonzero on error.
+ */
+int plume_client_set_ca(struct plume_client *client, const char *ca_path);
 
 #endif /* __PLUME_H__ */
