@@ -8,7 +8,7 @@
 #include "crypto/crypto.h"
 
 struct plume_client {
-  int pc_sock_fd;       // socket underlying the connection
+  int pc_fd;            // socket underlying the connection
   char *pc_cert;        // client's identity cert
   size_t pc_cert_size;  // size in bytes of the identity cert
   char *pc_handle;      // client's username; extracted from cert

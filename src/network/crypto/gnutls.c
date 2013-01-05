@@ -11,7 +11,7 @@ motmot_net_gnutls_init(gnutls_priority_t *priority_cache,
     const char *priorities)
 {
   if (gnutls_global_init()) {
-    log_error("Error initializing gnutls");
+    log_error("Error initializing GnuTLS");
     return -1;
   }
 

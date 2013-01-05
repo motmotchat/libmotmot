@@ -18,6 +18,8 @@ struct plume_client;
  */
 enum plume_status {
   PLUME_SUCCESS,
+  PLUME_EINUSE,
+  PLUME_EIDENTITY,
 };
 
 
@@ -54,7 +56,7 @@ typedef void (*plume_recv_callback_t)(struct plume_client *client,
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  Callback types.
+//  Main interface.
 //
 
 /**
@@ -88,6 +90,10 @@ int plume_client_destroy(struct plume_client *client);
  *
  * When success or failure of the connection process is known, the pc_connect
  * callback set on `client' will be called to notify the caller.
+ *
+ * No work should be performed on the client until the connected callback is
+ * called.  Failure to abide may result in inconsistent state for the duration
+ * of the Plume client service.
  *
  * @param client    The Plume client object to use for the connection.
  */
