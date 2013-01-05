@@ -6,12 +6,12 @@
 #include <assert.h>
 
 #include <gnutls/gnutls.h>
-#include <gnutls/dtls.h>
+#include <gnutls/x509.h>
 
 #include "common/log.h"
 #include "crypto/gnutls.h"
 #include "plume/common.h"
-#include "plume/crypto.h"
+#include "plume/tls.h"
 
 static const char *priorities = "SECURE256:%SERVER_PRECEDENCE";
 static gnutls_priority_t priority_cache;

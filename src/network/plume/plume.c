@@ -13,7 +13,7 @@
 #include "common/log.h"
 #include "plume/plume.h"
 #include "plume/common.h"
-#include "plume/crypto.h"
+#include "plume/tls.h"
 
 /**
  * plume_init - Initialize the Plume client service.
