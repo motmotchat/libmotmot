@@ -68,9 +68,11 @@ int plume_init(void);
 /**
  * plume_client_new - Instantiate a new Plume client object.
  *
+ * @param cert_path The path to the client's identity cert.  Should be a
+ *                  null-terminated string.
  * @return          A new Plume client object.
  */
-struct plume_client *plume_client_new(void);
+struct plume_client *plume_client_new(const char *cert_path);
 
 /**
  * plume_client_destroy - Destroy a Plume client object, closing the raw socket
@@ -88,10 +90,8 @@ int plume_client_destroy(struct plume_client *client);
  * callback set on `client' will be called to notify the caller.
  *
  * @param client    The Plume client object to use for the connection.
- * @param cert_path The path to the cert representing the client's identity.
- *                  Should be a null-terminated string.
  */
-void plume_connect_server(struct plume_client *client, const char *cert_path);
+void plume_connect_server(struct plume_client *client);
 
 
 ///////////////////////////////////////////////////////////////////////////////

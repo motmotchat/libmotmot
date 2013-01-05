@@ -11,6 +11,8 @@
 #include <ares.h>
 
 #include "common/log.h"
+#include "common/readfile.h"
+
 #include "plume/plume.h"
 #include "plume/common.h"
 #include "plume/tls.h"
@@ -28,21 +30,37 @@ plume_init()
  * plume_client_new - Instantiate a new Plume client object.
  */
 struct plume_client *
-plume_client_new()
+plume_client_new(const char *cert_path)
 {
   struct plume_client *client;
+
+  assert(cert_path != NULL && "No identity cert specified for new client.");
 
   client = calloc(1, sizeof(*client));
   if (client == NULL) {
     return NULL;
   }
+  client->pc_sock_fd = -1;
+
+  client->pc_cert = readfile(cert_path, &client->pc_cert_size);
+  if (client->pc_cert == NULL) {
+    goto err;
+  }
+
+  client->pc_handle = plume_crt_get_cn(client->pc_cert, client->pc_cert_size);
+  if (client->pc_handle == NULL) {
+    goto err;
+  }
 
   if (plume_tls_init(client)) {
-    free(client);
-    return NULL;
+    goto err;
   }
 
   return client;
+
+err:
+  plume_client_destroy(client);
+  return NULL;
 }
 
 /**
@@ -52,33 +70,36 @@ plume_client_new()
 int
 plume_client_destroy(struct plume_client *client)
 {
-  int r = 0;
+  int retval = 0;
 
   assert(client != NULL && "Attempting to free a null client");
 
+  retval = plume_tls_deinit(client);
+
   if (client->pc_sock_fd != -1) {
-    if ((r = close(client->pc_sock_fd) == -1)) {
+    if (close(client->pc_sock_fd) == -1) {
       log_errno("Error closing Plume server connection");
+      retval = -1;
     }
   }
 
+  free(client->pc_handle);
+  free(client->pc_cert);
   free(client);
-  return r;
+
+  return retval;
 }
 
 /**
  * plume_connect_server - Connect to a Plume server.
  */
 void
-plume_connect_server(struct plume_client *client, const char *cert_path)
+plume_connect_server(struct plume_client *client)
 {
   unsigned char *qbuf;
   int qbuflen;
 
   assert(client != NULL && "Attempting to connect with a null client");
-  assert(cert_path != NULL && "Attempting to connect with null credentials");
-
-  client->pc_cert_path = strdup(cert_path);
 
   ares_mkquery("blah", ns_c_in, ns_t_srv, 0, 1, &qbuf, &qbuflen);
 }

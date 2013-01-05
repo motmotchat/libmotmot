@@ -21,7 +21,7 @@ static int plume_tls_verify(gnutls_session_t session);
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  Constructors, destructors, and setters.
+//  Utility routines.
 //
 
 /**
@@ -45,8 +45,9 @@ plume_crypto_deinit(void)
 /**
  * plume_tls_init - Initialize the motmot_net_tls component of a Plume client.
  *
- * Initialization amounts to allocating a credentials object and setting the
- * associated certificate verify callback.
+ * Initialization includes the following:
+ * - Allocating a credentials object.
+ * - Setting the associated certificate verify callback.
  */
 int
 plume_tls_init(struct plume_client *client)
@@ -55,13 +56,69 @@ plume_tls_init(struct plume_client *client)
 
   if (gnutls_certificate_allocate_credentials(&client->pc_tls.mt_creds)) {
     log_error("Error allocating crypto credentials");
-    return 1;
+    return -1;
   }
-
   gnutls_certificate_set_verify_function(client->pc_tls.mt_creds,
       plume_tls_verify);
 
   return 0;
+}
+
+/**
+ * plume_tls_deinit - Free up a motmot_net_tls object.
+ */
+int
+plume_tls_deinit(struct plume_client *client)
+{
+  assert(client != NULL);
+
+  gnutls_deinit(client->pc_tls.mt_session);
+  gnutls_certificate_free_credentials(client->pc_tls.mt_creds);
+
+  return 0;
+}
+
+/**
+ * plume_crt_get_cn - Extract the CN from a cert.
+ */
+char *
+plume_crt_get_cn(char *raw_cert, size_t size)
+{
+  gnutls_datum_t data;
+  gnutls_x509_crt_t cert;
+  char *buf = NULL;
+  size_t buf_size = 0;
+
+  data.data = (unsigned char *)raw_cert;
+  data.size = size;
+
+  if (gnutls_x509_crt_init(&cert)) {
+    return NULL;
+  }
+
+  if (gnutls_x509_crt_import(cert, &data, GNUTLS_X509_FMT_PEM)) {
+    goto leave;
+  }
+
+  if (gnutls_x509_crt_get_dn_by_oid(cert, GNUTLS_OID_X520_COMMON_NAME,
+        0, 0, NULL, &buf_size) != GNUTLS_E_SHORT_MEMORY_BUFFER) {
+    goto leave;
+  }
+
+  buf = malloc(buf_size + 1);
+  if (buf == NULL) {
+    goto leave;
+  }
+
+  if (gnutls_x509_crt_get_dn_by_oid(cert, GNUTLS_OID_X520_COMMON_NAME,
+        0, 0, buf, &buf_size)) {
+    free(buf);
+    buf = NULL;
+  }
+
+leave:
+  gnutls_x509_crt_deinit(cert);
+  return buf;
 }
 
 /**
