@@ -18,7 +18,7 @@
 enum motmot_fdtype {
   MOTMOT_EVENT_TCP,
   MOTMOT_EVENT_UDP,
-  MOTMOT_EVENT_FILE
+  MOTMOT_EVENT_FILE,
 }
 
 /**
@@ -68,8 +68,12 @@ typedef int (*motmot_want_timeout_callback_t)(motmot_event_callback_t func,
  * This function should be called exactly once, before any library functions
  * are called.
  *
- * XXX: Decide whether to pass individual callback or a vtable.
+ * @param want_read     Callback to request can-read event notifications.
+ * @param want_write    Callback to request can-write event notifications.
+ * @param want_timeout  Callback to request timeout event notifications.
  */
-int motmot_event_init(void);
+int motmot_event_init(motmot_want_io_callback_t want_read,
+    motmot_want_io_callback_t want_write,
+    motmot_want_timeout_callback_t want_timeout);
 
 #endif /* __MOTMOT_EVENT_H__ */
