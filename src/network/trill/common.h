@@ -5,7 +5,7 @@
 
 #include "trill/trill.h"
 #include "crypto/crypto.h"
-#include "event_callbacks.h"
+#include "event/callbacks.h"
 
 struct trill_connection;
 

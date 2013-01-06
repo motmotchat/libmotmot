@@ -36,10 +36,12 @@ DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 # Temporary object sets for test binary dev.
 COMMON_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS))
 PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/network/%,$(OBJS))
-CRYPTO_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/network/crypto/%,$(OBJS))
-TRILL_OBJS = $(COMMON_OBJS) $(CRYPTO_OBJS) \
+NETWORK_OBJS = \
+	$(filter $(OBJDIR)/$(SRCDIR)/network/event/%,$(OBJS)) \
+	$(filter $(OBJDIR)/$(SRCDIR)/network/crypto/%,$(OBJS))
+TRILL_OBJS = $(COMMON_OBJS) $(NETWORK_OBJS) \
 	$(filter $(OBJDIR)/$(SRCDIR)/network/trill/%,$(OBJS))
-PLUME_OBJS = $(COMMON_OBJS) $(CRYPTO_OBJS) $(OBJDIR)/$(SRCDIR)/config.o \
+PLUME_OBJS = $(COMMON_OBJS) $(NETWORK_OBJS) $(OBJDIR)/$(SRCDIR)/config.o \
 	$(filter $(OBJDIR)/$(SRCDIR)/network/plume/%,$(OBJS))
 
 all: $(OBJS) motmot trill plume tags

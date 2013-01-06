@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "event.h"
+#include "event/event.h"
 
 /**
  * struct trill_connection - An opaque type representing a connection to another
