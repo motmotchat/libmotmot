@@ -10,9 +10,9 @@
 
 GMainLoop *gmain;
 
-struct timeout_callback {
-  struct trill_connection *conn;
-  trill_callback_t cb;
+struct callback {
+  motmot_event_callback_t func;
+  void *arg;
 };
 
 struct connection {
@@ -21,53 +21,71 @@ struct connection {
 };
 
 gboolean
+call_callback(void *data)
+{
+  int r;
+  struct callback *cb = data;
+
+  if ((r = cb->func(cb->arg))) {
+    free(cb);
+  }
+
+  return r;
+}
+
+gboolean
 socket_can_read(GIOChannel *source, GIOCondition cond, void *data)
 {
-  return trill_can_read(data);
+  return call_callback(data);
 }
 
 gboolean
 socket_can_write(GIOChannel *source, GIOCondition cond, void *data)
 {
-  return trill_can_write(data);
+  return call_callback(data);
 }
 
-gboolean
-timeout_trigger(void *data)
+struct callback *
+callback_new(motmot_event_callback_t func, void *arg)
 {
-  struct timeout_callback *cb = data;
-  int ret;
+  struct callback *cb;
 
-  ret = cb->cb(cb->conn);
+  cb = malloc(sizeof(*cb));
+  assert(cb != NULL);
+  cb->func = func;
+  cb->arg = arg;
 
-  if (ret == 0) {
-    free(cb);
-  }
-
-  return ret;
+  return cb;
 }
 
 int
-want_write(void *data)
+want_read(int fd, enum motmot_fdtype fdtype, void *data,
+    motmot_event_callback_t func, void *arg)
 {
   struct connection *conn = data;
 
-  g_io_add_watch(conn->chan, G_IO_OUT, socket_can_write, conn->conn);
+  g_io_add_watch(conn->chan, G_IO_IN, socket_can_read,
+      callback_new(func, arg));
 
   return 0;
 }
 
 int
-want_timeout(void *data, trill_callback_t fn, unsigned millis)
+want_write(int fd, enum motmot_fdtype fdtype, void *data,
+    motmot_event_callback_t func, void *arg)
 {
   struct connection *conn = data;
-  struct timeout_callback *cb;
 
-  cb = malloc(sizeof(*cb));
-  cb->conn = conn->conn;
-  cb->cb = fn;
+  g_io_add_watch(conn->chan, G_IO_OUT, socket_can_write,
+      callback_new(func, arg));
 
-  g_timeout_add(millis, timeout_trigger, cb);
+  return 0;
+}
+
+int
+want_timeout(motmot_event_callback_t func, void *arg, void *data, unsigned usecs)
+{
+  g_timeout_add(usecs, call_callback, callback_new(func, arg));
 
   return 0;
 }
@@ -80,13 +98,12 @@ main(int argc, char *argv[])
   char buf[25];
   char *buf_ptr;
 
-  struct trill_callback_vtable cbs = {want_write, want_timeout};
-
   srandomdev();
 
   gmain = g_main_loop_new(g_main_context_default(), 0);
 
-  trill_init(&cbs);
+  motmot_event_init(want_read, want_write, want_timeout);
+  trill_init();
 
   conn = trill_connection_new();
   log_info("Listening on port %d", trill_get_port(conn));
@@ -111,8 +128,6 @@ main(int argc, char *argv[])
 
   trill_connect(conn, "testing.com", buf, atoi(buf_ptr));
   log_info("Connecting to %s on port %d", buf, atoi(buf_ptr));
-
-  g_io_add_watch(myconn->chan, G_IO_IN, socket_can_read, conn);
 
   g_main_loop_run(gmain);
 

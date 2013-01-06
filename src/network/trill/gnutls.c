@@ -23,10 +23,16 @@ static const char *priorities =
   "SECURE256:-VERS-TLS-ALL:+VERS-DTLS1.0:%SERVER_PRECEDENCE";
 static gnutls_priority_t priority_cache;
 
-int trill_tls_can_read(struct trill_connection *conn);
-int trill_tls_can_write(struct trill_connection *conn);
-int trill_tls_handshake_retry(struct trill_connection *conn);
-int trill_tls_verify_cert(gnutls_session_t session);
+int trill_tls_can_read(struct trill_connection *);
+int trill_tls_can_write(struct trill_connection *);
+int trill_tls_handshake_retry(void *);
+int trill_tls_verify_cert(gnutls_session_t);
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Utility routines.
+//
 
 int
 trill_crypto_init(void)
@@ -95,6 +101,12 @@ trill_set_ca(struct trill_connection *conn, const char *ca_path)
       GNUTLS_X509_FMT_PEM);
 }
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Handshake protocol.
+//
+
 int
 trill_start_tls(struct trill_connection *conn)
 {
@@ -136,8 +148,8 @@ trill_start_tls(struct trill_connection *conn)
   conn->tc_can_read_cb = trill_tls_can_read;
   conn->tc_can_write_cb = trill_tls_can_write;
 
-  trill_want_timeout_callback(conn->tc_event_loop_data,
-      trill_tls_handshake_retry, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+  motmot_event_want_timeout(trill_tls_handshake_retry, conn, conn->tc_data,
+      GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
   trill_tls_handshake(conn);
 
@@ -145,8 +157,11 @@ trill_start_tls(struct trill_connection *conn)
 }
 
 int
-trill_tls_handshake_retry(struct trill_connection *conn)
+trill_tls_handshake_retry(void *arg)
 {
+  struct trill_connection *conn;
+
+  conn = (struct trill_connection *)arg;
   assert(conn != NULL);
 
   if (conn->tc_state != TC_STATE_ESTABLISHED) {
@@ -177,7 +192,7 @@ trill_tls_handshake(struct trill_connection *conn)
     // Do we need a write?
     if (gnutls_record_get_direction(conn->tc_tls.mt_session) == 1) {
       log_info("We want a write");
-      trill_want_write_callback(conn->tc_event_loop_data);
+      trill_want_write(conn);
     } else {
       log_info("We want a read");
     }
@@ -185,7 +200,7 @@ trill_tls_handshake(struct trill_connection *conn)
     log_info("TLS is established!");
     conn->tc_state = TC_STATE_ESTABLISHED;
     if (conn->tc_connected_cb != NULL) {
-      conn->tc_connected_cb(conn->tc_event_loop_data);
+      conn->tc_connected_cb(conn->tc_data);
     }
   } else {
     log_error("Something went wrong with the TLS handshake");
@@ -223,11 +238,11 @@ trill_tls_send(struct trill_connection *conn, const void *data, size_t len)
   switch (ret) {
     case GNUTLS_E_AGAIN:
       errno = EAGAIN;
-      trill_want_write_callback(conn->tc_event_loop_data);
+      trill_want_write(conn);
       return -1;
     case GNUTLS_E_INTERRUPTED:
       errno = EINTR;
-      trill_want_write_callback(conn->tc_event_loop_data);
+      trill_want_write(conn);
       return -1;
   }
 
@@ -261,7 +276,7 @@ trill_tls_can_read(struct trill_connection *conn)
       // Linux only.
 
       assert(conn->tc_recv_cb != NULL && "No callback set");
-      conn->tc_recv_cb(conn->tc_event_loop_data, buf, len, &seq);
+      conn->tc_recv_cb(conn->tc_data, buf, len, &seq);
       break;
     default:
       assert(0 && "In an unexpected state in crypto read");

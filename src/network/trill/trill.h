@@ -1,8 +1,13 @@
+/**
+ * trill.h - Trill public interface.
+ */
 #ifndef __TRILL_H__
 #define __TRILL_H__
 
 #include <stdint.h>
 #include <sys/types.h>
+
+#include "event.h"
 
 /**
  * struct trill_connection - An opaque type representing a connection to another
@@ -10,44 +15,11 @@
  */
 struct trill_connection;
 
-/**
- * trill_callback_t - Callback type for most Trill callbacks.
- *
- * @param conn      The connection upon which to act.
- * @return          0 to cancel the callback, 1 to reschedule it.
- */
-typedef int (*trill_callback_t)(struct trill_connection *conn);
 
-/**
- * trill_want_write_callback_t - Callback from Trill to the application's event
- * loop.
- *
- * Called when Trill wishes to receive can-write events.
- *
- * @param cb_data   The callback data pointer set with `trill_set_data`. In most
- *                  cases, some represent of the event loop's representation of
- *                  the connection object and other application-specific state.
- * @return          0 on success, nonzero on error.
- */
-typedef int (*trill_want_write_callback_t)(void *cb_data);
-
-/**
- * trill_want_timeout_callback_t - Callback from Trill to the application's
- * event loop.
- *
- * Called when Trill wishes to receive timeout events. These should fire at
- * regular intervals until `callback` returns 0.
- *
- * @param cb_data   The callback data pointer set with `trill_set_data`. In most
- *                  cases, some represent of the event loop's representation of
- *                  the connection object and other application-specific state.
- * @param callback  The Trill function to call periodically. The timer should be
- *                  canceled when this callback returns 0.
- * @param millis    The number of milliseconds between calls.
- * @return          0 on success, nonzero on error.
- */
-typedef int (*trill_want_timeout_callback_t)(void *cb_data,
-    trill_callback_t callback, unsigned int millis);
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Callback types.
+//
 
 /**
  * trill_connected_callback_t - Callback from Trill to the application's event
@@ -80,27 +52,18 @@ typedef void (*trill_recv_callback_t)(void *cb_data, void *data, size_t len,
     uint64_t *seq);
 
 
-/**
- * struct trill_callback_vtable - Various event loop callbacks.
- *
- * See the documentation accompanying the type signatures above.
- */
-struct trill_callback_vtable {
-  trill_want_write_callback_t want_write_callback;
-  trill_want_timeout_callback_t want_timeout_callback;
-};
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Main interface.
+//
 
 /**
- * trill_init - Initialize Trill.
+ * trill_init - Initialize Trill.  Must be called exactly once before any other
+ * Trill functions are called.
  *
- * Must be called exactly once before any other trill functions are called.
- *
- * @param vtable    A structure containing various callback types. All necessary
- *                  data will be copied from this struct into other storage, so
- *                  it is not necessary to retain this structure after calling
- *                  `trill_init`.
+ * @return          0 on success, nonzero on failure.
  */
-int trill_init(const struct trill_callback_vtable *vtable);
+int trill_init(void);
 
 /**
  * Create a new Trill connection. This initializes the internal state required
@@ -131,6 +94,25 @@ int trill_connection_free(struct trill_connection *conn);
  */
 int trill_connect(struct trill_connection *conn, const char *who,
     const char *address, uint16_t port);
+
+/**
+ * trill_send - Send data on a Trill connection
+ *
+ * @param conn      The connection to send data over.
+ * @param data      The data to send.
+ * @param len       The number of bytes to send.
+ * @return          The number of bytes sent, or -1 on error.  An attempt has
+ *                  been made to set errno in a similar fashion to how send(2)
+ *                  sets it on error.  In particular, EAGAIN and EINTR will be
+ *                  reported as normal.
+ */
+ssize_t trill_send(struct trill_connection *conn, const void *data, size_t len);
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Utility routines.
+//
 
 /**
  * trill_get_fd - Get the file descriptor associated with a given connection.
@@ -211,34 +193,5 @@ int trill_set_key(struct trill_connection *conn, const char *key_path,
  * @return          0 on success, nonzero on error.
  */
 int trill_set_ca(struct trill_connection *conn, const char *ca_path);
-
-/**
- * trill_can_read - Notify Trill that the connection is available for reading.
- *
- * @param conn      The connection that has bytes available for reading.
- * @return          0 to cancel this callback, 1 to reschedule it.
- */
-int trill_can_read(struct trill_connection *conn);
-
-/**
- * trill_can_write - Notify Trill that the connection is available for writing.
- *
- * @param conn      The connection that has bytes available for writing.
- * @return          0 to cancel this callback, 1 to reschedule it.
- */
-int trill_can_write(struct trill_connection *conn);
-
-/**
- * trill_send - Send data on a Trill connection
- *
- * @param conn      The connection to send data over.
- * @param data      The data to send.
- * @param len       The number of bytes to send.
- * @return          The number of bytes sent, or -1 on error.
- *                  An attempt has been made to set errno in a similar fashion
- *                  to how send(2) sets it on error. In particular, EAGAIN and
- *                  EINTR will be reported as normal.
- */
-ssize_t trill_send(struct trill_connection *conn, const void *data, size_t len);
 
 #endif // __TRILL_H__

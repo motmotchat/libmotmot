@@ -5,6 +5,9 @@
 
 #include "trill/trill.h"
 #include "crypto/crypto.h"
+#include "event_callbacks.h"
+
+struct trill_connection;
 
 /**
  * Connection state diagram:
@@ -29,12 +32,20 @@ enum trill_state {
   TC_STATE_ESTABLISHED
 };
 
+/* Motmot event layer wrappers. */
+typedef int (*trill_callback_t)(struct trill_connection *);
+int trill_want_read(struct trill_connection *);
+int trill_want_write(struct trill_connection *);
+int trill_can_read(void *);
+int trill_can_write(void *);
+
+/* Trill peer connection type. */
 struct trill_connection {
   int tc_sock_fd;
   enum trill_state tc_state;
   uint16_t tc_port;
 
-  void *tc_event_loop_data;
+  void *tc_data;
 
   uint32_t tc_server_priority[2];
 
@@ -48,8 +59,5 @@ struct trill_connection {
 
   struct motmot_net_tls tc_tls;
 };
-
-trill_want_write_callback_t trill_want_write_callback;
-trill_want_timeout_callback_t trill_want_timeout_callback;
 
 #endif // __TRILL_COMMON_H__
