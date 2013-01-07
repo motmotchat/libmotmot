@@ -184,17 +184,17 @@ trill_tls_handshake(struct trill_connection *conn)
   assert(conn->tc_tls.mt_session != NULL);
 
   do {
-    log_info("Attempting handshake");
+    log_debug("Attempting handshake");
     ret = gnutls_handshake(conn->tc_tls.mt_session);
   } while (gnutls_error_is_fatal(ret));
 
   if (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED) {
     // Do we need a write?
     if (gnutls_record_get_direction(conn->tc_tls.mt_session) == 1) {
-      log_info("We want a write");
+      log_debug("We want a write");
       trill_want_write(conn);
     } else {
-      log_info("We want a read");
+      log_debug("We want a read");
     }
   } else if (ret == 0) {
     log_info("TLS is established!");
