@@ -20,13 +20,6 @@
 #include "trill/network.h"
 
 /**
- * Probe message types, chosen to be non-colliding with TLS
- * ContentTypes http://tools.ietf.org/html/rfc2246#appendix-A.1.
- */
-#define TRILL_NET_ACK   99
-#define TRILL_NET_NOACK 100
-
-/**
  * trill_init - Initialize Trill subservices.
  */
 int
@@ -216,6 +209,8 @@ trill_connection_probe(void *arg)
 
   conn = (struct trill_connection *)arg;
 
+  assert(conn->tc_state != TC_STATE_INIT);
+
   // Build the probe message. This looks like
   // +-----+---------------+--------------+
   // | ack | priority high | priority low |
@@ -229,10 +224,8 @@ trill_connection_probe(void *arg)
     buf[0] = TRILL_NET_NOACK;
   } else if (conn->tc_state == TC_STATE_SERVER) {
     buf[0] = TRILL_NET_ACK;
-  } else if (conn->tc_state == TC_STATE_ESTABLISHED) {
-    return 0;
   } else {
-    assert(0 && "Probing while in a bad state");
+    return 0;
   }
   *(uint32_t *)(buf + 1) = htonl(conn->tc_server_priority[0]);
   *(uint32_t *)(buf + 5) = htonl(conn->tc_server_priority[1]);
