@@ -7,15 +7,18 @@
 #
 
 CC = gcc
+
+PKGS = glib-2.0 gio-2.0 gnutls libcares
+
 CFLAGS = -ggdb3 -Wall -Werror -O2 -DUSE_GNUTLS=1
-CFLAGS += `pkg-config --cflags glib-2.0 gio-2.0 gnutls`
+CFLAGS += `pkg-config --cflags $(PKGS)`
 CFLAGS += -I./include -I./ext -I./src -I./src/paxos -I./src/network
 
 ifdef DEBUG
 	CFLAGS += -DDEBUG
 endif
 
-LDFLAGS = `pkg-config --libs glib-2.0 gio-2.0 gnutls` -lmsgpack
+LDFLAGS = `pkg-config --libs $(PKGS)` -lmsgpack
 
 SRCDIR = src
 OBJDIR = obj
