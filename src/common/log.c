@@ -10,11 +10,16 @@
 
 #include "log.h"
 
-const char *colors[4] = {
-  "",               // LOG_INFO: No color
-  "\x1b[33m",       // LOG_WARN: Yellow
-  "\x1b[31m",       // LOG_ERROR: Red
+#ifndef LOG_LEVEL
+#define LOG_LEVEL 3
+#endif
+
+const char *colors[5] = {
   "\x1b[5;30;41m",  // LOG_FATAL: Black on red, blinking
+  "\x1b[31m",       // LOG_ERROR: Red
+  "\x1b[33m",       // LOG_WARN: Yellow
+  "",               // LOG_INFO: No color
+  "",               // LOG_DEBUG: No color
 };
 
 void
@@ -24,7 +29,11 @@ vlog_level(enum log_level level, const char *fmt, va_list va)
   struct tm *local;
   char buf[25];
 
-  assert(level < 4);
+  assert(level < 5);
+
+  if (level > LOG_LEVEL) {
+    return;
+  }
 
   now = time(NULL);
   local = localtime(&now);
