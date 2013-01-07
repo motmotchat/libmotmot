@@ -14,4 +14,6 @@ int want_write(int, enum motmot_fdtype, void *,
     motmot_event_callback_t, void *);
 int want_timeout(motmot_event_callback_t, void *, void *, unsigned);
 
+void motmot_event_glib_init(void);
+
 #endif /* __MOTMOT_EVENT_GLIB_H__ */

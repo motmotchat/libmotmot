@@ -6,8 +6,8 @@
 #include <glib.h>
 
 #include "common/log.h"
-#include "trill/trill.h"
 #include "event/glib.h"
+#include "trill/trill.h"
 
 GMainLoop *gmain;
 
@@ -22,7 +22,7 @@ main(int argc, char *argv[])
 
   gmain = g_main_loop_new(g_main_context_default(), 0);
 
-  motmot_event_init(want_read, want_write, want_timeout);
+  motmot_event_glib_init();
   trill_init();
 
   conn = trill_connection_new();

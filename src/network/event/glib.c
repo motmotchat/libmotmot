@@ -71,3 +71,9 @@ want_timeout(motmot_event_callback_t func, void *arg, void *data, unsigned msecs
 
   return 0;
 }
+
+void
+motmot_event_glib_init()
+{
+  motmot_event_init(want_read, want_write, want_timeout);
+}

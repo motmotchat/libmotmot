@@ -73,7 +73,7 @@ typedef int (*motmot_want_timeout_callback_t)(motmot_event_callback_t func,
  * @param want_write    Callback to request can-write event notifications.
  * @param want_timeout  Callback to request timeout event notifications.
  */
-int motmot_event_init(motmot_want_io_callback_t want_read,
+void motmot_event_init(motmot_want_io_callback_t want_read,
     motmot_want_io_callback_t want_write,
     motmot_want_timeout_callback_t want_timeout);
 

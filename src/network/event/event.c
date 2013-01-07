@@ -12,7 +12,7 @@ motmot_want_timeout_callback_t  motmot_event_want_timeout;
 
 static int did_init = 0;
 
-int motmot_event_init(motmot_want_io_callback_t want_read,
+void motmot_event_init(motmot_want_io_callback_t want_read,
     motmot_want_io_callback_t want_write,
     motmot_want_timeout_callback_t want_timeout)
 {
@@ -23,8 +23,6 @@ int motmot_event_init(motmot_want_io_callback_t want_read,
   motmot_event_want_timeout = want_timeout;
 
   did_init = 1;
-
-  return 0;
 }
 
 int motmot_event_did_init()
