@@ -21,6 +21,7 @@
 #include "event/callbacks.h"
 #include "plume/plume.h"
 #include "plume/common.h"
+#include "plume/email.h"
 #include "plume/tls.h"
 
 static void plume_ares_want_io(void *, int, int, int);
@@ -171,12 +172,11 @@ plume_connect_server(struct plume_client *client)
   }
 
   // Pull the domain from the client's handle.
-  domain = strchr(client->pc_handle, '@');
+  domain = email_get_domain(client->pc_handle);
   if (domain == NULL) {
     client->pc_connect(client, PLUME_EIDENTITY, client->pc_data);
     return;
   }
-  ++domain;
 
   // Start a DNS lookup.
   // TODO: Look up the right thing.
