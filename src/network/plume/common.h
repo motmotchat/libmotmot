@@ -15,6 +15,7 @@ struct plume_client {
   char *pc_host;        // hostname of the Plume server
   char *pc_ip;          // IP of the Plume server
   uint16_t pc_port;     // port of the Plume server
+  int pc_started;       // whether connect has been attempted
 
   char *pc_cert;        // client's identity cert
   size_t pc_cert_size;  // size in bytes of the identity cert

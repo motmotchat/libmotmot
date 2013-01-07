@@ -69,8 +69,8 @@ plume_client_new(const char *cert_path)
   if (client == NULL) {
     return NULL;
   }
-  client->pc_fd = -1;
 
+  // Read in the client's identity cert and extract the CN.
   client->pc_cert = readfile(cert_path, &client->pc_cert_size);
   if (client->pc_cert == NULL) {
     goto err;
@@ -80,16 +80,24 @@ plume_client_new(const char *cert_path)
     goto err;
   }
 
+  // Initialize the TLS backend.
   if (plume_tls_init(client)) {
     goto err;
   }
 
+  // Initialize the DNS service (c-ares).
   options.sock_state_cb = plume_ares_want_io;
   options.sock_state_cb_data = client;
   optmask = ARES_OPT_SOCK_STATE_CB;
 
   status = ares_init_options(&client->pc_ares_chan, &options, optmask);
   if (status != ARES_SUCCESS) {
+    goto err;
+  }
+
+  // Create a new TCP socket.
+  client->pc_fd = socket(PF_INET, SOCK_STREAM, 0);
+  if (client->pc_fd == -1) {
     goto err;
   }
 
@@ -161,17 +169,11 @@ plume_connect_server(struct plume_client *client)
 
   assert(client != NULL && "Attempting to connect with a null client");
 
-  if (client->pc_fd != -1) {
+  if (client->pc_started) {
     client->pc_connect(client, PLUME_EINUSE, client->pc_data);
     return;
   }
-
-  // Create a socket.
-  client->pc_fd = socket(PF_INET, SOCK_STREAM, 0);
-  if (client->pc_fd == -1) {
-    client->pc_connect(client, errno, client->pc_data);
-    return;
-  }
+  client->pc_started = 1;
 
   // Pull the domain from the client's handle.
   domain = email_get_domain(client->pc_handle);
