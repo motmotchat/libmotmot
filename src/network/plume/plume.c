@@ -3,9 +3,14 @@
  */
 
 #include <assert.h>
+#include <arpa/inet.h>
 #include <arpa/nameser.h>
+#include <errno.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include <ares.h>
@@ -13,9 +18,12 @@
 #include "common/log.h"
 #include "common/readfile.h"
 
+#include "event/callbacks.h"
 #include "plume/plume.h"
 #include "plume/common.h"
 #include "plume/tls.h"
+
+static void plume_ares_want_io(void *, int, int, int);
 
 /**
  * plume_init - Initialize the Plume client service.
@@ -44,6 +52,8 @@ struct plume_client *
 plume_client_new(const char *cert_path)
 {
   struct plume_client *client;
+  struct ares_options options;
+  int status, optmask;
 
   assert(cert_path != NULL && "No identity cert specified for new client.");
 
@@ -57,13 +67,21 @@ plume_client_new(const char *cert_path)
   if (client->pc_cert == NULL) {
     goto err;
   }
-
   client->pc_handle = plume_crt_get_cn(client->pc_cert, client->pc_cert_size);
   if (client->pc_handle == NULL) {
     goto err;
   }
 
   if (plume_tls_init(client)) {
+    goto err;
+  }
+
+  options.sock_state_cb = plume_ares_want_io;
+  options.sock_state_cb_data = client;
+  optmask = ARES_OPT_SOCK_STATE_CB;
+
+  status = ares_init_options(&client->pc_ares_chan, &options, optmask);
+  if (status != ARES_SUCCESS) {
     goto err;
   }
 
@@ -94,8 +112,13 @@ plume_client_destroy(struct plume_client *client)
     }
   }
 
+  ares_cancel(client->pc_ares_chan);
+  ares_destroy(client->pc_ares_chan);
+
   free(client->pc_handle);
   free(client->pc_cert);
+  free(client->pc_host);
+  free(client->pc_ip);
   free(client);
 
   return retval;
@@ -109,13 +132,14 @@ plume_client_destroy(struct plume_client *client)
 //  The Plume server connection protocol is a multi-step asynchronous process,
 //  which entails:
 //
-//  1.  SRV DNS lookup.
-//  2.  SRV DNS resolution and server DNS lookup.
-//  3.  Server DNS resolution and TCP connection.
-//  4.  TLS handshaking.
+//  1.  Send a DNS query for the Plume server's _plume._tcp SRV record.
+//  2.  Receive the SRV record and send a query for the server's IP.
+//  3.  Open a TCP socket to the server, having obtained its IP.
+//  4.  Begin TLS handshaking.
 //
 
-void plume_dns_lookup(void *, int, int, unsigned char *, int);
+static void plume_dns_lookup(void *, int, int, unsigned char *, int);
+static void plume_socket_connect(void *, int, int, struct hostent *);
 
 /**
  * plume_connect_server - Begin connecting to the client's Plume server.
@@ -126,12 +150,19 @@ plume_connect_server(struct plume_client *client)
   char *domain;
   unsigned char *qbuf;
   int qbuflen;
-  ares_channel channel;
 
   assert(client != NULL && "Attempting to connect with a null client");
 
   if (client->pc_fd != -1) {
     client->pc_connect(client, PLUME_EINUSE, client->pc_data);
+    return;
+  }
+
+  // Create a socket.
+  client->pc_fd = socket(PF_INET, SOCK_STREAM, 0);
+  if (client->pc_fd == -1) {
+    client->pc_connect(client, errno, client->pc_data);
+    return;
   }
 
   // Pull the domain from the client's handle.
@@ -143,18 +174,61 @@ plume_connect_server(struct plume_client *client)
   ++domain;
 
   // Start a DNS lookup.
-  // XXX: Look up the right thing.
+  // TODO: Look up the right thing.
+  // TODO: Error-checking.
   ares_mkquery(domain, ns_c_in, ns_t_srv, 0, 1, &qbuf, &qbuflen);
-  ares_send(channel, qbuf, qbuflen, plume_dns_lookup, client);
+  ares_send(client->pc_ares_chan, qbuf, qbuflen, plume_dns_lookup, client);
   ares_free_string(qbuf);
 }
 
-void plume_dns_lookup(void *data, int status, int timeouts,
+static void plume_dns_lookup(void *data, int status, int timeouts,
     unsigned char *abuf, int alen)
+{
+  struct plume_client *client;
+  struct ares_srv_reply *srv;
+
+  client = (struct plume_client *)data;
+
+  if (status != ARES_SUCCESS || abuf == NULL) {
+    client->pc_connect(client, PLUME_EDNSSRV, client->pc_data);
+    return;
+  }
+
+  if (ares_parse_srv_reply(abuf, alen, &srv) != ARES_SUCCESS) {
+    client->pc_connect(client, PLUME_EDNSSRV, client->pc_data);
+    return;
+  }
+
+  client->pc_host = strdup(srv->host);
+  client->pc_port = srv->port;
+
+  ares_gethostbyname(client->pc_ares_chan, client->pc_host, AF_INET,
+      plume_socket_connect, client);
+}
+
+static void plume_socket_connect(void *data, int status, int timeouts,
+    struct hostent *host)
 {
   struct plume_client *client;
 
   client = (struct plume_client *)data;
+
+  if (status != ARES_SUCCESS || host == NULL) {
+    client->pc_connect(client, PLUME_EDNSHOST, client->pc_data);
+    return;
+  }
+
+  client->pc_ip = malloc(INET_ADDRSTRLEN);
+  if (client->pc_ip == NULL) {
+    client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
+    return;
+  }
+
+  inet_ntop(host->h_addrtype, host->h_addr_list[0], client->pc_ip,
+      INET_ADDRSTRLEN);
+
+  connect(client->pc_fd, (struct sockaddr *)host->h_addr_list[0],
+      sizeof(host->h_addr_list[0]));
 }
 
 
@@ -187,4 +261,77 @@ plume_client_set_recv_cb(struct plume_client *client,
     plume_recv_callback_t recv)
 {
   client->pc_recv = recv;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  DNS-event interface helpers.
+//
+
+struct plume_ares_sock {
+  int fd;
+  int is_read;
+  struct plume_client *client;
+};
+
+/**
+ * plume_ares_sock - Make a new fd/client wrapper.
+ */
+static struct plume_ares_sock *
+plume_ares_sock_new(int fd, int is_read, struct plume_client *client)
+{
+  struct plume_ares_sock *s;
+
+  s = malloc(sizeof(*s));
+  assert(s != NULL);
+
+  s->fd = fd;
+  s->is_read = is_read;
+  s->client = client;
+
+  return s;
+}
+
+/**
+ * plume_ares_process - Process a single ares_channel socket after a read/write
+ * event on it is triggered.
+ */
+static int
+plume_ares_process(void *data)
+{
+  struct plume_ares_sock *s;
+
+  s = (struct plume_ares_sock *)data;
+
+  ares_process_fd(s->client->pc_ares_chan,
+      s->is_read ? s->fd : ARES_SOCKET_BAD,
+      s->is_read ? ARES_SOCKET_BAD : s->fd);
+
+  free(s);
+
+  // Stop listening.
+  return 0;
+}
+
+/**
+ * plume_ares_want_io - Request socket event notification from the event loop
+ * for a DNS query.
+ *
+ * XXX: There's no clear way to notify the connect protocol that we were unable
+ * to listen on the ares_channel sockets.  So for now, we do nothing on error.
+ */
+static void
+plume_ares_want_io(void *data, int fd, int read, int write)
+{
+  struct plume_ares_sock *s;
+
+  if (read) {
+    s = plume_ares_sock_new(fd, 1, (struct plume_client *)data);
+    motmot_event_want_read(fd, MOTMOT_EVENT_UDP, NULL, plume_ares_process, s);
+  }
+  if (write) {
+    s = plume_ares_sock_new(fd, 0, (struct plume_client *)data);
+    motmot_event_want_write(fd, MOTMOT_EVENT_UDP, NULL, plume_ares_process, s);
+  }
 }

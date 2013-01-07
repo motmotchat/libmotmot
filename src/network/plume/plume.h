@@ -19,7 +19,10 @@ struct plume_client;
 enum plume_status {
   PLUME_SUCCESS,
   PLUME_EINUSE,
+  PLUME_ENOMEM,
   PLUME_EIDENTITY,
+  PLUME_EDNSSRV,
+  PLUME_EDNSHOST,
 };
 
 
