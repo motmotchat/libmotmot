@@ -57,11 +57,11 @@ typedef int (*motmot_want_io_callback_t)(int fd, enum motmot_fdtype fdtype,
  * @param arg       Library data to pass to the callback when the event occurs.
  * @param data      Event loop or application data that has been associated
  *                  with the `arg' parameter through library calls.
- * @param usecs     The number of milliseconds desired between calls.
+ * @param msecs     The number of milliseconds desired between calls.
  * @return          0 on success, nonzero on error.
  */
 typedef int (*motmot_want_timeout_callback_t)(motmot_event_callback_t func,
-    void *arg, void *data, unsigned int usecs);
+    void *arg, void *data, unsigned int msecs);
 
 /**
  * motmot_event_init - Initialize the Motmot event layer.
