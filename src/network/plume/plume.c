@@ -163,7 +163,7 @@ static void plume_socket_connect(void *, int, int, struct hostent *);
 void
 plume_connect_server(struct plume_client *client)
 {
-  char *domain, *srv;
+  char *domain, *srvname;
   unsigned char *qbuf;
   int qbuflen;
 
@@ -183,16 +183,16 @@ plume_connect_server(struct plume_client *client)
   }
 
   // Get the Plume server SRV record name.
-  srv = malloc(strlen(PLUME_SRV_PREFIX) + strlen(domain) + 1);
-  if (srv == NULL) {
+  srvname = malloc(strlen(PLUME_SRV_PREFIX) + strlen(domain) + 1);
+  if (srvname == NULL) {
     client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
     return;
   }
-  strcpy(srv, PLUME_SRV_PREFIX);
-  strcat(srv, domain);
+  strcpy(srvname, PLUME_SRV_PREFIX);
+  strcat(srvname, domain);
 
   // Fill a DNS query buffer.
-  switch (ares_mkquery(domain, ns_c_in, ns_t_srv, 0, 1, &qbuf, &qbuflen)) {
+  switch (ares_mkquery(srvname, ns_c_in, ns_t_srv, 0, 1, &qbuf, &qbuflen)) {
     case ARES_SUCCESS:
       break;
 
@@ -208,6 +208,7 @@ plume_connect_server(struct plume_client *client)
       client->pc_connect(client, PLUME_EDNSSRV, client->pc_data);
       return;
   }
+  free(srvname);
 
   // Start a DNS lookup.
   ares_send(client->pc_ares_chan, qbuf, qbuflen, plume_dns_lookup, client);
@@ -234,6 +235,8 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
 
   client->pc_host = strdup(srv->host);
   client->pc_port = srv->port;
+
+  ares_free_data(srv);
 
   ares_gethostbyname(client->pc_ares_chan, client->pc_host, AF_INET,
       plume_socket_connect, client);
