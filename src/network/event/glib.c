@@ -19,9 +19,8 @@ call_callback(void *data)
   int r;
   struct callback *cb = data;
 
-  if ((r = cb->func(cb->arg))) {
-    free(cb);
-  }
+  r = cb->func(cb->arg);
+  if (!r) { free(cb); }
 
   return r;
 }
