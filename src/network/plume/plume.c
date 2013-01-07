@@ -256,16 +256,16 @@ plume_client_set_data(struct plume_client *client, void *data)
 
 void
 plume_client_set_connect_cb(struct plume_client *client,
-    plume_callback_t connect)
+    plume_connect_callback_t cb)
 {
-  client->pc_connect = connect;
+  client->pc_connect = cb;
 }
 
 void
 plume_client_set_recv_cb(struct plume_client *client,
-    plume_recv_callback_t recv)
+    plume_recv_callback_t cb)
 {
-  client->pc_recv = recv;
+  client->pc_recv = cb;
 }
 
 

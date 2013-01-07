@@ -21,8 +21,8 @@ struct plume_client {
   char *pc_handle;      // client's username; extracted from cert
   void *pc_data;        // opaque user data associated to the connection
 
-  plume_callback_t pc_connect;    // callback for use after connect completes
-  plume_recv_callback_t pc_recv;  // callback for use upon data receipt
+  plume_connect_callback_t pc_connect;  // called after connect completes
+  plume_recv_callback_t pc_recv;        // called upon data receipt
 
   ares_channel pc_ares_chan;      // c-ares DNS query channel
   struct motmot_net_tls pc_tls;   // crypto-backend specific TLS data
