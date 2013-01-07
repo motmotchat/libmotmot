@@ -11,3 +11,5 @@ trill:
 
 clean:
 	$(MAKE) -C $(MOTMOT_ROOT) clean-trill
+
+.PHONY: all trill clean

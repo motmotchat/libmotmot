@@ -11,3 +11,5 @@ plume:
 
 clean:
 	$(MAKE) -C $(MOTMOT_ROOT) clean-plume
+
+.PHONY: all plume clean

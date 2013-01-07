@@ -15,3 +15,5 @@ clean: unsock
 
 unsock:
 	-rm -rf sock/*
+
+.PHONY: all motmot clean unsock

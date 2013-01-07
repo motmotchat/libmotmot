@@ -54,6 +54,8 @@ motmot: $(OBJDIR)/$(SRCDIR)/paxos/main.o $(PAXOS_OBJS); $(mkbin)
 trill: $(OBJDIR)/$(SRCDIR)/network/trill/main.o $(TRILL_OBJS); $(mkbin)
 plume: $(OBJDIR)/$(SRCDIR)/network/plume/main.o $(PLUME_OBJS); $(mkbin)
 
+.PHONY: motmot trill plume
+
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	@mkdir -p $(DEPDIR)/$(<D)
@@ -62,16 +64,18 @@ $(OBJDIR)/%.o: %.c
 tags: $(SOURCES) $(HEADERS)
 	ctags -R
 
-clean: clean-paxos clean-trill
+clean:
 	-rm -rf $(DEPDIR) $(OBJDIR)
 
 clean-paxos:
 	-rm -rf $(PAXOS_OBJS) $(SRCDIR)/paxos/motmot
 
 clean-trill:
-	-rm -rf $(TRILL_OBJS) $(CRYPTO_OBJS) $(SRCDIR)/network/trill/trill
+	-rm -rf $(TRILL_OBJS) $(SRCDIR)/network/trill/trill
 
 clean-plume:
-	-rm -rf $(PLUME_OBJS) $(CRYPTO_OBJS) $(SRCDIR)/network/plume/plume
+	-rm -rf $(PLUME_OBJS) $(SRCDIR)/network/plume/plume
+
+.PHONY: all clean clean-paxos clean-trill clean-plume tags
 
 -include $(addprefix $(DEPDIR),$(SOURCES:.c=.d))
