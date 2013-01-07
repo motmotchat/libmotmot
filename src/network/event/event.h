@@ -66,8 +66,8 @@ typedef int (*motmot_want_timeout_callback_t)(motmot_event_callback_t func,
 /**
  * motmot_event_init - Initialize the Motmot event layer.
  *
- * This function should be called exactly once, before any library functions
- * are called.
+ * This function must be called exactly once before any client library
+ * functions are called.
  *
  * @param want_read     Callback to request can-read event notifications.
  * @param want_write    Callback to request can-write event notifications.
@@ -76,5 +76,12 @@ typedef int (*motmot_want_timeout_callback_t)(motmot_event_callback_t func,
 int motmot_event_init(motmot_want_io_callback_t want_read,
     motmot_want_io_callback_t want_write,
     motmot_want_timeout_callback_t want_timeout);
+
+/**
+ * motmot_event_did_init - Check if the event layer has been initialized.
+ *
+ * @return          1 if motmot_event_init has been called, else 0.
+ */
+int motmot_event_did_init(void);
 
 #endif /* __MOTMOT_EVENT_H__ */

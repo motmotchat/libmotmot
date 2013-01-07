@@ -25,6 +25,10 @@
 int
 trill_init()
 {
+  if (!motmot_event_did_init()) {
+    log_error("Failed to init Motmot event layer");
+    return -1;
+  }
   return trill_crypto_init();
 }
 

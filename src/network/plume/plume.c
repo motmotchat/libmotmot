@@ -33,6 +33,11 @@ plume_init()
 {
   int r;
 
+  if (!motmot_event_did_init()) {
+    log_error("Failed to init Motmot event layer");
+    return -1;
+  }
+
   if ((r = plume_crypto_init())) {
     return r;
   }
