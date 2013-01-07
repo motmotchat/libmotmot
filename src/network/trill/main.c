@@ -28,8 +28,8 @@ main(int argc, char *argv[])
   conn = trill_connection_new();
   log_info("Listening on port %d", trill_get_port(conn));
 
-  trill_set_key(conn, "mycert.pem", "mycert.pem");
-  trill_set_ca(conn, "mycert.pem");
+  trill_set_key(conn, "tmp/example.key", "tmp/example.crt");
+  trill_set_ca(conn, "tmp/example.crt");
 
   channel = g_io_channel_unix_new(trill_get_fd(conn));
   trill_set_data(conn, channel);
