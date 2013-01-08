@@ -25,7 +25,8 @@ struct plume_client {
   plume_connect_callback_t pc_connect;  // called after connect completes
   plume_recv_callback_t pc_recv;        // called upon data receipt
 
-  ares_channel pc_ares_chan;      // c-ares DNS query channel
+  ares_channel pc_ares_chan_srv;  // c-ares SRV lookup channel
+  ares_channel pc_ares_chan_host; // c-ares host lookup channel
   struct motmot_net_tls pc_tls;   // crypto-backend specific TLS data
 };
 

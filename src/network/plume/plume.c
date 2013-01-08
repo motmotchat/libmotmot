@@ -1,7 +1,6 @@
 /**
  * plume.c - Plume client interface.
  */
-
 #include <assert.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
@@ -26,6 +25,7 @@
 
 #define PLUME_SRV_PREFIX  "_plume._tcp."
 
+static int  plume_ares_channel_init(ares_channel *);
 static void plume_ares_want_io(void *, int, int, int);
 
 /**
@@ -60,8 +60,6 @@ struct plume_client *
 plume_client_new(const char *cert_path)
 {
   struct plume_client *client;
-  struct ares_options options;
-  int status, optmask;
 
   assert(cert_path != NULL && "No identity cert specified for new client.");
 
@@ -85,13 +83,9 @@ plume_client_new(const char *cert_path)
     goto err;
   }
 
-  // Initialize the DNS service (c-ares).
-  options.sock_state_cb = plume_ares_want_io;
-  options.sock_state_cb_data = client;
-  optmask = ARES_OPT_SOCK_STATE_CB;
-
-  status = ares_init_options(&client->pc_ares_chan, &options, optmask);
-  if (status != ARES_SUCCESS) {
+  // Initialize the DNS query channels (c-ares).
+  if (plume_ares_channel_init(&client->pc_ares_chan_srv) ||
+      plume_ares_channel_init(&client->pc_ares_chan_host)) {
     goto err;
   }
 
@@ -128,8 +122,11 @@ plume_client_destroy(struct plume_client *client)
     }
   }
 
-  ares_cancel(client->pc_ares_chan);
-  ares_destroy(client->pc_ares_chan);
+  ares_cancel(client->pc_ares_chan_srv);
+  ares_destroy(client->pc_ares_chan_srv);
+
+  ares_cancel(client->pc_ares_chan_host);
+  ares_destroy(client->pc_ares_chan_host);
 
   free(client->pc_handle);
   free(client->pc_cert);
@@ -211,7 +208,7 @@ plume_connect_server(struct plume_client *client)
   free(srvname);
 
   // Start a DNS lookup.
-  ares_send(client->pc_ares_chan, qbuf, qbuflen, plume_dns_lookup, client);
+  ares_send(client->pc_ares_chan_srv, qbuf, qbuflen, plume_dns_lookup, client);
   ares_free_string(qbuf);
 }
 
@@ -235,11 +232,11 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
 
   client->pc_host = strdup(srv->host);
   client->pc_port = srv->port;
-  log_info("SRV: %s:%d", client->pc_host, client->pc_port);
+  log_info("SRV:  %s:%d", client->pc_host, client->pc_port);
 
   ares_free_data(srv);
 
-  ares_gethostbyname(client->pc_ares_chan, client->pc_host, AF_INET,
+  ares_gethostbyname(client->pc_ares_chan_host, client->pc_host, AF_INET,
       plume_socket_connect, client);
 }
 
@@ -264,6 +261,8 @@ static void plume_socket_connect(void *data, int status, int timeouts,
   inet_ntop(host->h_addrtype, host->h_addr_list[0], client->pc_ip,
       INET_ADDRSTRLEN);
 
+  log_info("host: %s:%d", client->pc_ip, client->pc_port);
+
   connect(client->pc_fd, (struct sockaddr *)host->h_addr_list[0],
       sizeof(host->h_addr_list[0]));
 }
@@ -275,16 +274,36 @@ static void plume_socket_connect(void *data, int status, int timeouts,
 //
 
 struct plume_ares_sock {
-  int fd;
-  int is_read;
-  struct plume_client *client;
+  int fd;                 // the socket's fd
+  int is_read;            // i/o event we care about
+  ares_channel *channel;  // the associated lookup channel
 };
 
 /**
- * plume_ares_sock - Make a new fd/client wrapper.
+ * plume_ares_channel_init - Initialize a ares_channel, hooking it into the
+ * Motmot event layer.
+ */
+static int
+plume_ares_channel_init(ares_channel *channel)
+{
+  struct ares_options options;
+  int status, optmask;
+
+  options.sock_state_cb = plume_ares_want_io;
+  options.sock_state_cb_data = channel;
+  optmask = ARES_OPT_SOCK_STATE_CB;
+
+  status = ares_init_options(channel, &options, optmask);
+
+  return status != ARES_SUCCESS;
+}
+
+
+/**
+ * plume_ares_sock_new - Make a new fd/client wrapper.
  */
 static struct plume_ares_sock *
-plume_ares_sock_new(int fd, int is_read, struct plume_client *client)
+plume_ares_sock_new(int fd, int is_read, ares_channel *channel)
 {
   struct plume_ares_sock *s;
 
@@ -293,7 +312,7 @@ plume_ares_sock_new(int fd, int is_read, struct plume_client *client)
 
   s->fd = fd;
   s->is_read = is_read;
-  s->client = client;
+  s->channel = channel;
 
   return s;
 }
@@ -309,7 +328,7 @@ plume_ares_process(void *data)
 
   s = (struct plume_ares_sock *)data;
 
-  ares_process_fd(s->client->pc_ares_chan,
+  ares_process_fd(*s->channel,
       s->is_read ? s->fd : ARES_SOCKET_BAD,
       s->is_read ? ARES_SOCKET_BAD : s->fd);
 
@@ -332,11 +351,11 @@ plume_ares_want_io(void *data, int fd, int read, int write)
   struct plume_ares_sock *s;
 
   if (read) {
-    s = plume_ares_sock_new(fd, 1, (struct plume_client *)data);
+    s = plume_ares_sock_new(fd, 1, (ares_channel *)data);
     motmot_event_want_read(fd, MOTMOT_EVENT_UDP, NULL, plume_ares_process, s);
   }
   if (write) {
-    s = plume_ares_sock_new(fd, 0, (struct plume_client *)data);
+    s = plume_ares_sock_new(fd, 0, (ares_channel *)data);
     motmot_event_want_write(fd, MOTMOT_EVENT_UDP, NULL, plume_ares_process, s);
   }
 }
