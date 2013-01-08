@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdlib.h>
@@ -60,6 +61,7 @@ struct plume_client *
 plume_client_new(const char *cert_path)
 {
   struct plume_client *client;
+  int flags;
 
   assert(cert_path != NULL && "No identity cert specified for new client.");
 
@@ -89,9 +91,13 @@ plume_client_new(const char *cert_path)
     goto err;
   }
 
-  // Create a new TCP socket.
+  // Create a new nonblocking TCP socket.
   client->pc_fd = socket(PF_INET, SOCK_STREAM, 0);
   if (client->pc_fd == -1) {
+    goto err;
+  }
+  flags = fcntl(client->pc_fd, F_GETFL, 0);
+  if (flags == -1 || fcntl(client->pc_fd, F_SETFL, flags | O_NONBLOCK)) {
     goto err;
   }
 
@@ -266,9 +272,13 @@ static void plume_socket_connect(void *data, int status, int timeouts,
   addr.sin_port = htons(client->pc_port);
   memcpy(&addr.sin_addr, host->h_addr, host->h_length);
 
-  if (connect(client->pc_fd, (struct sockaddr *)&addr, sizeof(addr))) {
-    // XXX: Don't just send errno.
-    client->pc_connect(client, errno, client->pc_data);
+  if (connect(client->pc_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+    if (errno == EINPROGRESS) {
+      // TLS handshake.
+    } else {
+      // XXX: Don't just send errno.
+      client->pc_connect(client, errno, client->pc_data);
+    }
   }
 }
 
