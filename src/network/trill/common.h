@@ -41,7 +41,7 @@ int trill_can_write(void *);
 
 /* Trill peer connection type. */
 struct trill_connection {
-  int tc_sock_fd;
+  int tc_fd;
   enum trill_state tc_state;
   uint16_t tc_port;
 

@@ -45,8 +45,8 @@ trill_connection_new()
   }
 
   // Create a nonblocking UDP socket.
-  conn->tc_sock_fd = socket_udp_nonblock(&conn->tc_port);
-  if (conn->tc_sock_fd == -1) {
+  conn->tc_fd = socket_udp_nonblock(&conn->tc_port);
+  if (conn->tc_fd == -1) {
     goto err;
   }
 
@@ -58,10 +58,10 @@ trill_connection_new()
   // http://lists.apple.com/archives/macnetworkprog/2006/Jul/msg00018.html
 #if defined IP_DONTFRAG
   int optval = 1;
-  setsockopt(conn->tc_sock_fd, IPROTO_IP, IP_DONTFRAG, &optval, sizeof(optval));
+  setsockopt(conn->tc_fd, IPROTO_IP, IP_DONTFRAG, &optval, sizeof(optval));
 #elif defined IP_MTU_DISCOVER
   int optval = IP_PMTUDISC_DO;
-  setsockopt(conn->tc_sock_fd, IPROTO_IP, IP_MTU_DISCOVER, &optval,
+  setsockopt(conn->tc_fd, IPROTO_IP, IP_MTU_DISCOVER, &optval,
       sizeof(optval));
 #endif
 
@@ -98,7 +98,7 @@ trill_connection_free(struct trill_connection *conn)
 
   retval = trill_tls_free(conn);
 
-  if (conn->tc_sock_fd != -1 && close(conn->tc_sock_fd) == -1) {
+  if (conn->tc_fd != -1 && close(conn->tc_fd) == -1) {
     log_errno("Error closing Trill connection socket");
     retval = -1;
   }
@@ -149,7 +149,7 @@ trill_connect(struct trill_connection *conn, const char *who,
     return -1;
   }
 
-  connect(conn->tc_sock_fd, (struct sockaddr *) &addr, sizeof(addr));
+  connect(conn->tc_fd, (struct sockaddr *) &addr, sizeof(addr));
 
   conn->tc_state = TC_STATE_PROBING;
   conn->tc_remote_user = strdup(who);
@@ -192,7 +192,7 @@ trill_connection_probe(void *arg)
   *(uint32_t *)(buf + 1) = htonl(conn->tc_server_priority[0]);
   *(uint32_t *)(buf + 5) = htonl(conn->tc_server_priority[1]);
 
-  if (send(conn->tc_sock_fd, buf, sizeof(buf), 0) < 0) {
+  if (send(conn->tc_fd, buf, sizeof(buf), 0) < 0) {
     if (errno != EAGAIN && errno != EINTR) {
       log_errno("Error sending a probe");
     }
@@ -216,7 +216,7 @@ trill_connection_read_probe(struct trill_connection *conn)
       conn->tc_state == TC_STATE_CLIENT) &&
       "Bad state when reading probe");
 
-  len = recv(conn->tc_sock_fd, buf, sizeof(buf), 0);
+  len = recv(conn->tc_fd, buf, sizeof(buf), 0);
   if (len > 0) {
     log_info("Received a message");
   } else {
@@ -274,7 +274,7 @@ trill_send(struct trill_connection *conn, const void *data, size_t len)
 int
 trill_get_fd(const struct trill_connection *conn)
 {
-  return conn->tc_sock_fd;
+  return conn->tc_fd;
 }
 
 uint16_t
@@ -312,14 +312,14 @@ trill_set_recv_callback(struct trill_connection *conn,
 int
 trill_want_read(struct trill_connection *conn)
 {
-  return motmot_event_want_read(conn->tc_sock_fd, MOTMOT_EVENT_UDP,
+  return motmot_event_want_read(conn->tc_fd, MOTMOT_EVENT_UDP,
       conn->tc_data, trill_can_read, (void *)conn);
 }
 
 int
 trill_want_write(struct trill_connection *conn)
 {
-  return motmot_event_want_write(conn->tc_sock_fd, MOTMOT_EVENT_UDP,
+  return motmot_event_want_write(conn->tc_fd, MOTMOT_EVENT_UDP,
       conn->tc_data, trill_can_write, (void *)conn);
 }
 

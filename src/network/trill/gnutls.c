@@ -125,7 +125,7 @@ trill_start_tls(struct trill_connection *conn)
     assert(0 && "Unexpected state when initializing crypto");
   }
 
-  if ((r = motmot_net_gnutls_start(&conn->tc_tls, flags, conn->tc_sock_fd,
+  if ((r = motmot_net_gnutls_start(&conn->tc_tls, flags, conn->tc_fd,
     priority_cache, (void *)conn))) {
     return r;
   }
