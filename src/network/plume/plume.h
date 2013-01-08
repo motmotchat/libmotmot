@@ -15,10 +15,6 @@ struct plume_client;
 /**
  * enum plume_status - Success/error statuses returned from library calls or
  * passed to application-supplied callbacks.
- *
- * 0 always indicates success; nonzero indicates error.  Positive values are
- * Plume-defined errors, whereas negative errors should be negated and
- * interpreted as errno errors.
  */
 enum plume_status {
   PLUME_SUCCESS = 0,
@@ -42,7 +38,8 @@ enum plume_status {
  * status of a library call on a Plume client.
  *
  * @param client    The client object.
- * @param status    Success/error status of the action.
+ * @param status    Status of the action.  This is an enum plume_status if
+ *                  nonnegative; else, it is a negative errno.
  * @param data      User data associated with the client object.
  */
 typedef void (*plume_status_callback_t)(struct plume_client *client,
