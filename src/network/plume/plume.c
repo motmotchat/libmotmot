@@ -244,6 +244,7 @@ static void plume_socket_connect(void *data, int status, int timeouts,
     struct hostent *host)
 {
   struct plume_client *client;
+  struct sockaddr_in addr;
 
   client = (struct plume_client *)data;
 
@@ -258,13 +259,17 @@ static void plume_socket_connect(void *data, int status, int timeouts,
     return;
   }
 
-  inet_ntop(host->h_addrtype, host->h_addr_list[0], client->pc_ip,
-      INET_ADDRSTRLEN);
-
+  inet_ntop(host->h_addrtype, host->h_addr, client->pc_ip, INET_ADDRSTRLEN);
   log_info("host: %s:%d", client->pc_ip, client->pc_port);
 
-  connect(client->pc_fd, (struct sockaddr *)host->h_addr_list[0],
-      sizeof(host->h_addr_list[0]));
+  addr.sin_family = host->h_addrtype;
+  addr.sin_port = htons(client->pc_port);
+  memcpy(&addr.sin_addr, host->h_addr, host->h_length);
+
+  if (connect(client->pc_fd, (struct sockaddr *)&addr, sizeof(addr))) {
+    // XXX: Don't just send errno.
+    client->pc_connect(client, errno, client->pc_data);
+  }
 }
 
 
