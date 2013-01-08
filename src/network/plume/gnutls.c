@@ -155,18 +155,112 @@ plume_client_set_ca(struct plume_client *client, const char *ca_path)
 //  Handshake protocol.
 //
 
+static enum motmot_gnutls_status plume_tls_handshake(struct plume_client *);
+static int plume_tls_retry_read(void *);
+static int plume_tls_retry_write(void *);
+
+/**
+ * plume_tls_start - Start a TLS session and begin handshaking.
+ */
 int
 plume_tls_start(struct plume_client *client)
 {
   int r;
-  unsigned flags;
 
   assert(client != NULL);
 
-  flags = GNUTLS_CLIENT | GNUTLS_NONBLOCK;
-  if ((r = motmot_net_gnutls_start(&client->pc_tls, flags, client->pc_fd,
-    priority_cache, (void *)client))) {
+  if ((r = motmot_net_gnutls_start(&client->pc_tls, GNUTLS_CLIENT,
+          client->pc_fd, priority_cache, (void *)client))) {
     return r;
+  }
+
+  switch (plume_tls_handshake(client)) {
+    case MOTMOT_GNUTLS_SUCCESS:
+      return 0;
+    case MOTMOT_GNUTLS_FAILURE:
+      return 1;
+    case MOTMOT_GNUTLS_RETRY_READ:
+      return plume_want_read(client, plume_tls_retry_read);
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      return plume_want_write(client, plume_tls_retry_write);
+  }
+
+  // This should never happen.
+  return 1;
+}
+
+/**
+ * plume_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
+ * performs success/failure handling and just returns the status code.
+ *
+ * Nothing is done on RETRY_READ or RETRY_WRITE.
+ */
+static enum motmot_gnutls_status
+plume_tls_handshake(struct plume_client *client)
+{
+  int r;
+
+  r = motmot_net_gnutls_handshake(&client->pc_tls);
+
+  switch (r) {
+    case MOTMOT_GNUTLS_SUCCESS:
+      // XXX: Set the new read/write handlers.
+      client->pc_connect(client, PLUME_SUCCESS, client->pc_data);
+      break;
+    case MOTMOT_GNUTLS_FAILURE:
+      client->pc_connect(client, PLUME_ETLS, client->pc_data);
+      break;
+    case MOTMOT_GNUTLS_RETRY_READ:
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      break;
+  }
+
+  return r;
+}
+
+/**
+ * plume_tls_retry_read - Retry a handshake read.
+ */
+static int
+plume_tls_retry_read(void *arg)
+{
+  struct plume_client *client;
+
+  client = (struct plume_client *)arg;
+  assert(client != NULL);
+
+  switch (motmot_net_gnutls_handshake(&client->pc_tls)) {
+    case MOTMOT_GNUTLS_RETRY_READ:
+      return 1;
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      plume_want_write(client, plume_tls_retry_write);
+    case MOTMOT_GNUTLS_SUCCESS:
+    case MOTMOT_GNUTLS_FAILURE:
+      break;
+  }
+
+  return 0;
+}
+
+/**
+ * plume_tls_retry_read - Retry a handshake write.
+ */
+static int
+plume_tls_retry_write(void *arg)
+{
+  struct plume_client *client;
+
+  client = (struct plume_client *)arg;
+  assert(client != NULL);
+
+  switch (motmot_net_gnutls_handshake(&client->pc_tls)) {
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      return 1;
+    case MOTMOT_GNUTLS_RETRY_READ:
+      plume_want_read(client, plume_tls_retry_read);
+    case MOTMOT_GNUTLS_SUCCESS:
+    case MOTMOT_GNUTLS_FAILURE:
+      break;
   }
 
   return 0;
@@ -177,6 +271,5 @@ plume_tls_verify(gnutls_session_t session)
 {
   return 1;
 }
-
 
 #endif /* USE_GNUTLS */

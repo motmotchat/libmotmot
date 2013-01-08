@@ -13,6 +13,7 @@ static const char *errtext[] = {
   "Error reading file",
   "Invalid identity cert",
   "DNS lookup error",
+  "TLS handshake error",
   "Unknown fatal error",
 };
 

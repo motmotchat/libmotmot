@@ -27,6 +27,7 @@ enum plume_status {
   PLUME_EFILE,
   PLUME_EIDENTITY,
   PLUME_EDNS,
+  PLUME_ETLS,
   PLUME_EFATAL,
 };
 

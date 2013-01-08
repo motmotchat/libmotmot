@@ -1,7 +1,9 @@
 /**
- * gnutls.c - TLS utility wrappers.
+ * gnutls.c - TLS utility routines.
  */
 #ifdef USE_GNUTLS
+
+#include <assert.h>
 
 #include "common/log.h"
 #include "crypto/gnutls.h"
@@ -55,6 +57,36 @@ motmot_net_gnutls_start(struct motmot_net_tls *tls, unsigned flags,
       (gnutls_transport_ptr_t)(ssize_t)fd);
 
   return 0;
+}
+
+enum motmot_gnutls_status
+motmot_net_gnutls_handshake(struct motmot_net_tls *tls)
+{
+  int r;
+
+  assert(tls->mt_creds != NULL);
+  assert(tls->mt_session != NULL);
+
+  do {
+    log_debug("Attempting TLS handshake");
+    r = gnutls_handshake(tls->mt_session);
+  } while (gnutls_error_is_fatal(r));
+
+  if (r == GNUTLS_E_AGAIN || r == GNUTLS_E_INTERRUPTED) {
+    r = gnutls_record_get_direction(tls->mt_session);
+    if (r == 0) {
+      return MOTMOT_GNUTLS_RETRY_READ;
+    } else if (r == 1) {
+      return MOTMOT_GNUTLS_RETRY_WRITE;
+    }
+  } else if (r == 0) {
+    log_info("TLS is established");
+    return MOTMOT_GNUTLS_SUCCESS;
+  } else {
+    log_error("Something went wrong with the TLS handshake");
+  }
+
+  return MOTMOT_GNUTLS_FAILURE;
 }
 
 #endif /* USE_GNUTLS */
