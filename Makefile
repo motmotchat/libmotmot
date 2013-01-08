@@ -40,8 +40,9 @@ DIRS = $(filter-out ./,$(sort $(dir $(SOURCES))))
 COMMON_OBJS = $(filter $(OBJDIR)/$(SRCDIR)/common/%,$(OBJS))
 PAXOS_OBJS = $(filter-out $(OBJDIR)/$(SRCDIR)/network/%,$(OBJS))
 NETWORK_OBJS = \
+	$(filter $(OBJDIR)/$(SRCDIR)/network/crypto/%,$(OBJS)) \
 	$(filter $(OBJDIR)/$(SRCDIR)/network/event/%,$(OBJS)) \
-	$(filter $(OBJDIR)/$(SRCDIR)/network/crypto/%,$(OBJS))
+	$(filter $(OBJDIR)/$(SRCDIR)/network/util/%,$(OBJS))
 TRILL_OBJS = $(COMMON_OBJS) $(NETWORK_OBJS) \
 	$(filter $(OBJDIR)/$(SRCDIR)/network/trill/%,$(OBJS))
 PLUME_OBJS = $(COMMON_OBJS) $(NETWORK_OBJS) $(OBJDIR)/$(SRCDIR)/config.o \
@@ -67,7 +68,7 @@ $(OBJDIR)/%.o: %.c
 tags: $(SOURCES) $(HEADERS)
 	ctags -R
 
-clean:
+clean: clean-paxos clean-trill clean-plume
 	-rm -rf $(DEPDIR) $(OBJDIR)
 
 clean-paxos:

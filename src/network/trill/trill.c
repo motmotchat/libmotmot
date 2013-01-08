@@ -1,12 +1,10 @@
 /**
  * trill.c - Trill public interface.
  */
+
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <ifaddrs.h>
-#include <net/if.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -18,6 +16,7 @@
 #include "trill/common.h"
 #include "trill/crypto.h"
 #include "trill/network.h"
+#include "util/socket.h"
 
 /**
  * trill_init - Initialize Trill subservices.
@@ -39,63 +38,17 @@ struct trill_connection *
 trill_connection_new()
 {
   struct trill_connection *conn;
-  struct sockaddr_in addr;
-  socklen_t addr_len;
-  struct ifaddrs *interface_list, *interface;
-  int ret, flags;
 
   conn = calloc(1, sizeof(*conn));
   if (conn == NULL) {
     return NULL;
   }
 
-  // Create a new nonblocking UDP socket.
-  conn->tc_sock_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  // Create a nonblocking UDP socket.
+  conn->tc_sock_fd = socket_udp_nonblock(&conn->tc_port);
   if (conn->tc_sock_fd == -1) {
-    log_errno("Unable to create socket");
     goto err;
   }
-  flags = fcntl(conn->tc_sock_fd, F_GETFL, 0);
-  if (flags == -1 || fcntl(conn->tc_sock_fd, F_SETFL, flags | O_NONBLOCK)) {
-    log_error("Error setting socket in nonblocking mode");
-    goto err;
-  }
-
-  memset(&addr, 0, sizeof(addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = 0;  // Pick a random port.
-
-  // Let's go hunting for an IP address!
-  if (getifaddrs(&interface_list)) {
-    log_errno("Unable to list ifaddrs");
-    goto err;
-  }
-
-  for (interface = interface_list; interface; interface = interface->ifa_next) {
-    if ((interface->ifa_flags & IFF_UP) &&
-        !(interface->ifa_flags & IFF_LOOPBACK) &&
-        interface->ifa_addr->sa_family == AF_INET) {
-      addr.sin_addr.s_addr =
-        ((struct sockaddr_in *)interface->ifa_addr)->sin_addr.s_addr;
-    }
-  }
-  freeifaddrs(interface_list);
-
-  // Bind the socket to our IP.
-  ret = bind(conn->tc_sock_fd, (struct sockaddr *) &addr, sizeof(addr));
-  if (ret == -1) {
-    log_errno("Unable to bind socket");
-    goto err;
-  }
-
-  // Store the randomly-selected port.
-  addr_len = sizeof(addr);
-  ret = getsockname(conn->tc_sock_fd, (struct sockaddr *) &addr, &addr_len);
-  if (ret == -1) {
-    log_errno("Unable to get socket name");
-    goto err;
-  }
-  conn->tc_port = ntohs(addr.sin_port);
 
   // DTLS requires that we disable IP fragmentation.
   //
