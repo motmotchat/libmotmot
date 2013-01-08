@@ -70,6 +70,7 @@ plume_client_new(const char *cert_path)
   if (client == NULL) {
     return NULL;
   }
+  client->pc_state = PLUME_STATE_INIT;
 
   // Read in the client's identity cert and extract the CN.
   client->pc_cert = readfile(cert_path, &client->pc_cert_size);
@@ -173,10 +174,13 @@ plume_connect_server(struct plume_client *client)
 
   assert(client != NULL && "Attempting to connect with a null client");
 
-  if (client->pc_started) {
+  if (client->pc_state != PLUME_STATE_INIT) {
     return client->pc_connect(client, PLUME_EINUSE, client->pc_data);
   }
-  client->pc_started = 1;
+
+  // Log and update state.
+  log_info("Plume client connecting...");
+  client->pc_state = PLUME_STATE_DNS_SRV;
 
   // Pull the domain from the client's handle.
   domain = email_get_domain(client->pc_handle);
@@ -234,9 +238,11 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
     return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
   }
   client->pc_port = srv->port;
-  log_info("SRV:  %s:%d", client->pc_host, client->pc_port);
-
   ares_free_data(srv);
+
+  // Log and update state.
+  log_info("SRV:  %s:%d", client->pc_host, client->pc_port);
+  client->pc_state = PLUME_STATE_DNS_HOST;
 
   // Send off a hostaddr lookup.
   ares_gethostbyname(client->pc_ares_chan_host, client->pc_host, AF_INET,
@@ -267,7 +273,10 @@ static void plume_socket_connect(void *data, int status, int timeouts,
     return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
   }
   inet_ntop(host->h_addrtype, host->h_addr, client->pc_ip, INET_ADDRSTRLEN);
+
+  // Log and update state.
   log_info("host: %s:%d", client->pc_ip, client->pc_port);
+  client->pc_state = PLUME_STATE_CONNECTING;
 
   addr.sin_family = host->h_addrtype;
   addr.sin_port = htons(client->pc_port);
@@ -307,7 +316,9 @@ plume_tls_begin(void *data)
     return 0;
   }
 
+  // Log and update state.
   log_info("Connection established");
+  client->pc_state = PLUME_STATE_TLS;
 
   return plume_tls_start(client);
 }
@@ -432,13 +443,6 @@ plume_client_set_connect_cb(struct plume_client *client,
     plume_connect_callback_t cb)
 {
   client->pc_connect = cb;
-}
-
-void
-plume_client_set_recv_cb(struct plume_client *client,
-    plume_recv_callback_t cb)
-{
-  client->pc_recv = cb;
 }
 
 

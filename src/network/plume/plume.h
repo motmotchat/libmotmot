@@ -50,18 +50,6 @@ enum plume_status {
 typedef void (*plume_connect_callback_t)(struct plume_client *client,
     int status, void *data);
 
-/**
- * plume_recv_callback_t - Callback type for notifying the client of received
- * data.
- *
- * @param client    The client object for which data was received.
- * @param buf       The data received from the server.
- * @param len       The size of the data, in bytes.
- * @param data      User data associated with the client object.
- */
-typedef void (*plume_recv_callback_t)(struct plume_client *client,
-    void *buf, size_t len, void *data);
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -140,15 +128,6 @@ void plume_client_set_data(struct plume_client *client, void *data);
  */
 void plume_client_set_connect_cb(struct plume_client *client,
     plume_connect_callback_t cb);
-
-/**
- * plume_client_set_recv_cb - Set the recv client callback.
- *
- * @param client    The client object on which to set the callback.
- * @param cb        The callback to set.
- */
-void plume_client_set_recv_cb(struct plume_client *client,
-    plume_recv_callback_t cb);
 
 /**
  * plume_client_set_key - Set cryptographic credentials for this connection.
