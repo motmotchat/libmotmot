@@ -307,11 +307,9 @@ plume_tls_begin(void *data)
     return 0;
   }
 
-  // TODO: TLS handshaking.
+  log_info("Connection established");
 
-  log_info("Connection completed");
-
-  return 0;
+  return plume_tls_start(client);
 }
 
 

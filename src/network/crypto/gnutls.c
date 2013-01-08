@@ -80,7 +80,7 @@ motmot_net_gnutls_handshake(struct motmot_net_tls *tls)
       return MOTMOT_GNUTLS_RETRY_WRITE;
     }
   } else if (r == 0) {
-    log_info("TLS is established");
+    log_info("TLS established");
     return MOTMOT_GNUTLS_SUCCESS;
   } else {
     log_error("Something went wrong with the TLS handshake");

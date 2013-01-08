@@ -200,6 +200,8 @@ plume_tls_handshake(struct plume_client *client)
 {
   int r;
 
+  assert(client != NULL);
+
   r = motmot_net_gnutls_handshake(&client->pc_tls);
 
   switch (r) {
@@ -224,16 +226,11 @@ plume_tls_handshake(struct plume_client *client)
 static int
 plume_tls_retry_read(void *arg)
 {
-  struct plume_client *client;
-
-  client = (struct plume_client *)arg;
-  assert(client != NULL);
-
-  switch (motmot_net_gnutls_handshake(&client->pc_tls)) {
+  switch (plume_tls_handshake((struct plume_client *)arg)) {
     case MOTMOT_GNUTLS_RETRY_READ:
       return 1;
     case MOTMOT_GNUTLS_RETRY_WRITE:
-      plume_want_write(client, plume_tls_retry_write);
+      plume_want_write((struct plume_client *)arg, plume_tls_retry_write);
     case MOTMOT_GNUTLS_SUCCESS:
     case MOTMOT_GNUTLS_FAILURE:
       break;
@@ -248,16 +245,11 @@ plume_tls_retry_read(void *arg)
 static int
 plume_tls_retry_write(void *arg)
 {
-  struct plume_client *client;
-
-  client = (struct plume_client *)arg;
-  assert(client != NULL);
-
-  switch (motmot_net_gnutls_handshake(&client->pc_tls)) {
+  switch (plume_tls_handshake((struct plume_client *)arg)) {
     case MOTMOT_GNUTLS_RETRY_WRITE:
       return 1;
     case MOTMOT_GNUTLS_RETRY_READ:
-      plume_want_read(client, plume_tls_retry_read);
+      plume_want_read((struct plume_client *)arg, plume_tls_retry_read);
     case MOTMOT_GNUTLS_SUCCESS:
     case MOTMOT_GNUTLS_FAILURE:
       break;
@@ -269,7 +261,7 @@ plume_tls_retry_write(void *arg)
 static int
 plume_tls_verify(gnutls_session_t session)
 {
-  return 1;
+  return 0;
 }
 
 #endif /* USE_GNUTLS */
