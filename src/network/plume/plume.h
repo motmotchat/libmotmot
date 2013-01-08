@@ -80,12 +80,9 @@ int plume_client_destroy(struct plume_client *client);
 /**
  * plume_connect_server - Connect to a Plume server.
  *
- * When success or failure of the connection process is known, the pc_connected
- * callback set on `client' will be called to notify the caller.
- *
- * No work should be performed on the client until the connected callback is
- * called.  Failure to abide may result in inconsistent state for the duration
- * of the Plume client service.
+ * When success or failure of the connection process is known, the
+ * pc_connected_cb callback set on `client' will be called to notify the
+ * caller.
  *
  * @param client    The Plume client object to use for the connection.
  */
@@ -116,10 +113,12 @@ int plume_client_get_fd(const struct plume_client *client);
 void plume_client_set_data(struct plume_client *client, void *data);
 
 /**
- * plume_client_set_connect_cb - Set the connected client callback.
+ * plume_client_set_connect_cb - Set a callback that will be invoked when a
+ * connection attempt completes or fails.
  *
  * @param client    The client object on which to set the callback.
- * @param cb        The callback to set.
+ * @param cb        The function to call upon connection establishment or
+ *                  failure.
  */
 void plume_client_set_connect_cb(struct plume_client *client,
     plume_status_callback_t cb);

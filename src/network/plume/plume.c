@@ -168,7 +168,7 @@ static int  plume_tls_begin(void *);
 void
 plume_connected(struct plume_client *client, int code)
 {
-  client->pc_connected(client, code, client->pc_data);
+  client->pc_connected_cb(client, code, client->pc_data);
 }
 
 /**
@@ -452,7 +452,7 @@ void
 plume_client_set_connect_cb(struct plume_client *client,
     plume_status_callback_t cb)
 {
-  client->pc_connected = cb;
+  client->pc_connected_cb = cb;
 }
 
 

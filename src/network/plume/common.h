@@ -31,8 +31,8 @@ struct plume_client {
   char *pc_handle;      // client's username; extracted from cert
   void *pc_data;        // opaque user data associated to the connection
 
-  enum plume_state pc_state;            // connect protocol state
-  plume_status_callback_t pc_connected; // connect status callback
+  enum plume_state pc_state;      // connect protocol state
+  plume_status_callback_t pc_connected_cb;  // connect status callback
 
   ares_channel pc_ares_chan_srv;  // c-ares SRV lookup channel
   ares_channel pc_ares_chan_host; // c-ares host lookup channel
