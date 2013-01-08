@@ -183,6 +183,10 @@ trill_connect(struct trill_connection *conn, const char *who,
 
 /**
  * trill_connection_probe - Send a probe message to our peer.
+ *
+ * We keep sending probes until either:
+ * - We become the client; or
+ * - We complete the handshake after becoming the server.
  */
 int
 trill_connection_probe(void *arg)
@@ -238,14 +242,13 @@ trill_connection_read_probe(struct trill_connection *conn)
       "Bad state when reading probe");
 
   len = recv(conn->tc_fd, buf, sizeof(buf), 0);
-  if (len > 0) {
-    log_info("Received a message");
-  } else {
+  if (len == 9) {
+    log_info("Received a probe");
+  } else if (len == 0) {
     log_errno("Error reading a probe");
-  }
-
-  if (len != 9) {
-    log_warn("Probe was a bad length; discarding");
+    return 1;
+  } else {
+    log_warn("Discarding malformed probe");
     return 1;
   }
 
@@ -255,7 +258,7 @@ trill_connection_read_probe(struct trill_connection *conn)
   a = ntohl(*(uint32_t *)(buf + 1));
   b = ntohl(*(uint32_t *)(buf + 5));
   winning = a > conn->tc_server_priority[0] ||
-    (a == conn->tc_server_priority[0] && b > conn->tc_server_priority[0]);
+    (a == conn->tc_server_priority[0] && b > conn->tc_server_priority[1]);
 
   if (winning) {
     log_info("Probing done; we're the server");
