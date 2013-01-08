@@ -54,10 +54,12 @@ struct trill_connection {
   trill_callback_t tc_can_read_cb;
   trill_callback_t tc_can_write_cb;
 
-  trill_connected_callback_t tc_connected_cb;
+  trill_status_callback_t tc_connected_cb;
   trill_recv_callback_t tc_recv_cb;
 
   struct motmot_net_tls tc_tls;
 };
+
+void trill_connected(struct trill_connection *, int);
 
 #endif // __TRILL_COMMON_H__

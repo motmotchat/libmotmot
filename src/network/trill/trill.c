@@ -116,6 +116,18 @@ trill_connection_free(struct trill_connection *conn)
 //
 
 /**
+ * trill_connected - Notify the client that trill_connect() has completed with
+ * the given status code.
+ */
+void
+trill_connected(struct trill_connection *conn, int status)
+{
+  if (conn->tc_connected_cb != NULL) {
+    conn->tc_connected_cb(conn, status, conn->tc_data);
+  }
+}
+
+/**
  * trill_connect - Begin connecting to a peer.
  *
  * We connect our open UDP socket with our peer and then enter the probing
@@ -290,17 +302,17 @@ trill_set_data(struct trill_connection *conn, void *data)
 }
 
 void
-trill_set_connected_callback(struct trill_connection *conn,
-    trill_connected_callback_t callback)
+trill_set_connect_cb(struct trill_connection *conn,
+    trill_status_callback_t cb)
 {
-  conn->tc_connected_cb = callback;
+  conn->tc_connected_cb = cb;
 }
 
 void
 trill_set_recv_callback(struct trill_connection *conn,
-    trill_recv_callback_t callback)
+    trill_recv_callback_t cb)
 {
-  conn->tc_recv_cb = callback;
+  conn->tc_recv_cb = cb;
 }
 
 

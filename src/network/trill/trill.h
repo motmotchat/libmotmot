@@ -15,6 +15,15 @@
  */
 struct trill_connection;
 
+/**
+ * enum trill_status - Success/error statuses returned from library calls or
+ * passed to application-supplied callbacks.
+ */
+enum trill_status {
+  TRILL_SUCCESS = 0,
+  TRILL_EFATAL,
+};
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -22,17 +31,16 @@ struct trill_connection;
 //
 
 /**
- * trill_connected_callback_t - Callback from Trill to the application's event
- * loop.
+ * trill_status_callback_t - Callback type for notifying the application of the
+ * status of a library call on a connection.
  *
- * Called when Trill has established a secure connection and is ready to send
- * and receive application data.
- *
- * @param cb_data   The callback data pointer set with `trill_set_data`. In most
- *                  cases, some represent of the event loop's representation of
- *                  the connection object and other application-specific state.
+ * @param conn      The connection.
+ * @param status    Status of the action.  This is an enum trill_status if
+ *                  nonnegative; else, it is a negative errno.
+ * @param data      User data associated with the connection.
  */
-typedef void (*trill_connected_callback_t)(void *cb_data);
+typedef void (*trill_status_callback_t)(struct trill_connection *conn,
+    int status, void *data);
 
 /**
  * trill_recv_callback_t - Callback from Trill to the application's event loop.
@@ -144,14 +152,15 @@ uint16_t trill_get_port(const struct trill_connection *conn);
 void trill_set_data(struct trill_connection *conn, void *cb_data);
 
 /**
- * trill_set_connected_callback - Set a callback that will be invoked when the
- * connection has been established.
+ * trill_set_connect_cb - Set a callback that will be invoked when a connection
+ * attempt completes or fails.
  *
  * @param conn      The connection to associate the callback with.
- * @param callback  The function to call upon connection establishment.
+ * @param cb        The function to call upon connection establishment or
+ *                  failure.
  */
-void trill_set_connected_callback(struct trill_connection *conn,
-    trill_connected_callback_t callback);
+void trill_set_connect_cb(struct trill_connection *conn,
+    trill_status_callback_t callback);
 
 /**
  * trill_set_recv_callback - Set a callback that will be invoked upon the
@@ -160,7 +169,7 @@ void trill_set_connected_callback(struct trill_connection *conn,
  * See the documentation for the callback type for more information.
  *
  * @param conn      The connection to associate the callback with.
- * @param callback  The function to call upon the receipt of data.
+ * @param cb        The function to call upon the receipt of data.
  */
 void trill_set_recv_callback(struct trill_connection *conn,
     trill_recv_callback_t callback);
