@@ -13,16 +13,21 @@
 struct plume_client;
 
 /**
- * enum plume_status - Success/error statuses passed to user-supplied Plume
- * callbacks.
+ * enum plume_status - Success/error statuses returned from library calls or
+ * passed to application-supplied callbacks.
+ *
+ * 0 always indicates success; nonzero indicates error.  Positive values are
+ * Plume-defined errors, whereas negative errors should be negated and
+ * interpreted as errno errors.
  */
 enum plume_status {
-  PLUME_SUCCESS,
+  PLUME_SUCCESS = 0,
   PLUME_EINUSE,
   PLUME_ENOMEM,
+  PLUME_EFILE,
   PLUME_EIDENTITY,
-  PLUME_EDNSSRV,
-  PLUME_EDNSHOST,
+  PLUME_EDNS,
+  PLUME_EFATAL,
 };
 
 
@@ -42,7 +47,7 @@ enum plume_status {
  * @param data      User data associated with the client object.
  */
 typedef void (*plume_connect_callback_t)(struct plume_client *client,
-    enum plume_status status, void *data);
+    int status, void *data);
 
 /**
  * plume_recv_callback_t - Callback type for notifying the client of received

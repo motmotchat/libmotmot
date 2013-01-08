@@ -21,8 +21,9 @@
 #include "event/callbacks.h"
 #include "plume/plume.h"
 #include "plume/common.h"
-#include "plume/email.h"
 #include "plume/tls.h"
+#include "plume/util/email.h"
+#include "plume/util/error.h"
 
 #define PLUME_SRV_PREFIX  "_plume._tcp."
 
@@ -121,11 +122,9 @@ plume_client_destroy(struct plume_client *client)
 
   retval = plume_tls_deinit(client);
 
-  if (client->pc_fd != -1) {
-    if (close(client->pc_fd) == -1) {
-      log_errno("Error closing Plume server connection");
-      retval = -1;
-    }
+  if (client->pc_fd != -1 && close(client->pc_fd) == -1) {
+    log_errno("Error closing Plume server connection");
+    retval = -1;
   }
 
   ares_cancel(client->pc_ares_chan_srv);
@@ -149,7 +148,7 @@ plume_client_destroy(struct plume_client *client)
 //  Connect protocol.
 //
 //  The Plume server connection protocol is a multi-step asynchronous process,
-//  which entails:
+//  which entails the following:
 //
 //  1.  Send a DNS query for the Plume server's _plume._tcp SRV record.
 //  2.  Receive the SRV record and send a query for the server's IP.
@@ -169,48 +168,33 @@ plume_connect_server(struct plume_client *client)
 {
   char *domain, *srvname;
   unsigned char *qbuf;
-  int qbuflen;
+  int status, qbuflen;
 
   assert(client != NULL && "Attempting to connect with a null client");
 
   if (client->pc_started) {
-    client->pc_connect(client, PLUME_EINUSE, client->pc_data);
-    return;
+    return client->pc_connect(client, PLUME_EINUSE, client->pc_data);
   }
   client->pc_started = 1;
 
   // Pull the domain from the client's handle.
   domain = email_get_domain(client->pc_handle);
   if (domain == NULL) {
-    client->pc_connect(client, PLUME_EIDENTITY, client->pc_data);
-    return;
+    return client->pc_connect(client, PLUME_EIDENTITY, client->pc_data);
   }
 
   // Get the Plume server SRV record name.
   srvname = malloc(strlen(PLUME_SRV_PREFIX) + strlen(domain) + 1);
   if (srvname == NULL) {
-    client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
-    return;
+    return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
   }
   strcpy(srvname, PLUME_SRV_PREFIX);
   strcat(srvname, domain);
 
   // Fill a DNS query buffer.
-  switch (ares_mkquery(srvname, ns_c_in, ns_t_srv, 0, 1, &qbuf, &qbuflen)) {
-    case ARES_SUCCESS:
-      break;
-
-    case ARES_ENOMEM:
-      client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
-      return;
-
-    case ARES_EBADNAME:
-      client->pc_connect(client, PLUME_EIDENTITY, client->pc_data);
-      return;
-
-    default:
-      client->pc_connect(client, PLUME_EDNSSRV, client->pc_data);
-      return;
+  status = ares_mkquery(srvname, ns_c_in, ns_t_srv, 0, 1, &qbuf, &qbuflen);
+  if (status != ARES_SUCCESS) {
+    return client->pc_connect(client, error_ares(status), client->pc_data);
   }
   free(srvname);
 
@@ -227,17 +211,22 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
 
   client = (struct plume_client *)data;
 
-  if (status != ARES_SUCCESS || abuf == NULL) {
-    client->pc_connect(client, PLUME_EDNSSRV, client->pc_data);
-    return;
+  if (status != ARES_SUCCESS) {
+    return client->pc_connect(client, error_ares(status), client->pc_data);
+  }
+  if (abuf == NULL) {
+    return client->pc_connect(client, PLUME_EDNS, client->pc_data);
   }
 
-  if (ares_parse_srv_reply(abuf, alen, &srv) != ARES_SUCCESS) {
-    client->pc_connect(client, PLUME_EDNSSRV, client->pc_data);
-    return;
+  status = ares_parse_srv_reply(abuf, alen, &srv);
+  if (status != ARES_SUCCESS) {
+    return client->pc_connect(client, error_ares(status), client->pc_data);
   }
 
   client->pc_host = strdup(srv->host);
+  if (client->pc_host == NULL) {
+    return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
+  }
   client->pc_port = srv->port;
   log_info("SRV:  %s:%d", client->pc_host, client->pc_port);
 
@@ -255,15 +244,16 @@ static void plume_socket_connect(void *data, int status, int timeouts,
 
   client = (struct plume_client *)data;
 
-  if (status != ARES_SUCCESS || host == NULL) {
-    client->pc_connect(client, PLUME_EDNSHOST, client->pc_data);
-    return;
+  if (status != ARES_SUCCESS) {
+    return client->pc_connect(client, error_ares(status), client->pc_data);
+  }
+  if (host == NULL) {
+    return client->pc_connect(client, PLUME_EDNS, client->pc_data);
   }
 
   client->pc_ip = malloc(INET_ADDRSTRLEN);
   if (client->pc_ip == NULL) {
-    client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
-    return;
+    return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
   }
 
   inet_ntop(host->h_addrtype, host->h_addr, client->pc_ip, INET_ADDRSTRLEN);
@@ -277,8 +267,7 @@ static void plume_socket_connect(void *data, int status, int timeouts,
     if (errno == EINPROGRESS) {
       plume_want_write(client, plume_start_tls);
     } else {
-      // XXX: Don't just send errno.
-      client->pc_connect(client, errno, client->pc_data);
+      return client->pc_connect(client, -errno, client->pc_data);
     }
   }
 }

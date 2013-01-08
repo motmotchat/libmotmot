@@ -7,6 +7,7 @@
 #include <ares.h>
 #include <stdint.h>
 
+#include "event/event.h"
 #include "plume/plume.h"
 #include "crypto/crypto.h"
 
