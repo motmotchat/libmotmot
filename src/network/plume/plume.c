@@ -235,6 +235,7 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
 
   client->pc_host = strdup(srv->host);
   client->pc_port = srv->port;
+  log_info("SRV: %s:%d", client->pc_host, client->pc_port);
 
   ares_free_data(srv);
 
