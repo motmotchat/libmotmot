@@ -38,16 +38,14 @@ enum plume_status {
 //
 
 /**
- * plume_connect_callback_t - Callback type for notifying the client that a
- * connect call has completed.
+ * plume_status_callback_t - Callback type for notifying the application of the
+ * status of a library call on a Plume client.
  *
- * @param client    The client object for which action was completed or is
- *                  required.
- * @param status    Status of the completed action (or PLUME_SUCCESS if no
- *                  relevant action exists.
+ * @param client    The client object.
+ * @param status    Success/error status of the action.
  * @param data      User data associated with the client object.
  */
-typedef void (*plume_connect_callback_t)(struct plume_client *client,
+typedef void (*plume_status_callback_t)(struct plume_client *client,
     int status, void *data);
 
 
@@ -85,7 +83,7 @@ int plume_client_destroy(struct plume_client *client);
 /**
  * plume_connect_server - Connect to a Plume server.
  *
- * When success or failure of the connection process is known, the pc_connect
+ * When success or failure of the connection process is known, the pc_connected
  * callback set on `client' will be called to notify the caller.
  *
  * No work should be performed on the client until the connected callback is
@@ -127,7 +125,7 @@ void plume_client_set_data(struct plume_client *client, void *data);
  * @param cb        The callback to set.
  */
 void plume_client_set_connect_cb(struct plume_client *client,
-    plume_connect_callback_t cb);
+    plume_status_callback_t cb);
 
 /**
  * plume_client_set_key - Set cryptographic credentials for this connection.

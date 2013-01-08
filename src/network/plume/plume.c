@@ -162,6 +162,16 @@ static void plume_socket_connect(void *, int, int, struct hostent *);
 static int  plume_tls_begin(void *);
 
 /**
+ * plume_connected - Notify the client that plume_connect_server() has
+ * completed with the given error code.
+ */
+void
+plume_connected(struct plume_client *client, int code)
+{
+  client->pc_connected(client, code, client->pc_data);
+}
+
+/**
  * plume_connect_server - Begin connecting to the client's Plume server by
  * looking up the Plume SRV record.
  */
@@ -175,7 +185,7 @@ plume_connect_server(struct plume_client *client)
   assert(client != NULL && "Attempting to connect with a null client");
 
   if (client->pc_state != PLUME_STATE_INIT) {
-    return client->pc_connect(client, PLUME_EINUSE, client->pc_data);
+    return plume_connected(client, PLUME_EINUSE);
   }
 
   // Log and update state.
@@ -185,13 +195,13 @@ plume_connect_server(struct plume_client *client)
   // Pull the domain from the client's handle.
   domain = email_get_domain(client->pc_handle);
   if (domain == NULL) {
-    return client->pc_connect(client, PLUME_EIDENTITY, client->pc_data);
+    return plume_connected(client, PLUME_EIDENTITY);
   }
 
   // Get the Plume server SRV record name.
   srvname = malloc(strlen(PLUME_SRV_PREFIX) + strlen(domain) + 1);
   if (srvname == NULL) {
-    return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
+    return plume_connected(client, PLUME_ENOMEM);
   }
   strcpy(srvname, PLUME_SRV_PREFIX);
   strcat(srvname, domain);
@@ -199,7 +209,7 @@ plume_connect_server(struct plume_client *client)
   // Fill a DNS query buffer.
   status = ares_mkquery(srvname, ns_c_in, ns_t_srv, 0, 1, &qbuf, &qbuflen);
   if (status != ARES_SUCCESS) {
-    return client->pc_connect(client, error_ares(status), client->pc_data);
+    return plume_connected(client, error_ares(status));
   }
   free(srvname);
 
@@ -220,22 +230,22 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
   client = (struct plume_client *)data;
 
   if (status != ARES_SUCCESS) {
-    return client->pc_connect(client, error_ares(status), client->pc_data);
+    return plume_connected(client, error_ares(status));
   }
   if (abuf == NULL) {
-    return client->pc_connect(client, PLUME_EDNS, client->pc_data);
+    return plume_connected(client, PLUME_EDNS);
   }
 
   // Parse the SRV query payload.
   status = ares_parse_srv_reply(abuf, alen, &srv);
   if (status != ARES_SUCCESS) {
-    return client->pc_connect(client, error_ares(status), client->pc_data);
+    return plume_connected(client, error_ares(status));
   }
 
   // Store the retrieved hostname and port.
   client->pc_host = strdup(srv->host);
   if (client->pc_host == NULL) {
-    return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
+    return plume_connected(client, PLUME_ENOMEM);
   }
   client->pc_port = srv->port;
   ares_free_data(srv);
@@ -261,16 +271,16 @@ static void plume_socket_connect(void *data, int status, int timeouts,
   client = (struct plume_client *)data;
 
   if (status != ARES_SUCCESS) {
-    return client->pc_connect(client, error_ares(status), client->pc_data);
+    return plume_connected(client, error_ares(status));
   }
   if (host == NULL) {
-    return client->pc_connect(client, PLUME_EDNS, client->pc_data);
+    return plume_connected(client, PLUME_EDNS);
   }
 
   // Store the retrieved IP address.
   client->pc_ip = malloc(INET_ADDRSTRLEN);
   if (client->pc_ip == NULL) {
-    return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
+    return plume_connected(client, PLUME_ENOMEM);
   }
   inet_ntop(host->h_addrtype, host->h_addr, client->pc_ip, INET_ADDRSTRLEN);
 
@@ -288,7 +298,7 @@ static void plume_socket_connect(void *data, int status, int timeouts,
     if (errno == EINPROGRESS) {
       plume_want_write(client, plume_tls_begin);
     } else {
-      return client->pc_connect(client, -errno, client->pc_data);
+      return plume_connected(client, -errno);
     }
   }
 }
@@ -308,11 +318,11 @@ plume_tls_begin(void *data)
 
   // Check for connect errors.
   if (getsockopt(client->pc_fd, SOL_SOCKET, SO_ERROR, &r, &len)) {
-    client->pc_connect(client, -errno, client->pc_data);
+    plume_connected(client, -errno);
     return 0;
   }
   if (r) {
-    client->pc_connect(client, -r, client->pc_data);
+    plume_connected(client, -r);
     return 0;
   }
 
@@ -440,9 +450,9 @@ plume_client_set_data(struct plume_client *client, void *data)
 
 void
 plume_client_set_connect_cb(struct plume_client *client,
-    plume_connect_callback_t cb)
+    plume_status_callback_t cb)
 {
-  client->pc_connect = cb;
+  client->pc_connected = cb;
 }
 
 

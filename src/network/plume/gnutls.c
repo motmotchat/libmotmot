@@ -210,10 +210,10 @@ plume_tls_handshake(struct plume_client *client)
     case MOTMOT_GNUTLS_SUCCESS:
       // XXX: Set the new read/write handlers.
       client->pc_state = PLUME_STATE_CONNECTED;
-      client->pc_connect(client, PLUME_SUCCESS, client->pc_data);
+      plume_connected(client, PLUME_SUCCESS);
       break;
     case MOTMOT_GNUTLS_FAILURE:
-      client->pc_connect(client, PLUME_ETLS, client->pc_data);
+      plume_connected(client, PLUME_ETLS);
       break;
     case MOTMOT_GNUTLS_RETRY_READ:
     case MOTMOT_GNUTLS_RETRY_WRITE:
