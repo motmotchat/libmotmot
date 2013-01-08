@@ -159,6 +159,7 @@ plume_client_destroy(struct plume_client *client)
 
 static void plume_dns_lookup(void *, int, int, unsigned char *, int);
 static void plume_socket_connect(void *, int, int, struct hostent *);
+static int  plume_start_tls(void *);
 
 /**
  * plume_connect_server - Begin connecting to the client's Plume server.
@@ -274,12 +275,36 @@ static void plume_socket_connect(void *data, int status, int timeouts,
 
   if (connect(client->pc_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
     if (errno == EINPROGRESS) {
-      // TLS handshake.
+      plume_want_write(client, plume_start_tls);
     } else {
       // XXX: Don't just send errno.
       client->pc_connect(client, errno, client->pc_data);
     }
   }
+}
+
+static int
+plume_start_tls(void *data)
+{
+  int r;
+  socklen_t len = sizeof(r);
+  struct plume_client *client;
+
+  client = (struct plume_client *)data;
+
+  if (getsockopt(client->pc_fd, SOL_SOCKET, SO_ERROR, &r, &len)) {
+    client->pc_connect(client, errno, client->pc_data);
+    return 0;
+  }
+
+  if (r) {
+    client->pc_connect(client, r, client->pc_data);
+    return 0;
+  }
+
+  log_info("Connection completed");
+
+  return 0;
 }
 
 
@@ -357,8 +382,12 @@ plume_ares_process(void *data)
  * plume_ares_want_io - Request socket event notification from the event loop
  * for a DNS query.
  *
- * XXX: There's no clear way to notify the connect protocol that we were unable
- * to listen on the ares_channel sockets.  So for now, we do nothing on error.
+ * There's no clean way to notify the connect protocol or the user that we were
+ * unable to listen on the ares_channel sockets.  Instead, we just rely on the
+ * main connect timeout to kill the plume_client.
+ *
+ * TODO: Implement the main connect timeout.  We'll need to somehow clean up
+ * these event listeners along with the client object.
  */
 static void
 plume_ares_want_io(void *data, int fd, int read, int write)
@@ -405,4 +434,24 @@ plume_client_set_recv_cb(struct plume_client *client,
     plume_recv_callback_t cb)
 {
   client->pc_recv = cb;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Motmot event layer wrappers.
+//
+
+int
+plume_want_read(struct plume_client *client, motmot_event_callback_t cb)
+{
+  return motmot_event_want_read(client->pc_fd, MOTMOT_EVENT_TCP,
+      client->pc_data, cb, (void *)client);
+}
+
+int
+plume_want_write(struct plume_client *client, motmot_event_callback_t cb)
+{
+  return motmot_event_want_write(client->pc_fd, MOTMOT_EVENT_TCP,
+      client->pc_data, cb, (void *)client);
 }

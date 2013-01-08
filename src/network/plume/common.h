@@ -30,4 +30,7 @@ struct plume_client {
   struct motmot_net_tls pc_tls;   // crypto-backend specific TLS data
 };
 
+int plume_want_read(struct plume_client *, motmot_event_callback_t cb);
+int plume_want_write(struct plume_client *, motmot_event_callback_t cb);
+
 #endif /* __PLUME_COMMON_H__ */

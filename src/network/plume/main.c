@@ -12,7 +12,7 @@ GMainLoop *gmain;
 void
 connected(struct plume_client *client, enum plume_status status, void *data)
 {
-  log_info("%d", status);
+  log_info("connect status: %d", status);
 }
 
 int
