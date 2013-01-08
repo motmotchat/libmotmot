@@ -270,38 +270,6 @@ static void plume_socket_connect(void *data, int status, int timeouts,
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  Utility routines.
-//
-
-int
-plume_client_get_fd(const struct plume_client *client)
-{
-  return client->pc_fd;
-}
-
-void
-plume_client_set_data(struct plume_client *client, void *data)
-{
-  client->pc_data = data;
-}
-
-void
-plume_client_set_connect_cb(struct plume_client *client,
-    plume_connect_callback_t cb)
-{
-  client->pc_connect = cb;
-}
-
-void
-plume_client_set_recv_cb(struct plume_client *client,
-    plume_recv_callback_t cb)
-{
-  client->pc_recv = cb;
-}
-
-
-///////////////////////////////////////////////////////////////////////////////
-//
 //  DNS-event interface helpers.
 //
 
@@ -370,4 +338,36 @@ plume_ares_want_io(void *data, int fd, int read, int write)
     s = plume_ares_sock_new(fd, 0, (struct plume_client *)data);
     motmot_event_want_write(fd, MOTMOT_EVENT_UDP, NULL, plume_ares_process, s);
   }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Utility routines.
+//
+
+int
+plume_client_get_fd(const struct plume_client *client)
+{
+  return client->pc_fd;
+}
+
+void
+plume_client_set_data(struct plume_client *client, void *data)
+{
+  client->pc_data = data;
+}
+
+void
+plume_client_set_connect_cb(struct plume_client *client,
+    plume_connect_callback_t cb)
+{
+  client->pc_connect = cb;
+}
+
+void
+plume_client_set_recv_cb(struct plume_client *client,
+    plume_recv_callback_t cb)
+{
+  client->pc_recv = cb;
 }
