@@ -155,10 +155,17 @@ plume_client_set_ca(struct plume_client *client, const char *ca_path)
 //  Handshake protocol.
 //
 
-static int
-plume_tls_verify(gnutls_session_t session)
+int
+trill_start_tls(struct plume_client *client)
 {
   return 0;
 }
+
+static int
+plume_tls_verify(gnutls_session_t session)
+{
+  return 1;
+}
+
 
 #endif /* USE_GNUTLS */

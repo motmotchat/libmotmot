@@ -158,7 +158,7 @@ plume_client_destroy(struct plume_client *client)
 
 static void plume_dns_lookup(void *, int, int, unsigned char *, int);
 static void plume_socket_connect(void *, int, int, struct hostent *);
-static int  plume_start_tls(void *);
+static int  plume_tls_begin(void *);
 
 /**
  * plume_connect_server - Begin connecting to the client's Plume server by
@@ -277,7 +277,7 @@ static void plume_socket_connect(void *data, int status, int timeouts,
   // writeable to confirm success or failure.
   if (connect(client->pc_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
     if (errno == EINPROGRESS) {
-      plume_want_write(client, plume_start_tls);
+      plume_want_write(client, plume_tls_begin);
     } else {
       return client->pc_connect(client, -errno, client->pc_data);
     }
@@ -285,11 +285,11 @@ static void plume_socket_connect(void *data, int status, int timeouts,
 }
 
 /**
- * plume_start_tls - Confirm the success of connect() and begin the TLS
+ * plume_tls_begin - Confirm the success of connect() and begin the TLS
  * handshake.
  */
 static int
-plume_start_tls(void *data)
+plume_tls_begin(void *data)
 {
   int r;
   socklen_t len = sizeof(r);
