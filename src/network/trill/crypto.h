@@ -2,7 +2,6 @@
 #define __TRILL_CRYPTO_H__
 
 #include "trill/common.h"
-#include "trill/network.h"
 
 int trill_crypto_init(void);
 int trill_crypto_deinit(void);
