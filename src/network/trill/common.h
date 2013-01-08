@@ -32,13 +32,6 @@ enum trill_state {
   TC_STATE_ESTABLISHED
 };
 
-/* Motmot event layer wrappers. */
-typedef int (*trill_callback_t)(struct trill_connection *);
-int trill_want_read(struct trill_connection *);
-int trill_want_write(struct trill_connection *);
-int trill_can_read(void *);
-int trill_can_write(void *);
-
 /* Trill peer connection type. */
 struct trill_connection {
   int tc_fd;
@@ -51,9 +44,6 @@ struct trill_connection {
 
   char *tc_remote_user;
 
-  trill_callback_t tc_can_read_cb;
-  trill_callback_t tc_can_write_cb;
-
   trill_status_callback_t tc_connected_cb;
   trill_recv_callback_t tc_recv_cb;
 
@@ -61,5 +51,8 @@ struct trill_connection {
 };
 
 void trill_connected(struct trill_connection *, int);
+
+int trill_want_read(struct trill_connection *, motmot_event_callback_t);
+int trill_want_write(struct trill_connection *, motmot_event_callback_t);
 
 #endif // __TRILL_COMMON_H__

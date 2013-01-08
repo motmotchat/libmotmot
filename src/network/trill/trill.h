@@ -21,6 +21,8 @@ struct trill_connection;
  */
 enum trill_status {
   TRILL_SUCCESS = 0,
+  TRILL_ETIED,
+  TRILL_ETLS,
   TRILL_EFATAL,
 };
 

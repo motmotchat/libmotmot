@@ -24,9 +24,6 @@
 #define TRILL_NET_ACK   99
 #define TRILL_NET_NOACK 100
 
-int trill_connection_probe(void *);
-int trill_connection_read_probe(struct trill_connection *);
-
 /**
  * trill_init - Initialize Trill subservices.
  */
@@ -84,9 +81,6 @@ trill_connection_new()
   conn->tc_server_priority[0] = random();
   conn->tc_server_priority[1] = random();
 
-  conn->tc_can_read_cb = trill_connection_read_probe;
-  conn->tc_can_write_cb = NULL;
-
   return conn;
 
 err:
@@ -123,6 +117,9 @@ trill_connection_free(struct trill_connection *conn)
 //
 //  Connect protocol.
 //
+
+int trill_connection_probe(void *);
+int trill_connection_read_probe(void *);
 
 /**
  * trill_connected - Notify the client that trill_connect() has completed with
@@ -175,7 +172,8 @@ trill_connect(struct trill_connection *conn, const char *who,
   conn->tc_state = TC_STATE_PROBING;
   conn->tc_remote_user = strdup(who);
 
-  trill_want_read(conn);
+  // Begin probing.
+  trill_want_read(conn, trill_connection_read_probe);
   motmot_event_want_timeout(trill_connection_probe, conn, conn->tc_data, 1000);
 
   return 0;
@@ -231,11 +229,14 @@ trill_connection_probe(void *arg)
  * TLS handshake protocol if the client/server relationship has been settled.
  */
 int
-trill_connection_read_probe(struct trill_connection *conn)
+trill_connection_read_probe(void *arg)
 {
+  struct trill_connection *conn;
   char buf[10];
   uint32_t a, b;
   int len, winning;
+
+  conn = (struct trill_connection *)arg;
 
   assert((conn->tc_state == TC_STATE_PROBING ||
       conn->tc_state == TC_STATE_CLIENT) &&
@@ -243,7 +244,7 @@ trill_connection_read_probe(struct trill_connection *conn)
 
   len = recv(conn->tc_fd, buf, sizeof(buf), 0);
   if (len == 9) {
-    log_info("Received a probe");
+    log_debug("Received a probe");
   } else if (len == 0) {
     log_errno("Error reading a probe");
     return 1;
@@ -252,24 +253,41 @@ trill_connection_read_probe(struct trill_connection *conn)
     return 1;
   }
 
-  // XXX: We make the assumption here that two 64-bit random numbers will
-  // never collide.  This is probably an okay assumption in practice, but is
-  // sort of a hack.
   a = ntohl(*(uint32_t *)(buf + 1));
   b = ntohl(*(uint32_t *)(buf + 5));
+
+  // If in the unlikely event that our priority is tied with our peers, give up
+  // and let the application retry.
+  if (a == conn->tc_server_priority[0] && b == conn->tc_server_priority[1]) {
+    trill_connected(conn, TRILL_ETIED);
+    return 0;
+  }
+
+  // See if we've won the honor of being the server.
   winning = a > conn->tc_server_priority[0] ||
     (a == conn->tc_server_priority[0] && b > conn->tc_server_priority[1]);
 
   if (winning) {
     log_info("Probing done; we're the server");
     conn->tc_state = TC_STATE_SERVER;
+
     // Manually trigger the probe, since we have new data.
     trill_connection_probe(conn);
-    trill_start_tls(conn);
+
+    // Start TLS handshaking.
+    if (trill_start_tls(conn)) {
+      trill_connected(conn, TRILL_ETLS);
+    }
+    return 0;
   } else if (!winning && buf[0] == TRILL_NET_ACK) {
     log_info("Probing done; we're the client");
     conn->tc_state = TC_STATE_CLIENT;
-    trill_start_tls(conn);
+
+    // Start TLS handshaking.
+    if (trill_start_tls(conn)) {
+      trill_connected(conn, TRILL_ETLS);
+    }
+    return 0;
   }
 
   return 1;
@@ -334,29 +352,15 @@ trill_set_recv_callback(struct trill_connection *conn,
 //
 
 int
-trill_want_read(struct trill_connection *conn)
+trill_want_read(struct trill_connection *conn, motmot_event_callback_t cb)
 {
   return motmot_event_want_read(conn->tc_fd, MOTMOT_EVENT_UDP,
-      conn->tc_data, trill_can_read, (void *)conn);
+      conn->tc_data, cb, (void *)conn);
 }
 
 int
-trill_want_write(struct trill_connection *conn)
+trill_want_write(struct trill_connection *conn, motmot_event_callback_t cb)
 {
   return motmot_event_want_write(conn->tc_fd, MOTMOT_EVENT_UDP,
-      conn->tc_data, trill_can_write, (void *)conn);
-}
-
-int
-trill_can_read(void *data)
-{
-  struct trill_connection *conn = (struct trill_connection *)data;
-  return conn->tc_can_read_cb(conn);
-}
-
-int
-trill_can_write(void *data)
-{
-  struct trill_connection *conn = (struct trill_connection *)data;
-  return conn->tc_can_write_cb(conn);
+      conn->tc_data, cb, (void *)conn);
 }

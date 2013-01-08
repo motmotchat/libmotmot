@@ -23,10 +23,7 @@ static const char *priorities =
   "SECURE256:-VERS-TLS-ALL:+VERS-DTLS1.0:%SERVER_PRECEDENCE";
 static gnutls_priority_t priority_cache;
 
-int trill_tls_can_read(struct trill_connection *);
-int trill_tls_can_write(struct trill_connection *);
-int trill_tls_handshake_retry(void *);
-int trill_tls_verify_cert(gnutls_session_t);
+static int trill_tls_verify(gnutls_session_t);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -57,7 +54,7 @@ trill_tls_init(struct trill_connection *conn)
   }
 
   gnutls_certificate_set_verify_function(conn->tc_tls.mt_creds,
-      trill_tls_verify_cert);
+      trill_tls_verify);
 
   return 0;
 }
@@ -107,6 +104,11 @@ trill_set_ca(struct trill_connection *conn, const char *ca_path)
 //  Handshake protocol.
 //
 
+static enum motmot_gnutls_status trill_tls_handshake(struct trill_connection *);
+static int trill_tls_handshake_retry(void *);
+static int trill_tls_retry_read(void *);
+static int trill_tls_retry_write(void *);
+
 int
 trill_start_tls(struct trill_connection *conn)
 {
@@ -122,7 +124,7 @@ trill_start_tls(struct trill_connection *conn)
   } else if (conn->tc_state == TC_STATE_CLIENT) {
     flags = GNUTLS_CLIENT | GNUTLS_DATAGRAM | GNUTLS_NONBLOCK;
   } else {
-    assert(0 && "Unexpected state when initializing crypto");
+    assert(0 && "Unexpected state when starting TLS");
   }
 
   if ((r = motmot_net_gnutls_start(&conn->tc_tls, flags, conn->tc_fd,
@@ -130,21 +132,21 @@ trill_start_tls(struct trill_connection *conn)
     return r;
   }
 
-  // TODO: We should probably determine this in a better way
+  // TODO: We should probably determine this in a better way.
   gnutls_dtls_set_mtu(conn->tc_tls.mt_session, 1500);
 
-  conn->tc_can_read_cb = trill_tls_can_read;
-  conn->tc_can_write_cb = trill_tls_can_write;
-
+  // Start handshaking, restarting if the timeout is exceeded.
   motmot_event_want_timeout(trill_tls_handshake_retry, conn, conn->tc_data,
       GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
-
-  trill_tls_handshake(conn);
+  trill_tls_handshake_retry((void *)conn);
 
   return 0;
 }
 
-int
+/**
+ * trill_tls_handshake_retry - Restart TLS handshaking from the top.
+ */
+static int
 trill_tls_handshake_retry(void *arg)
 {
   struct trill_connection *conn;
@@ -152,51 +154,103 @@ trill_tls_handshake_retry(void *arg)
   conn = (struct trill_connection *)arg;
   assert(conn != NULL);
 
-  if (conn->tc_state != TC_STATE_ESTABLISHED) {
-    trill_tls_handshake(conn);
+  if (conn->tc_state == TC_STATE_ESTABLISHED) {
+    return 0;
   }
 
-  return conn->tc_state != TC_STATE_ESTABLISHED;
+  switch (trill_tls_handshake(conn)) {
+    case MOTMOT_GNUTLS_SUCCESS:
+      return 0;
+    case MOTMOT_GNUTLS_FAILURE:
+      return 1;
+    case MOTMOT_GNUTLS_RETRY_READ:
+      return trill_want_read(conn, trill_tls_retry_read);
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      return trill_want_write(conn, trill_tls_retry_write);
+  }
+
+  // This should never happen.
+  return 0;
 }
 
-int
+/**
+ * trill_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
+ * just performs success/failure handling and returns the status code.
+ *
+ * Nothing is done on RETRY_READ or RETRY_WRITE.
+ */
+static enum motmot_gnutls_status
 trill_tls_handshake(struct trill_connection *conn)
 {
-  int ret;
+  int r;
 
   assert(conn != NULL);
   assert((conn->tc_state == TC_STATE_SERVER ||
       conn->tc_state == TC_STATE_CLIENT) &&
       "In a bad state during handshake");
-  assert(conn->tc_tls.mt_creds != NULL);
-  assert(conn->tc_tls.mt_session != NULL);
 
-  do {
-    log_debug("Attempting handshake");
-    ret = gnutls_handshake(conn->tc_tls.mt_session);
-  } while (gnutls_error_is_fatal(ret));
+  r = motmot_net_gnutls_handshake(&conn->tc_tls);
 
-  if (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED) {
-    // Do we need a write?
-    if (gnutls_record_get_direction(conn->tc_tls.mt_session) == 1) {
-      log_debug("We want a write");
-      trill_want_write(conn);
-    } else {
-      log_debug("We want a read");
-    }
-  } else if (ret == 0) {
-    log_info("TLS is established!");
-    conn->tc_state = TC_STATE_ESTABLISHED;
-    trill_connected(conn, TRILL_SUCCESS);
-  } else {
-    log_error("Something went wrong with the TLS handshake");
+  switch (r) {
+    case MOTMOT_GNUTLS_SUCCESS:
+      // XXX: Set the new read handler.
+      conn->tc_state = TC_STATE_ESTABLISHED;
+      trill_connected(conn, TRILL_SUCCESS);
+      break;
+    case MOTMOT_GNUTLS_FAILURE:
+      trill_connected(conn, TRILL_ETLS);
+      break;
+    case MOTMOT_GNUTLS_RETRY_READ:
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      break;
+  }
+
+  return r;
+}
+
+/**
+ * trill_tls_retry_read - Retry a handshake read.
+ */
+static int
+trill_tls_retry_read(void *arg)
+{
+  switch (trill_tls_handshake((struct trill_connection *)arg)) {
+    case MOTMOT_GNUTLS_RETRY_READ:
+      return 1;
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      trill_want_write((struct trill_connection *)arg, trill_tls_retry_write);
+    case MOTMOT_GNUTLS_SUCCESS:
+    case MOTMOT_GNUTLS_FAILURE:
+      break;
   }
 
   return 0;
 }
 
-int
-trill_tls_verify_cert(gnutls_session_t session)
+/**
+ * trill_tls_retry_read - Retry a handshake write.
+ */
+static int
+trill_tls_retry_write(void *arg)
+{
+  switch (trill_tls_handshake((struct trill_connection *)arg)) {
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      return 1;
+    case MOTMOT_GNUTLS_RETRY_READ:
+      trill_want_read((struct trill_connection *)arg, trill_tls_retry_read);
+    case MOTMOT_GNUTLS_SUCCESS:
+    case MOTMOT_GNUTLS_FAILURE:
+      break;
+  }
+
+  return 0;
+}
+
+/**
+ * trill_tls_verify - Verify the peer's TLS certificate chain.
+ */
+static int
+trill_tls_verify(gnutls_session_t session)
 {
   unsigned int errors;
   struct trill_connection *conn = gnutls_session_get_ptr(session);
@@ -224,11 +278,13 @@ trill_tls_send(struct trill_connection *conn, const void *data, size_t len)
   switch (ret) {
     case GNUTLS_E_AGAIN:
       errno = EAGAIN;
-      trill_want_write(conn);
+      // XXX: Hahahahah
+      trill_want_write(conn, NULL);
       return -1;
     case GNUTLS_E_INTERRUPTED:
       errno = EINTR;
-      trill_want_write(conn);
+      // XXX: Hahahahah
+      trill_want_write(conn, NULL);
       return -1;
   }
 
