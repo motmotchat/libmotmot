@@ -161,7 +161,8 @@ static void plume_socket_connect(void *, int, int, struct hostent *);
 static int  plume_start_tls(void *);
 
 /**
- * plume_connect_server - Begin connecting to the client's Plume server.
+ * plume_connect_server - Begin connecting to the client's Plume server by
+ * looking up the Plume SRV record.
  */
 void
 plume_connect_server(struct plume_client *client)
@@ -203,6 +204,9 @@ plume_connect_server(struct plume_client *client)
   ares_free_string(qbuf);
 }
 
+/**
+ * plume_dns_lookup - Resolve the SRV lookup and perform a hostname lookup.
+ */
 static void plume_dns_lookup(void *data, int status, int timeouts,
     unsigned char *abuf, int alen)
 {
@@ -218,11 +222,13 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
     return client->pc_connect(client, PLUME_EDNS, client->pc_data);
   }
 
+  // Parse the SRV query payload.
   status = ares_parse_srv_reply(abuf, alen, &srv);
   if (status != ARES_SUCCESS) {
     return client->pc_connect(client, error_ares(status), client->pc_data);
   }
 
+  // Store the retrieved hostname and port.
   client->pc_host = strdup(srv->host);
   if (client->pc_host == NULL) {
     return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
@@ -232,10 +238,14 @@ static void plume_dns_lookup(void *data, int status, int timeouts,
 
   ares_free_data(srv);
 
+  // Send off a hostaddr lookup.
   ares_gethostbyname(client->pc_ares_chan_host, client->pc_host, AF_INET,
       plume_socket_connect, client);
 }
 
+/**
+ * plume_socket_connect - Resolve the hostaddr query and connect.
+ */
 static void plume_socket_connect(void *data, int status, int timeouts,
     struct hostent *host)
 {
@@ -251,11 +261,11 @@ static void plume_socket_connect(void *data, int status, int timeouts,
     return client->pc_connect(client, PLUME_EDNS, client->pc_data);
   }
 
+  // Store the retrieved IP address.
   client->pc_ip = malloc(INET_ADDRSTRLEN);
   if (client->pc_ip == NULL) {
     return client->pc_connect(client, PLUME_ENOMEM, client->pc_data);
   }
-
   inet_ntop(host->h_addrtype, host->h_addr, client->pc_ip, INET_ADDRSTRLEN);
   log_info("host: %s:%d", client->pc_ip, client->pc_port);
 
@@ -263,6 +273,8 @@ static void plume_socket_connect(void *data, int status, int timeouts,
   addr.sin_port = htons(client->pc_port);
   memcpy(&addr.sin_addr, host->h_addr, host->h_length);
 
+  // Perform a nonblocking connect.  We then listen for the socket to be
+  // writeable to confirm success or failure.
   if (connect(client->pc_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
     if (errno == EINPROGRESS) {
       plume_want_write(client, plume_start_tls);
@@ -272,6 +284,10 @@ static void plume_socket_connect(void *data, int status, int timeouts,
   }
 }
 
+/**
+ * plume_start_tls - Confirm the success of connect() and begin the TLS
+ * handshake.
+ */
 static int
 plume_start_tls(void *data)
 {
@@ -281,15 +297,17 @@ plume_start_tls(void *data)
 
   client = (struct plume_client *)data;
 
+  // Check for connect errors.
   if (getsockopt(client->pc_fd, SOL_SOCKET, SO_ERROR, &r, &len)) {
-    client->pc_connect(client, errno, client->pc_data);
+    client->pc_connect(client, -errno, client->pc_data);
+    return 0;
+  }
+  if (r) {
+    client->pc_connect(client, -r, client->pc_data);
     return 0;
   }
 
-  if (r) {
-    client->pc_connect(client, r, client->pc_data);
-    return 0;
-  }
+  // TODO: TLS handshaking.
 
   log_info("Connection completed");
 
