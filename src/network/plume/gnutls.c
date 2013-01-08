@@ -72,6 +72,8 @@ plume_tls_deinit(struct plume_client *client)
 {
   assert(client != NULL);
 
+  gnutls_bye(client->pc_tls.mt_session, GNUTLS_SHUT_RDWR);
+
   gnutls_deinit(client->pc_tls.mt_session);
   gnutls_certificate_free_credentials(client->pc_tls.mt_creds);
 

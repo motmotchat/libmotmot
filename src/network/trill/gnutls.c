@@ -67,13 +67,13 @@ trill_tls_free(struct trill_connection *conn)
 {
   assert(conn != NULL);
 
-  // Attempt to gracefully disconnect. Note that this could return an error code
-  // (GNUTLS_E_AGAIN, or maybe a real error), but we don't care about that,
-  // since we'll be dropping the underlying UDP transport in just a bit anyways.
+  // Attempt to gracefully disconnect.  Note that this could return an error
+  // code (GNUTLS_E_AGAIN, or maybe a real error), but we don't care about
+  // that since we'll be dropping the underlying UDP transport in just a bit
+  // anyways.
   gnutls_bye(conn->tc_tls.mt_session, GNUTLS_SHUT_RDWR);
 
   gnutls_deinit(conn->tc_tls.mt_session);
-
   gnutls_certificate_free_credentials(conn->tc_tls.mt_creds);
 
   return 0;
