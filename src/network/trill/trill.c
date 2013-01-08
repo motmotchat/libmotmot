@@ -33,16 +33,6 @@ trill_init()
 }
 
 /**
- * TRILL_COND_LRF - Conditionally log, free a connection, and return NULL.
- */
-#define TRILL_COND_LFR(cond, conn, msg)  \
-  if (cond) {                           \
-    log_errno(msg);                     \
-    trill_connection_free(conn);        \
-    return NULL;                        \
-  }
-
-/**
  * trill_connection_new - Instantiate a new Trill connection object.
  */
 struct trill_connection *
@@ -59,15 +49,27 @@ trill_connection_new()
     return NULL;
   }
 
+  // Create a new nonblocking UDP socket.
   conn->tc_sock_fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  TRILL_COND_LFR(conn->tc_sock_fd == -1, conn, "Unable to create socket");
+  if (conn->tc_sock_fd == -1) {
+    log_errno("Unable to create socket");
+    goto err;
+  }
+  flags = fcntl(conn->tc_sock_fd, F_GETFL, 0);
+  if (flags == -1 || fcntl(conn->tc_sock_fd, F_SETFL, flags | O_NONBLOCK)) {
+    log_error("Error setting socket in nonblocking mode");
+    goto err;
+  }
 
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = 0;  // Pick a random port.
 
   // Let's go hunting for an IP address!
-  TRILL_COND_LFR(getifaddrs(&interface_list), conn, "Unable to list ifaddrs");
+  if (getifaddrs(&interface_list)) {
+    log_errno("Unable to list ifaddrs");
+    goto err;
+  }
 
   for (interface = interface_list; interface; interface = interface->ifa_next) {
     if ((interface->ifa_flags & IFF_UP) &&
@@ -79,12 +81,20 @@ trill_connection_new()
   }
   freeifaddrs(interface_list);
 
+  // Bind the socket to our IP.
   ret = bind(conn->tc_sock_fd, (struct sockaddr *) &addr, sizeof(addr));
-  TRILL_COND_LFR(ret == -1, conn, "Unable to bind socket");
+  if (ret == -1) {
+    log_errno("Unable to bind socket");
+    goto err;
+  }
 
+  // Store the randomly-selected port.
   addr_len = sizeof(addr);
   ret = getsockname(conn->tc_sock_fd, (struct sockaddr *) &addr, &addr_len);
-  TRILL_COND_LFR(ret == -1, conn, "Unable to get socket name");
+  if (ret == -1) {
+    log_errno("Unable to get socket name");
+    goto err;
+  }
   conn->tc_port = ntohs(addr.sin_port);
 
   // DTLS requires that we disable IP fragmentation.
@@ -102,17 +112,9 @@ trill_connection_new()
       sizeof(optval));
 #endif
 
-  flags = fcntl(conn->tc_sock_fd, F_GETFL, 0);
-  if (flags == -1 || fcntl(conn->tc_sock_fd, F_SETFL, flags | O_NONBLOCK)) {
-    log_error("Error setting socket in nonblocking mode");
-    trill_connection_free(conn);
-    return NULL;
-  }
-
+  // Initialize the TLS backend.
   if (trill_tls_init(conn)) {
-    log_error("Error initializing TLS backend data");
-    trill_connection_free(conn);
-    return NULL;
+    goto err;
   }
 
   conn->tc_state = TC_STATE_INIT;
@@ -124,6 +126,10 @@ trill_connection_new()
   conn->tc_can_write_cb = NULL;
 
   return conn;
+
+err:
+  trill_connection_free(conn);
+  return NULL;
 }
 
 /**
