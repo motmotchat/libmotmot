@@ -27,9 +27,10 @@ main(int argc, char *argv[])
   plume_init();
 
   client = plume_client_new("tmp/example.crt");
+  plume_client_set_key(client, "tmp/example.key", "tmp/example.crt");
+
   channel = g_io_channel_unix_new(plume_client_get_fd(client));
   plume_client_set_data(client, channel);
-
   plume_client_set_connect_cb(client, connected);
 
   plume_connect_server(client);
