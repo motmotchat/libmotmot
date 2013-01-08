@@ -156,8 +156,19 @@ plume_client_set_ca(struct plume_client *client, const char *ca_path)
 //
 
 int
-trill_start_tls(struct plume_client *client)
+plume_tls_start(struct plume_client *client)
 {
+  int r;
+  unsigned flags;
+
+  assert(client != NULL);
+
+  flags = GNUTLS_CLIENT | GNUTLS_NONBLOCK;
+  if ((r = motmot_net_gnutls_start(&client->pc_tls, flags, client->pc_fd,
+    priority_cache, (void *)client))) {
+    return r;
+  }
+
   return 0;
 }
 

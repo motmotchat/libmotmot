@@ -110,6 +110,7 @@ trill_set_ca(struct trill_connection *conn, const char *ca_path)
 int
 trill_start_tls(struct trill_connection *conn)
 {
+  int r;
   unsigned int flags;
 
   assert(conn != NULL);
@@ -124,23 +125,10 @@ trill_start_tls(struct trill_connection *conn)
     assert(0 && "Unexpected state when initializing crypto");
   }
 
-  if (gnutls_init(&conn->tc_tls.mt_session, flags)) {
-    log_error("Unable to initialize new session");
-    return 1;
+  if ((r = motmot_net_gnutls_start(&conn->tc_tls, flags, conn->tc_sock_fd,
+    priority_cache, (void *)conn))) {
+    return r;
   }
-
-  gnutls_session_set_ptr(conn->tc_tls.mt_session, conn);
-
-  if (gnutls_priority_set(conn->tc_tls.mt_session, priority_cache)) {
-    log_error("Unable to set priorities on new session");
-    return 1;
-  }
-
-  gnutls_credentials_set(conn->tc_tls.mt_session, GNUTLS_CRD_CERTIFICATE,
-      conn->tc_tls.mt_creds);
-
-  gnutls_transport_set_ptr(conn->tc_tls.mt_session,
-      (gnutls_transport_ptr_t) (ssize_t) conn->tc_sock_fd);
 
   // TODO: We should probably determine this in a better way
   gnutls_dtls_set_mtu(conn->tc_tls.mt_session, 1500);

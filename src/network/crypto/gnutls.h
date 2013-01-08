@@ -13,5 +13,7 @@ struct motmot_net_tls {
 
 int motmot_net_gnutls_init(gnutls_priority_t *, const char *);
 int motmot_net_gnutls_deinit(gnutls_priority_t);
+int motmot_net_gnutls_start(struct motmot_net_tls *, unsigned, int,
+    gnutls_priority_t, void *);
 
 #endif /* __MOTMOT_CRYPTO_GNUTLS_H__ */

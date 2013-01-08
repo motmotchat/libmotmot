@@ -32,4 +32,29 @@ motmot_net_gnutls_deinit(gnutls_priority_t priority_cache)
   return 0;
 }
 
+int
+motmot_net_gnutls_start(struct motmot_net_tls *tls, unsigned flags,
+    int fd, gnutls_priority_t priority_cache, void *data)
+{
+  if (gnutls_init(&tls->mt_session, flags)) {
+    log_error("Unable to initialize new session");
+    return -1;
+  }
+
+  gnutls_session_set_ptr(tls->mt_session, data);
+
+  if (gnutls_priority_set(tls->mt_session, priority_cache)) {
+    log_error("Unable to set priorities on new session");
+    return -1;
+  }
+
+  gnutls_credentials_set(tls->mt_session, GNUTLS_CRD_CERTIFICATE,
+      tls->mt_creds);
+
+  gnutls_transport_set_ptr(tls->mt_session,
+      (gnutls_transport_ptr_t)(ssize_t)fd);
+
+  return 0;
+}
+
 #endif /* USE_GNUTLS */
