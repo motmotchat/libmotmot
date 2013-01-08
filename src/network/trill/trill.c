@@ -98,13 +98,12 @@ trill_connection_free(struct trill_connection *conn)
 
   retval = trill_tls_free(conn);
 
-  if (conn->tc_sock_fd != -1) {
-    if (close(conn->tc_sock_fd) == -1) {
-      log_errno("Error closing Trill connection socket");
-      retval = -1;
-    }
+  if (conn->tc_sock_fd != -1 && close(conn->tc_sock_fd) == -1) {
+    log_errno("Error closing Trill connection socket");
+    retval = -1;
   }
 
+  free(conn->tc_remote_user);
   free(conn);
 
   return retval;
