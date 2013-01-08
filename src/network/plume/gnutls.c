@@ -16,7 +16,7 @@
 static const char *priorities = "SECURE256:%SERVER_PRECEDENCE";
 static gnutls_priority_t priority_cache;
 
-static int plume_tls_verify(gnutls_session_t session);
+static int plume_tls_verify(gnutls_session_t);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -193,7 +193,7 @@ plume_tls_start(struct plume_client *client)
 
 /**
  * plume_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
- * performs success/failure handling and just returns the status code.
+ * just performs success/failure handling and returns the status code.
  *
  * Nothing is done on RETRY_READ or RETRY_WRITE.
  */
