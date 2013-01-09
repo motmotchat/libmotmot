@@ -10,6 +10,8 @@
 #include "common/yakyak.h"
 #include "plume/common.h"
 
+#define BUFSIZE 4096
+
 void
 msgpack_pack_string(msgpack_packer *pk, char *s)
 {
@@ -21,7 +23,39 @@ msgpack_pack_string(msgpack_packer *pk, char *s)
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  Plume requests.
+//  Response routines.
+//
+
+void
+plume_recv_dispatch(struct plume_client *client, int status, void *data)
+{
+  ssize_t len;
+  msgpack_unpacked result;
+
+  (void)status;
+  (void)data;
+
+  msgpack_unpacked_init(&result);
+
+  // Reserve enough space in the msgpack buffer for a read.
+  msgpack_unpacker_reserve_buffer(&client->pc_unpac, BUFSIZE);
+
+  // Read up to BUFSIZE bytes into the stream.
+  len = plume_recv(client, msgpack_unpacker_buffer(&client->pc_unpac), BUFSIZE);
+  msgpack_unpacker_buffer_consumed(&client->pc_unpac, len);
+
+  // Dispatch on as many msgpack objects as possible.
+  while (msgpack_unpacker_next(&client->pc_unpac, &result)) {
+    // XXX: Do things!
+  }
+
+  msgpack_unpacked_destroy(&result);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Plume server requests.
 //
 
 /**

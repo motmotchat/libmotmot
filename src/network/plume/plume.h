@@ -88,6 +88,20 @@ int plume_client_destroy(struct plume_client *client);
  */
 void plume_connect_server(struct plume_client *client);
 
+/**
+ * plume_recv - Receive data from the Plume server.
+ *
+ * This function may be called whenever the client's can_recv callback is
+ * invoked by the library.
+ *
+ * @param client    The Plume client for which to receive data.
+ * @param buf       Buffer of size at least `len' in which to read the data.
+ * @param len       Amount of data to recv, in bytes.
+ * @return          The number of bytes actually read, or negative on error.
+ *                  If an error occurs, errno will also be set.
+ */
+ssize_t plume_recv(struct plume_client *client, void *buf, size_t len);
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -122,6 +136,21 @@ void plume_client_set_data(struct plume_client *client, void *data);
  */
 void plume_client_set_connect_cb(struct plume_client *client,
     plume_status_callback_t cb);
+
+/**
+ * plume_client_set_can_recv_cb - Set a callback that will be invoked when data
+ * can be received from the server without blocking.
+ *
+ * NOTE: This is for documentation purposes only; this function is not part of
+ * public interface because all received data is dispatched internally.
+ *
+ * @param client    The client object on which to set the callback.
+ * @param cb        The function to call when data is available.  The status
+ *                  passed will always be PLUME_SUCCESS, and data can be read
+ *                  using plume_recv().
+ */
+//void plume_client_set_can_recv_cb(struct plume_client *client,
+//    plume_status_callback_t cb);
 
 /**
  * plume_client_set_key - Set cryptographic credentials for this connection.

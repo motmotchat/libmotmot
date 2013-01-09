@@ -22,6 +22,7 @@
 #include "event/callbacks.h"
 #include "plume/plume.h"
 #include "plume/common.h"
+#include "plume/request.h"
 #include "plume/tls.h"
 #include "plume/util/email.h"
 #include "plume/util/error.h"
@@ -103,6 +104,9 @@ plume_client_new(const char *cert_path)
   if (flags == -1 || fcntl(client->pc_fd, F_SETFL, flags | O_NONBLOCK)) {
     goto err;
   }
+
+  // Set our dispatch function for server messages.
+  client->pc_can_recv_cb = plume_recv_dispatch;
 
   return client;
 

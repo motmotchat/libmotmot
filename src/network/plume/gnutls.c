@@ -163,7 +163,7 @@ plume_client_set_ca(struct plume_client *client, const char *ca_path)
 static int plume_tls_retry_read(void *);
 static int plume_tls_retry_write(void *);
 
-static int plume_tls_recv(void *);
+static int plume_tls_can_recv(void *);
 
 /**
  * plume_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
@@ -184,7 +184,7 @@ plume_tls_handshake(struct plume_client *client)
     case MOTMOT_GNUTLS_SUCCESS:
       // Update state and set a new, permanent can-read handler.
       client->pc_state = PLUME_STATE_CONNECTED;
-      plume_want_read(client, plume_tls_recv);
+      plume_want_read(client, plume_tls_can_recv);
       plume_connected(client, PLUME_SUCCESS);
       break;
     case MOTMOT_GNUTLS_FAILURE:
@@ -294,20 +294,34 @@ plume_tls_send(struct plume_client *client, const void *data, size_t len)
  * plume_tls_recv - Receive data and pass it to the user.
  */
 static int
-plume_tls_recv(void *arg)
+plume_tls_can_recv(void *arg)
 {
-  static char buf[2048];
   struct plume_client *client;
-  ssize_t len;
 
   client = (struct plume_client *)arg;
 
   assert(client != NULL);
   assert(client->pc_state == PLUME_STATE_CONNECTED);
 
-  len = gnutls_record_recv(client->pc_tls.mt_session, buf, sizeof(buf));
+  if (client->pc_can_recv_cb != NULL) {
+    client->pc_can_recv_cb(client, PLUME_SUCCESS, client->pc_data);
+  }
 
   return 1;
+}
+
+/**
+ * plume_recv - Receive data from the server over TLS.
+ */
+ssize_t
+plume_recv(struct plume_client *client, void *buf, size_t len)
+{
+  ssize_t bytes_read;
+
+  bytes_read = gnutls_record_recv(client->pc_tls.mt_session, buf, len);
+  // XXX: Do some error-handling and set errno.
+
+  return bytes_read;
 }
 
 #endif /* USE_GNUTLS */
