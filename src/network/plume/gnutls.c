@@ -157,39 +157,8 @@ plume_client_set_ca(struct plume_client *client, const char *ca_path)
 //  Handshake protocol.
 //
 
-static enum motmot_gnutls_status plume_tls_handshake(struct plume_client *);
 static int plume_tls_retry_read(void *);
 static int plume_tls_retry_write(void *);
-
-/**
- * plume_tls_start - Start a TLS session and begin handshaking.
- */
-int
-plume_tls_start(struct plume_client *client)
-{
-  int r;
-
-  assert(client != NULL);
-
-  if ((r = motmot_net_gnutls_start(&client->pc_tls, GNUTLS_CLIENT,
-          client->pc_fd, priority_cache, (void *)client))) {
-    return r;
-  }
-
-  switch (plume_tls_handshake(client)) {
-    case MOTMOT_GNUTLS_SUCCESS:
-      return 0;
-    case MOTMOT_GNUTLS_FAILURE:
-      return 1;
-    case MOTMOT_GNUTLS_RETRY_READ:
-      return plume_want_read(client, plume_tls_retry_read);
-    case MOTMOT_GNUTLS_RETRY_WRITE:
-      return plume_want_write(client, plume_tls_retry_write);
-  }
-
-  // This should never happen.
-  return 1;
-}
 
 /**
  * plume_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
@@ -221,6 +190,36 @@ plume_tls_handshake(struct plume_client *client)
   }
 
   return r;
+}
+
+/**
+ * plume_tls_start - Start a TLS session and begin handshaking.
+ */
+int
+plume_tls_start(struct plume_client *client)
+{
+  int r;
+
+  assert(client != NULL);
+
+  if ((r = motmot_net_gnutls_start(&client->pc_tls, GNUTLS_CLIENT,
+          client->pc_fd, priority_cache, (void *)client))) {
+    return r;
+  }
+
+  switch (plume_tls_handshake(client)) {
+    case MOTMOT_GNUTLS_SUCCESS:
+      return 0;
+    case MOTMOT_GNUTLS_FAILURE:
+      return 1;
+    case MOTMOT_GNUTLS_RETRY_READ:
+      return plume_want_read(client, plume_tls_retry_read);
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      return plume_want_write(client, plume_tls_retry_write);
+  }
+
+  // This should never happen.
+  return 1;
 }
 
 /**

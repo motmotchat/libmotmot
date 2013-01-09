@@ -104,12 +104,47 @@ trill_set_ca(struct trill_connection *conn, const char *ca_path)
 //  Handshake protocol.
 //
 
-static enum motmot_gnutls_status trill_tls_handshake(struct trill_connection *);
 static int trill_tls_handshake_retry(void *);
 static int trill_tls_retry_read(void *);
 static int trill_tls_retry_write(void *);
 
 static int trill_tls_recv(void *);
+
+/**
+ * trill_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
+ * just performs success/failure handling and returns the status code.
+ *
+ * Nothing is done on RETRY_READ or RETRY_WRITE.
+ */
+static enum motmot_gnutls_status
+trill_tls_handshake(struct trill_connection *conn)
+{
+  int r;
+
+  assert(conn != NULL);
+  assert((conn->tc_state == TC_STATE_SERVER ||
+      conn->tc_state == TC_STATE_CLIENT) &&
+      "In a bad state during handshake");
+
+  r = motmot_net_gnutls_handshake(&conn->tc_tls);
+
+  switch (r) {
+    case MOTMOT_GNUTLS_SUCCESS:
+      // Update state and set a new, permanent can-read handler.
+      conn->tc_state = TC_STATE_ESTABLISHED;
+      trill_want_read(conn, trill_tls_recv);
+      trill_connected(conn, TRILL_SUCCESS);
+      break;
+    case MOTMOT_GNUTLS_FAILURE:
+      trill_connected(conn, TRILL_ETLS);
+      break;
+    case MOTMOT_GNUTLS_RETRY_READ:
+    case MOTMOT_GNUTLS_RETRY_WRITE:
+      break;
+  }
+
+  return r;
+}
 
 int
 trill_start_tls(struct trill_connection *conn)
@@ -173,42 +208,6 @@ trill_tls_handshake_retry(void *arg)
 
   // This should never happen.
   return 0;
-}
-
-/**
- * trill_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
- * just performs success/failure handling and returns the status code.
- *
- * Nothing is done on RETRY_READ or RETRY_WRITE.
- */
-static enum motmot_gnutls_status
-trill_tls_handshake(struct trill_connection *conn)
-{
-  int r;
-
-  assert(conn != NULL);
-  assert((conn->tc_state == TC_STATE_SERVER ||
-      conn->tc_state == TC_STATE_CLIENT) &&
-      "In a bad state during handshake");
-
-  r = motmot_net_gnutls_handshake(&conn->tc_tls);
-
-  switch (r) {
-    case MOTMOT_GNUTLS_SUCCESS:
-      // Update state and set a new, permanent can-read handler.
-      conn->tc_state = TC_STATE_ESTABLISHED;
-      trill_want_read(conn, trill_tls_recv);
-      trill_connected(conn, TRILL_SUCCESS);
-      break;
-    case MOTMOT_GNUTLS_FAILURE:
-      trill_connected(conn, TRILL_ETLS);
-      break;
-    case MOTMOT_GNUTLS_RETRY_READ:
-    case MOTMOT_GNUTLS_RETRY_WRITE:
-      break;
-  }
-
-  return r;
 }
 
 /**
