@@ -59,7 +59,7 @@ typedef void (*trill_status_callback_t)(struct trill_connection *conn,
  * @param seq       A unique sequence number associated with this message.
  */
 typedef void (*trill_recv_callback_t)(void *cb_data, void *data, size_t len,
-    uint64_t *seq);
+    uint64_t seq);
 
 
 ///////////////////////////////////////////////////////////////////////////////

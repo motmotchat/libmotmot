@@ -300,7 +300,7 @@ ssize_t
 trill_send(struct trill_connection *conn, const void *data, size_t len)
 {
   if (conn->tc_state != TC_STATE_ESTABLISHED) {
-    errno = ENOTCONN; // XXX: is it okay to spoof errno like this?
+    errno = ENOTCONN;
     return -1;
   }
 

@@ -109,6 +109,8 @@ static int trill_tls_handshake_retry(void *);
 static int trill_tls_retry_read(void *);
 static int trill_tls_retry_write(void *);
 
+static int trill_tls_recv(void *);
+
 int
 trill_start_tls(struct trill_connection *conn)
 {
@@ -193,8 +195,9 @@ trill_tls_handshake(struct trill_connection *conn)
 
   switch (r) {
     case MOTMOT_GNUTLS_SUCCESS:
-      // XXX: Set the new read handler.
+      // Update state and set a new, permanent can-read handler.
       conn->tc_state = TC_STATE_ESTABLISHED;
+      trill_want_read(conn, trill_tls_recv);
       trill_connected(conn, TRILL_SUCCESS);
       break;
     case MOTMOT_GNUTLS_FAILURE:
@@ -260,10 +263,33 @@ trill_tls_verify(gnutls_session_t session)
   return errors == 0;
 }
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Transport functions.
+//
+
+/**
+ * trill_tls_resend - Re-send a message over TLS.
+ */
+static int
+trill_tls_resend(void *arg)
+{
+  struct trill_connection *conn = (struct trill_connection *)arg;
+
+  gnutls_record_send(conn->tc_tls.mt_session, NULL, 0);
+
+  return 0;
+}
+
+/**
+ * trill_tls_send - Send a message over TLS.
+ */
 ssize_t
 trill_tls_send(struct trill_connection *conn, const void *data, size_t len)
 {
   ssize_t ret;
+
   assert(conn != NULL);
   assert(data != NULL);
   assert(len > 0);
@@ -278,69 +304,46 @@ trill_tls_send(struct trill_connection *conn, const void *data, size_t len)
   switch (ret) {
     case GNUTLS_E_AGAIN:
       errno = EAGAIN;
-      // XXX: Hahahahah
-      trill_want_write(conn, NULL);
-      return -1;
+      trill_want_write(conn, trill_tls_resend);
+      break;
     case GNUTLS_E_INTERRUPTED:
       errno = EINTR;
-      // XXX: Hahahahah
-      trill_want_write(conn, NULL);
-      return -1;
+      trill_want_write(conn, trill_tls_resend);
+      break;
   }
 
-  if (ret < 0) {
-    ret = -1;
-  }
-
-  return ret;
+  return ret < 0 ? -1 : ret;
 }
 
-int
-trill_tls_can_read(struct trill_connection *conn)
+/**
+ * trill_tls_recv - Receive data and pass it to the user.
+ */
+static int
+trill_tls_recv(void *arg)
 {
+  struct trill_connection *conn;
   // TODO: How big should this be? This is bigger than the MTU, so it should be
   // "good enough," but the size is pretty arbitrary.
   static char buf[2048];
   static uint64_t seq;
   ssize_t len;
 
-  switch (conn->tc_state) {
-    case TC_STATE_SERVER:
-    case TC_STATE_CLIENT:
-      trill_tls_handshake(conn);
-      break;
-    case TC_STATE_ESTABLISHED:
-      len = gnutls_record_recv_seq(conn->tc_tls.mt_session, buf, sizeof(buf),
-          (unsigned char *)&seq);
+  conn = (struct trill_connection *)arg;
 
-      // TODO: sequence number is in big-endian. It'd probably be more useful to
-      // everyone if it was converted into host endinanness, but be64toh is
-      // Linux only.
+  assert(conn != NULL);
+  assert(conn->tc_state == TC_STATE_ESTABLISHED);
 
-      assert(conn->tc_recv_cb != NULL && "No callback set");
-      conn->tc_recv_cb(conn->tc_data, buf, len, &seq);
-      break;
-    default:
-      assert(0 && "In an unexpected state in crypto read");
+  // TODO: Sequence number is in big-endian.  It'd probably be more useful to
+  // everyone if it was converted into host endinanness, but be64toh is Linux
+  // only.
+  len = gnutls_record_recv_seq(conn->tc_tls.mt_session, buf, sizeof(buf),
+      (unsigned char *)&seq);
+
+  if (conn->tc_recv_cb != NULL) {
+    conn->tc_recv_cb(conn->tc_data, buf, len, seq);
   }
+
   return 1;
-}
-
-int
-trill_tls_can_write(struct trill_connection *conn)
-{
-  switch (conn->tc_state) {
-    case TC_STATE_SERVER:
-    case TC_STATE_CLIENT:
-      trill_tls_handshake(conn);
-      break;
-    case TC_STATE_ESTABLISHED:
-      gnutls_record_send(conn->tc_tls.mt_session, NULL, 0);
-      break;
-    default:
-      assert(0 && "In an unexpected state in crypto write");
-  }
-  return 0;
 }
 
 #endif /* USE_GNUTLS */
