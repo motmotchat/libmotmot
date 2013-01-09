@@ -1,6 +1,7 @@
 /**
  * plume.c - Plume client interface.
  */
+
 #include <assert.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
