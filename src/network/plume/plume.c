@@ -334,6 +334,20 @@ plume_tls_begin(void *data)
   return plume_tls_start(client);
 }
 
+/**
+ * plume_send - Send a message to the server over TLS.
+ */
+ssize_t
+plume_send(struct plume_client *client, const void *data, size_t len)
+{
+  if (client->pc_state != PLUME_STATE_CONNECTED) {
+    errno = ENOTCONN;
+    return -1;
+  }
+
+  return plume_tls_send(client, data, len);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //

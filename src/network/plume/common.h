@@ -41,7 +41,9 @@ struct plume_client {
 
 void plume_connected(struct plume_client *, int);
 
-int plume_want_read(struct plume_client *, motmot_event_callback_t cb);
-int plume_want_write(struct plume_client *, motmot_event_callback_t cb);
+int plume_want_read(struct plume_client *, motmot_event_callback_t);
+int plume_want_write(struct plume_client *, motmot_event_callback_t);
+
+ssize_t plume_send(struct plume_client *, const void *, size_t);
 
 #endif /* __PLUME_COMMON_H__ */
