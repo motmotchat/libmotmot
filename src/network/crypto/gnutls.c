@@ -4,9 +4,18 @@
 #ifdef USE_GNUTLS
 
 #include <assert.h>
+#include <errno.h>
 
 #include "common/log.h"
 #include "crypto/gnutls.h"
+#include "event/event.h"
+#include "event/callbacks.h"
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Utility routines.
+//
 
 int
 motmot_net_gnutls_init(gnutls_priority_t *priority_cache,
@@ -42,6 +51,7 @@ motmot_net_gnutls_start(struct motmot_net_tls *tls, unsigned flags,
     log_error("Unable to initialize new session");
     return -1;
   }
+  tls->mt_flags = flags;
 
   gnutls_session_set_ptr(tls->mt_session, data);
 
@@ -58,6 +68,12 @@ motmot_net_gnutls_start(struct motmot_net_tls *tls, unsigned flags,
 
   return 0;
 }
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Handshake protocol.
+//
 
 enum motmot_gnutls_status
 motmot_net_gnutls_handshake(struct motmot_net_tls *tls)
@@ -87,6 +103,59 @@ motmot_net_gnutls_handshake(struct motmot_net_tls *tls)
   }
 
   return MOTMOT_GNUTLS_FAILURE;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Transport functions.
+//
+
+/**
+ * motmot_net_gnutls_resend - Re-send a message over TLS.
+ */
+static int
+motmot_net_gnutls_resend(void *arg)
+{
+  struct motmot_net_tls *tls = (struct motmot_net_tls *)arg;
+
+  gnutls_record_send(tls->mt_session, NULL, 0);
+
+  return 0;
+}
+
+/**
+ * motmot_net_gnutls_send - Send a message over TLS.
+ */
+ssize_t
+motmot_net_gnutls_send(struct motmot_net_tls *tls, void *data, const void *buf,
+    size_t len)
+{
+  ssize_t ret;
+  int fd;
+  enum motmot_fdtype fdtype;
+
+  assert(tls != NULL);
+  assert(buf != NULL);
+  assert(len > 0);
+
+  ret = gnutls_record_send(tls->mt_session, buf, len);
+
+  fd = (int)(ssize_t)gnutls_session_get_ptr(tls->mt_session);
+  fdtype = tls->mt_flags & GNUTLS_DATAGRAM ? MOTMOT_EVENT_UDP : MOTMOT_EVENT_TCP;
+
+  switch (ret) {
+    case GNUTLS_E_AGAIN:
+      errno = EAGAIN;
+      motmot_event_want_write(fd, fdtype, data, motmot_net_gnutls_resend, tls);
+      break;
+    case GNUTLS_E_INTERRUPTED:
+      errno = EINTR;
+      motmot_event_want_write(fd, fdtype, data, motmot_net_gnutls_resend, tls);
+      break;
+  }
+
+  return ret >= 0 ? ret : -1;
 }
 
 #endif /* USE_GNUTLS */

@@ -279,45 +279,15 @@ plume_tls_verify(gnutls_session_t session)
 //
 
 /**
- * plume_tls_resend - Re-send a message over TLS.
- */
-static int
-plume_tls_resend(void *arg)
-{
-  struct plume_client *client = (struct plume_client *)arg;
-
-  gnutls_record_send(client->pc_tls.mt_session, NULL, 0);
-
-  return 0;
-}
-
-/**
  * plume_tls_send - Send a message over TLS.
  */
 ssize_t
 plume_tls_send(struct plume_client *client, const void *data, size_t len)
 {
-  ssize_t ret;
-
   assert(client != NULL);
-  assert(data != NULL);
-  assert(len > 0);
   assert(client->pc_state == PLUME_STATE_CONNECTED);
 
-  ret = gnutls_record_send(client->pc_tls.mt_session, data, len);
-
-  switch (ret) {
-    case GNUTLS_E_AGAIN:
-      errno = EAGAIN;
-      plume_want_write(client, plume_tls_resend);
-      break;
-    case GNUTLS_E_INTERRUPTED:
-      errno = EINTR;
-      plume_want_write(client, plume_tls_resend);
-      break;
-  }
-
-  return ret < 0 ? -1 : ret;
+  return motmot_net_gnutls_send(&client->pc_tls, client->pc_data, data, len);
 }
 
 /**

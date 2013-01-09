@@ -269,49 +269,15 @@ trill_tls_verify(gnutls_session_t session)
 //
 
 /**
- * trill_tls_resend - Re-send a message over TLS.
- */
-static int
-trill_tls_resend(void *arg)
-{
-  struct trill_connection *conn = (struct trill_connection *)arg;
-
-  gnutls_record_send(conn->tc_tls.mt_session, NULL, 0);
-
-  return 0;
-}
-
-/**
  * trill_tls_send - Send a message over TLS.
  */
 ssize_t
 trill_tls_send(struct trill_connection *conn, const void *data, size_t len)
 {
-  ssize_t ret;
-
   assert(conn != NULL);
-  assert(data != NULL);
-  assert(len > 0);
   assert(conn->tc_state == TC_STATE_ESTABLISHED);
 
-  ret = gnutls_record_send(conn->tc_tls.mt_session, data, len);
-
-  // GnuTLS, like all helpful libraries, tries to translate errno errors into
-  // other negative-numbered error codes. Naturally, we don't want that. Make
-  // some kind of best-effort attempt to unmap the errors, so stdio-like clients
-  // can consume them in a more standard format.
-  switch (ret) {
-    case GNUTLS_E_AGAIN:
-      errno = EAGAIN;
-      trill_want_write(conn, trill_tls_resend);
-      break;
-    case GNUTLS_E_INTERRUPTED:
-      errno = EINTR;
-      trill_want_write(conn, trill_tls_resend);
-      break;
-  }
-
-  return ret < 0 ? -1 : ret;
+  return motmot_net_gnutls_send(&conn->tc_tls, conn->tc_data, data, len);
 }
 
 /**

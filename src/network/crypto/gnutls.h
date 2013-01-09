@@ -9,6 +9,7 @@
 struct motmot_net_tls {
   gnutls_certificate_credentials_t mt_creds;
   gnutls_session_t mt_session;
+  unsigned mt_flags;
 };
 
 enum motmot_gnutls_status {
@@ -52,10 +53,25 @@ int motmot_net_gnutls_start(struct motmot_net_tls *tls, unsigned flags, int fd,
 /**
  * motmot_net_gnutls_handshake - Attempt to perform a TLS handshake.
  *
- * @param tls             The motmot_net_tls object.
- * @return                A motmot_gnutls_status code.
+ * @param tls       The motmot_net_tls object.
+ * @return          A motmot_gnutls_status code.
  */
 enum motmot_gnutls_status motmot_net_gnutls_handshake(
     struct motmot_net_tls *tls);
+
+/**
+ * motmot_net_gnutls_send - Send data to a remote user over TLS.  This is
+ * nonblocking and makes use of the Motmot event layer.
+ *
+ * @param tls       The motmot_net_tls object.
+ * @param data      Application data for event loop callbacks.
+ * @param buf       The message to send.
+ * @param len       Length of the data.
+ * @return          The number of bytes sent, or -1 on error.  We unmap the
+ *                  GnuTLS error codes so stdio-like clients can consume them
+ *                  in a more standard format.
+ */
+ssize_t motmot_net_gnutls_send(struct motmot_net_tls *tls, void *data,
+    const void *buf, size_t len);
 
 #endif /* __MOTMOT_CRYPTO_GNUTLS_H__ */
