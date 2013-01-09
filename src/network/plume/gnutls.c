@@ -4,6 +4,9 @@
 #ifdef USE_GNUTLS
 
 #include <assert.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
@@ -160,6 +163,8 @@ plume_client_set_ca(struct plume_client *client, const char *ca_path)
 static int plume_tls_retry_read(void *);
 static int plume_tls_retry_write(void *);
 
+static int plume_tls_recv(void *);
+
 /**
  * plume_tls_handshake - Wrapper around motmot_net_gnutls_handshake that
  * just performs success/failure handling and returns the status code.
@@ -177,8 +182,9 @@ plume_tls_handshake(struct plume_client *client)
 
   switch (r) {
     case MOTMOT_GNUTLS_SUCCESS:
-      // XXX: Set the new read/write handlers.
+      // Update state and set a new, permanent can-read handler.
       client->pc_state = PLUME_STATE_CONNECTED;
+      plume_want_read(client, plume_tls_recv);
       plume_connected(client, PLUME_SUCCESS);
       break;
     case MOTMOT_GNUTLS_FAILURE:
@@ -264,6 +270,74 @@ static int
 plume_tls_verify(gnutls_session_t session)
 {
   return 0;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Transport functions.
+//
+
+/**
+ * plume_tls_resend - Re-send a message over TLS.
+ */
+static int
+plume_tls_resend(void *arg)
+{
+  struct plume_client *client = (struct plume_client *)arg;
+
+  gnutls_record_send(client->pc_tls.mt_session, NULL, 0);
+
+  return 0;
+}
+
+/**
+ * plume_tls_send - Send a message over TLS.
+ */
+ssize_t
+plume_tls_send(struct plume_client *client, const void *data, size_t len)
+{
+  ssize_t ret;
+
+  assert(client != NULL);
+  assert(data != NULL);
+  assert(len > 0);
+  assert(client->pc_state == PLUME_STATE_CONNECTED);
+
+  ret = gnutls_record_send(client->pc_tls.mt_session, data, len);
+
+  switch (ret) {
+    case GNUTLS_E_AGAIN:
+      errno = EAGAIN;
+      plume_want_write(client, plume_tls_resend);
+      break;
+    case GNUTLS_E_INTERRUPTED:
+      errno = EINTR;
+      plume_want_write(client, plume_tls_resend);
+      break;
+  }
+
+  return ret < 0 ? -1 : ret;
+}
+
+/**
+ * plume_tls_recv - Receive data and pass it to the user.
+ */
+static int
+plume_tls_recv(void *arg)
+{
+  static char buf[2048];
+  struct plume_client *client;
+  ssize_t len;
+
+  client = (struct plume_client *)arg;
+
+  assert(client != NULL);
+  assert(client->pc_state == PLUME_STATE_CONNECTED);
+
+  len = gnutls_record_recv(client->pc_tls.mt_session, buf, sizeof(buf));
+
+  return 1;
 }
 
 #endif /* USE_GNUTLS */

@@ -16,5 +16,6 @@ int plume_tls_deinit(struct plume_client *);
 char *plume_crt_get_cn(char *, size_t);
 
 int plume_tls_start(struct plume_client *);
+ssize_t trill_tls_send(struct plume_client *, const void *, size_t);
 
 #endif /* __PLUME_TLS_H__ */
