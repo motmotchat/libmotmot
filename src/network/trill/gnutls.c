@@ -286,11 +286,11 @@ trill_tls_send(struct trill_connection *conn, const void *data, size_t len)
 static int
 trill_tls_recv(void *arg)
 {
-  struct trill_connection *conn;
   // TODO: How big should this be? This is bigger than the MTU, so it should be
   // "good enough," but the size is pretty arbitrary.
   static char buf[2048];
   static uint64_t seq;
+  struct trill_connection *conn;
   ssize_t len;
 
   conn = (struct trill_connection *)arg;
