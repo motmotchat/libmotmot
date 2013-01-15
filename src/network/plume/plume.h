@@ -28,6 +28,18 @@ enum plume_status {
   PLUME_EFATAL,
 };
 
+/**
+ * enum plume_opcode - Opcodes for Plume server messages.  Passed to the
+ * application to determine whether or not to respond to a peer.
+ */
+enum plume_opcode {
+  PLUME_OP_IDENTIFY,
+  PLUME_OP_CERT,
+  PLUME_OP_CONNECT,
+  PLUME_OP_UDP_ACK,
+  PLUME_OP_UDP_ECHO,
+};
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //

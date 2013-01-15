@@ -6,6 +6,7 @@
 #include "common/log.h"
 #include "event/glib.h"
 #include "plume/plume.h"
+#include "plume/request.h"
 
 GMainLoop *gmain;
 
