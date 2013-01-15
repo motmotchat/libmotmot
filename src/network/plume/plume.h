@@ -5,6 +5,7 @@
 #define __PLUME_H__
 
 #include <stdlib.h>
+#include <string.h>
 
 /**
  * struct plume_client - An opaque type representing a client connection to a
