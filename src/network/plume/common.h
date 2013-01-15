@@ -33,8 +33,10 @@ struct plume_client {
   void *pc_data;        // opaque user data associated to the connection
 
   enum plume_state pc_state;      // connect protocol state
-  plume_status_callback_t pc_connected_cb;  // connect status callback
-  plume_status_callback_t pc_can_recv_cb;   // can receive data callback
+
+  plume_status_callback_t pc_connected_cb;  // connect result callback
+  plume_status_callback_t pc_can_recv_cb;   // data available callback
+  plume_status_callback_t pc_filter_cb;     // should respond callback
 
   ares_channel pc_ares_chan_srv;  // c-ares SRV lookup channel
   ares_channel pc_ares_chan_host; // c-ares host lookup channel
@@ -48,6 +50,6 @@ int plume_want_read(struct plume_client *, motmot_event_callback_t);
 int plume_want_write(struct plume_client *, motmot_event_callback_t);
 
 ssize_t plume_send(struct plume_client *, const void *, size_t);
-void plume_recv_dispatch(struct plume_client *, int, void *);
+int plume_recv_dispatch(struct plume_client *, int, void *);
 
 #endif /* __PLUME_COMMON_H__ */

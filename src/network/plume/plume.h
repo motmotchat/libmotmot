@@ -54,8 +54,9 @@ enum plume_opcode {
  * @param status    Status of the action.  This is an enum plume_status if
  *                  nonnegative; else, it is a negative errno.
  * @param data      User data associated with the client object.
+ * @return          Depends on the specific callback.
  */
-typedef void (*plume_status_callback_t)(struct plume_client *client,
+typedef int (*plume_status_callback_t)(struct plume_client *client,
     int status, void *data);
 
 
@@ -145,7 +146,7 @@ void plume_client_set_data(struct plume_client *client, void *data);
  *
  * @param client    The client object on which to set the callback.
  * @param cb        The function to call upon connection establishment or
- *                  failure.
+ *                  failure.  Its return value is ignored.
  */
 void plume_client_set_connect_cb(struct plume_client *client,
     plume_status_callback_t cb);
@@ -160,10 +161,25 @@ void plume_client_set_connect_cb(struct plume_client *client,
  * @param client    The client object on which to set the callback.
  * @param cb        The function to call when data is available.  The status
  *                  passed will always be PLUME_SUCCESS, and data can be read
- *                  using plume_recv().
+ *                  using plume_recv().  The callback's return value is
+ *                  ignored.
  */
 //void plume_client_set_can_recv_cb(struct plume_client *client,
 //    plume_status_callback_t cb);
+
+/**
+ * plume_client_set_filter_cb - Set a callback that will be used by the library
+ * to determine whether or not to respond to a peer request sent via the Plume
+ * server.
+ *
+ * @param client    The client object on which to set the callback.
+ * @param cb        The function to call when a peer request is received.  The
+ *                  opcode of the request will be passed.  The callback should
+ *                  return 0 to indicate that the request should be ignored,
+ *                  and nonzero otherwise.
+ */
+void plume_client_set_filter_cb(struct plume_client *client,
+    plume_status_callback_t cb);
 
 /**
  * plume_client_set_key - Set cryptographic credentials for this connection.

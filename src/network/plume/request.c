@@ -40,7 +40,7 @@ void plume_recv_udp_echo(struct plume_client *, msgpack_object *);
 /**
  * plume_recv_dispatch - Dispatch routine for Plume server messages.
  */
-void
+int
 plume_recv_dispatch(struct plume_client *client, int status, void *data)
 {
   ssize_t len;
@@ -102,6 +102,7 @@ plume_recv_dispatch(struct plume_client *client, int status, void *data)
   }
 
   msgpack_unpacked_destroy(&result);
+  return 0;
 }
 
 /**

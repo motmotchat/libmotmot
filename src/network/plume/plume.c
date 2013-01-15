@@ -474,6 +474,13 @@ plume_client_set_connect_cb(struct plume_client *client,
   client->pc_connected_cb = cb;
 }
 
+void
+plume_client_set_filter_cb(struct plume_client *client,
+    plume_status_callback_t cb)
+{
+  client->pc_filter_cb = cb;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //

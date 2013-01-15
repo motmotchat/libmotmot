@@ -10,10 +10,11 @@
 
 GMainLoop *gmain;
 
-void
+int
 connected(struct plume_client *client, int status, void *data)
 {
   log_info("connect status: %d", status);
+  return 0;
 }
 
 int
